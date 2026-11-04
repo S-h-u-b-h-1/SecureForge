@@ -7,7 +7,7 @@
   "engines": { "node": ">=22.14.0" },
   "scripts": {
     "test": "node --test test/*.test.mjs",
-    "check": "node --check src/agent.mjs && node --check src/cli.mjs && node --check src/mcp-server.mjs && node --check src/workspace.mjs && node --check src/proposals.mjs",
+    "check": "node --check src/agent.mjs && node --check src/cli.mjs && node --check src/mcp-server.mjs && node --check src/workspace.mjs && node --check src/proposals.mjs && node --check src/build/batches.mjs",
     "start:mcp": "node src/mcp-server.mjs",
     "demo:agent": "node src/cli.mjs agent",
     "demo:inspect": "node src/cli.mjs inspect"
