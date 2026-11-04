@@ -143,6 +143,20 @@ test('read and search redact multiline credential values before slicing lines', 
   assert.ok(search.matches.some((x) => x.snippet.includes('[REDACTED]')));
 });
 
+test('an empty credential must not swallow the next credential key', async (t) => {
+  const { root, workspace } = await fixture(t);
+  const sample = 'password:\napi_key: superprivate\n';
+  const expected = 'password:\napi_key: [REDACTED]\n';
+  assert.equal(redactSecrets(sample), expected);
+  assert.equal(redactSecrets('password:\n  api_key: superprivate\n'), 'password:\n  api_key: [REDACTED]\n');
+  await writeFile(path.join(root, 'src', 'adjacent.yaml'), sample);
+  const read = await workspace.readFile('src/adjacent.yaml');
+  assert.deepEqual(read.lines.slice(0, 2).map((x) => x.text), ['password:', 'api_key: [REDACTED]']);
+  const search = await workspace.searchWorkspace('superprivate');
+  assert.ok(search.matches.some((x) => x.path === 'src/adjacent.yaml'));
+  assert.ok(search.matches.every((x) => !x.snippet.includes('superprivate')));
+});
+
 test('workspace search skips invalid UTF-8 rather than failing entirely', async (t) => {
   const { root, workspace } = await fixture(t);
   await writeFile(path.join(root, 'src', 'invalid.txt'), Buffer.from([0xff, 0xfe, 0x61]));
