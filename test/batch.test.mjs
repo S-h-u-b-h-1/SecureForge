@@ -100,6 +100,45 @@ test('reject duplicate paths, invalid hashes, oversized batches, empty batches a
   await assert.rejects(batches.proposeBatch({ edits: [edits[0], { path: 'src/config.py', expectedSha256: secret.sha256, proposedContent: '{}' }] }), /redacted credentials/);
 });
 
+test('concurrent batch creation respects capacity and frees slots after discard', async (t) => {
+  const { workspace, edits } = await fixture(t);
+  const proposals = new ProposalStore(workspace);
+  const batches = new BatchProposalStore(proposals, { limit: 1 });
+
+  // Both requests reach proposeBatch before the first filesystem await.
+  // Exactly one may reserve the capacity; the other must reject.
+  const outcomes = await Promise.allSettled([
+    batches.proposeBatch({ edits: edits.slice(0, 2), rationale: 'first' }),
+    batches.proposeBatch({ edits: edits.slice(1, 3), rationale: 'second' }),
+  ]);
+  const successes = outcomes.filter((result) => result.status === 'fulfilled');
+  const failures = outcomes.filter((result) => result.status === 'rejected');
+  assert.equal(successes.length, 1);
+  assert.equal(failures.length, 1);
+  assert.match(failures[0].reason.message, /Too many pending batches/);
+  const current = successes[0].value;
+  assert.equal(current.fileCount, 2);
+  assert.equal((await batches.checkBatch(current.id)).fresh, true);
+
+  await assert.rejects(batches.proposeBatch({ edits: edits.slice(0, 2) }), /Too many pending batches/);
+  assert.equal(batches.discardBatch(current.id).discarded, true);
+  // The reserved slot is released and subsequent work can proceed.
+  const next = await batches.proposeBatch({ edits: edits.slice(0, 2) });
+  assert.equal(next.fileCount, 2);
+});
+
+test('failed asynchronous staging releases its reserved batch slot', async (t) => {
+  const { workspace, edits } = await fixture(t);
+  const proposals = new ProposalStore(workspace);
+  const batches = new BatchProposalStore(proposals, { limit: 1 });
+  const invalid = edits.slice(0, 2).map((edit) => ({ ...edit }));
+  invalid[1].expectedSha256 = 'f'.repeat(64);
+  await assert.rejects(batches.proposeBatch({ edits: invalid }), /Stale base/);
+  const good = await batches.proposeBatch({ edits: edits.slice(0, 2) });
+  assert.equal(good.fileCount, 2);
+  assert.equal((await batches.checkBatch(good.id)).fresh, true);
+});
+
 test('MCP exposes in-memory batch tools and leaves disk unchanged', async (t) => {
   const { root, content, edits } = await fixture(t);
   const instance = await createMcpServer({ root, port: 0 });

@@ -7,6 +7,7 @@ export const MAX_BATCH_CONTENT_BYTES = 256 * 1024;
 
 export class BatchProposalStore {
   #batches = new Map();
+  #inFlight = 0;
 
   constructor(proposals, { limit = 20 } = {}) {
     if (!proposals || typeof proposals.proposeEdit !== 'function' || typeof proposals.checkProposal !== 'function' || typeof proposals.discard !== 'function') {
@@ -22,7 +23,10 @@ export class BatchProposalStore {
       throw new Error('edits must contain 2..' + MAX_BATCH_FILES + ' files');
     }
     if (typeof rationale !== 'string' || rationale.length > 2000) throw new Error('Invalid batch rationale');
-    if (this.#batches.size >= this.limit) throw new Error('Too many pending batches');
+    // Include in-flight asynchronous staging, not just published batches.
+    // Reservation is acquired before the first await to prevent concurrent
+    // calls from exceeding the configured pending-batch capacity.
+    if (this.#batches.size + this.#inFlight >= this.limit) throw new Error('Too many pending batches');
 
     // Fail early before consuming any proposal slots. Conservatively reject
     // case-only path duplicates so macOS and Linux have consistent behavior.
@@ -45,6 +49,7 @@ export class BatchProposalStore {
       }
     }
 
+    this.#inFlight += 1;
     const created = [];
     try {
       for (const edit of edits) {
@@ -70,6 +75,8 @@ export class BatchProposalStore {
       // All-or-nothing storage: no half-created batch or orphan proposals.
       for (const proposal of created) this.proposals.discard(proposal.id);
       throw error;
+    } finally {
+      this.#inFlight -= 1;
     }
   }
 
