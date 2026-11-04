@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { redactSecrets } from '../workspace.mjs';
 
 // B1 Build-only component. No direct filesystem access: the caller must supply
 // the existing, security-hardened Workspace implementation.
@@ -119,6 +120,7 @@ export async function discoverRelevantFiles({
   assertActive();
 
   const listed = await workspace.listFiles({ maxFiles });
+  assertActive();
   if (!Array.isArray(listed)) throw new Error('Workspace file listing is invalid');
   // Defensive: a faulty adapter must not turn the file scan into an unbounded read.
   const paths = [...new Set(listed.slice(0, maxFiles))].sort();
@@ -131,13 +133,18 @@ export async function discoverRelevantFiles({
   for (const filename of paths) {
     assertActive();
     if (typeof filename !== 'string' || !filename || filename.length > 1024) { skipped++; continue; }
+    // Workspace masks file *contents*, not filenames. A secret-bearing path
+    // must never appear in candidates, import edges or model-visible evidence.
+    if (redactSecrets(filename) !== filename) { redacted++; continue; }
     let doc;
     try {
       doc = await workspace.readFile(filename, { startLine: 1, maxLines: MAX_READ_LINES });
     } catch {
+      assertActive(); // Cancellation during an awaited read is not a skip.
       skipped++;
       continue;
     }
+    assertActive();
     // Fail closed for incomplete / inconsistent adapter output.
     if (!doc || doc.path !== filename || !/^[0-9a-f]{64}$/.test(doc.sha256) || !Array.isArray(doc.lines)) {
       skipped++;
@@ -215,6 +222,7 @@ export async function discoverRelevantFiles({
       importedBy: entry.importedBy.slice(0, 12),
       truncated: entry.truncated,
     }));
+  assertActive();
   return {
     schemaVersion: 1,
     task,

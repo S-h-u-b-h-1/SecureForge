@@ -91,6 +91,55 @@ test('B1 validates task, limits, and workspace adapter and permits cancellation'
   await assert.rejects(discoverRelevantFiles({ workspace, task: 'login', signal: controller.signal }), /cancelled/);
 });
 
+
+test('B1 excludes credential-bearing filenames and directories before returning path evidence', async (t) => {
+  const { root, workspace } = await fixture(t);
+  const token = 'ghp_abcdefghijklmnopqrstuv';
+  const secretFilename = `src/auth/login-${token}.js`;
+  const secretDirectory = `src/${token}/login.js`;
+  await writeFile(path.join(root, secretFilename), 'export function login() {}\n');
+  await mkdir(path.dirname(path.join(root, secretDirectory)), { recursive: true });
+  await writeFile(path.join(root, secretDirectory), 'export function login() {}\n');
+  const output = await discoverRelevantFiles({ workspace, task: 'Fix login token authentication', maxCandidates: 20 });
+  assert.ok(!JSON.stringify(output).includes(token), 'Credential must not appear in any discovery output');
+  assert.ok(!output.candidates.some(({ path: name }) => name === secretFilename || name === secretDirectory));
+  assert.ok(output.coverage.redactedFiles >= 2);
+});
+
+test('B1 cancellation after listFiles and readFile does not return success', async () => {
+  const afterList = new AbortController();
+  const adapterList = {
+    async listFiles() { afterList.abort(); return []; },
+    async readFile() { throw new Error('Should not read after cancellation'); },
+  };
+  await assert.rejects(
+    discoverRelevantFiles({ workspace: adapterList, task: 'Fix login', signal: afterList.signal }),
+    /cancelled/
+  );
+  const afterRead = new AbortController();
+  const adapterRead = {
+    async listFiles() { return ['app.js']; },
+    async readFile() {
+      afterRead.abort();
+      return { path: 'app.js', sha256: 'a'.repeat(64), redacted: false, truncated: false,
+        lines: [{ line: 1, text: 'function login() {}' }] };
+    },
+  };
+  await assert.rejects(
+    discoverRelevantFiles({ workspace: adapterRead, task: 'Fix login', signal: afterRead.signal }),
+    /cancelled/
+  );
+  const readReject = new AbortController();
+  const adapterReject = {
+    async listFiles() { return ['app.js']; },
+    async readFile() { readReject.abort(); throw new Error('ENOENT'); },
+  };
+  await assert.rejects(
+    discoverRelevantFiles({ workspace: adapterReject, task: 'Fix login', signal: readReject.signal }),
+    /cancelled/
+  );
+});
+
 test('B1 never uses direct filesystem APIs, commands or proposal writes', async () => {
   const calls = [];
   const adapter = {
