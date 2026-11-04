@@ -34,9 +34,9 @@ TrueForge is **always** the model/agent runtime. SecureForge does not call model
 ## Current security boundaries
 
 - MCP listener binds to `127.0.0.1` and rejects non-local `Origin` values.
-- Only workspace-relative paths; no symlink components, traversal, binary content or known credential files.
+- Only workspace-relative paths; Linux reads anchor each component to pinned directory descriptors through `/proc/self/fd`; macOS reads use kernel `O_NOFOLLOW_ANY`. File data is read through the checked descriptor to prevent symlink-swap escape. No symlink components, traversal, binary content or known credential files.
 - Maximum file size is 256 KiB; search and returned lines are bounded. These are **byte/character bounds**, not exact token budgets.
-- Best-effort secret redaction; a repository may contain secrets in unexpected formats. Proposals against files where our redactor masks content are blocked to avoid deleting credential literals. Never assume model-safe data classification.
+- Full-file-context, best-effort secret redaction; a repository may contain secrets in unexpected formats. Proposals against files where our redactor masks content are blocked to avoid deleting credential literals. Never assume model-safe data classification.
 - No arbitrary shell runner, Git write tool, filesystem write tool or remote deployment tool.
 - The MCP bridge is a minimal local Streamable HTTP JSON-RPC implementation for the `2025-06-18` request/response subset; add official MCP SDK compatibility tests before claiming full interoperability.
 

@@ -52,12 +52,17 @@ export async function createMcpServer({ root, port = 8792, host = '127.0.0.1' })
     if (req.url === '/health' && req.method === 'GET') return send(200, { status: 'ok', root: '(private)' });
     if (req.url !== '/mcp' || req.method !== 'POST') return send(405, { error: 'Use POST /mcp' });
     if (!String(req.headers['content-type'] ?? '').includes('application/json')) return send(415, { error: 'JSON required' });
-    let body = '';
+    const chunks = [];
+    let byteCount = 0;
     try {
       for await (const chunk of req) {
-        body += chunk;
-        if (Buffer.byteLength(body) > 320 * 1024) return send(413, { error: 'MCP request too large' });
+        byteCount += chunk.length;
+        if (byteCount > 320 * 1024) return send(413, { error: 'MCP request too large' });
+        chunks.push(chunk);
       }
+      // Buffer chunks are arbitrary transport boundaries, not UTF-8 character
+      // boundaries. Decode once after the bounded body has been assembled.
+      const body = new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks, byteCount));
       const message = JSON.parse(body);
       if (message.jsonrpc !== '2.0' || !message.method || typeof message.method !== 'string') {
         return send(400, { jsonrpc: '2.0', id: message?.id ?? null, error: { code: -32600, message: 'Invalid Request' } });

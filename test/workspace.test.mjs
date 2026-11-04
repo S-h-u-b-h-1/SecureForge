@@ -13,7 +13,9 @@ async function fixture(t) {
   await writeFile(path.join(root, 'src', 'auth.py'), 'def login():\n    return True\n');
   await writeFile(path.join(root, '.env'), 'TOKEN=SECRET_VALUE\n');
   await writeFile(path.join(root, 'src', 'notes.md'), 'password = superprivate\n');
-  return { root, workspace: await new Workspace(root).init() };
+  const workspace = await new Workspace(root).init();
+  t.after(() => workspace.close());
+  return { root, workspace };
 }
 
 test('read_file returns numbered bounded source lines and a stable hash', async (t) => {
@@ -90,4 +92,61 @@ test('files requiring redaction cannot be proposed for unsafe full-file replacem
   assert.equal(view.redacted, true);
   const store = new ProposalStore(workspace);
   await assert.rejects(store.proposeEdit({ path: 'src/notes.md', expectedSha256: view.sha256, proposedContent: 'changed' }), /redacted credentials/);
+});
+
+test('a file swapped for an outside symlink during reads never leaks outside bytes', async (t) => {
+  const { workspace, root } = await fixture(t);
+  const outside = await mkdtemp(path.join(tmpdir(), 'secureforge-outside-'));
+  t.after(() => rm(outside, { recursive: true, force: true }));
+  const target = path.join(root, 'src', 'swap.py');
+  await writeFile(target, 'SAFE_CONTENT\n');
+  const secret = path.join(outside, 'secret.py');
+  await writeFile(secret, 'OUTSIDE_SECRET_SHOULD_NEVER_APPEAR\n');
+  let stop = false;
+  const flip = (async () => {
+    for (let i = 0; i < 160 && !stop; i++) {
+      await rm(target, { force: true });
+      await symlink(secret, target);
+      await new Promise((resolve) => setImmediate(resolve));
+      await rm(target, { force: true });
+      await writeFile(target, 'SAFE_CONTENT\n');
+      await new Promise((resolve) => setImmediate(resolve));
+    }
+  })();
+  try {
+    for (let i = 0; i < 160; i++) {
+      try {
+        const result = await workspace.readFile('src/swap.py');
+        assert.ok(result.lines.every(({ text }) => !text.includes('OUTSIDE_SECRET')));
+      } catch (error) {
+        assert.ok(['ENOENT', 'ELOOP', 'ENOTDIR'].includes(error.code) || /Symlink|component/.test(error.message), String(error));
+      }
+    }
+  } finally {
+    stop = true;
+    await flip;
+  }
+});
+
+test('read and search redact multiline credential values before slicing lines', async (t) => {
+  const { root, workspace } = await fixture(t);
+  await writeFile(path.join(root, 'src', 'config.yaml'), 'password:\n  superprivate\npublic: safe\n');
+  const read = await workspace.readFile('src/config.yaml', { startLine: 2, maxLines: 1 });
+  assert.equal(read.redacted, true);
+  assert.equal(read.lines[0].line, 2);
+  assert.ok(!read.lines[0].text.includes('superprivate'));
+  const search = await workspace.searchWorkspace('superprivate');
+  assert.ok(search.matches.length > 0);
+  assert.ok(search.matches.every((x) => !x.snippet.includes('superprivate')));
+  assert.ok(search.matches.some((x) => x.snippet.includes('[REDACTED]')));
+});
+
+test('workspace search skips invalid UTF-8 rather than failing entirely', async (t) => {
+  const { root, workspace } = await fixture(t);
+  await writeFile(path.join(root, 'src', 'invalid.txt'), Buffer.from([0xff, 0xfe, 0x61]));
+  await assert.rejects(workspace.readFile('src/invalid.txt'), /Unsupported file encoding/);
+  const matches = await workspace.searchWorkspace('login');
+  assert.ok(matches.matches.some((x) => x.path === 'src/auth.py'));
+  const symbols = await workspace.lookupSymbol('login');
+  assert.ok(symbols.matches.some((x) => x.path === 'src/auth.py'));
 });

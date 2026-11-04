@@ -10,7 +10,7 @@ async function setup(t) {
   t.after(() => rm(root, { recursive: true, force: true }));
   await writeFile(path.join(root, 'a.py'), 'def verify():\n    return True\n');
   const instance = await createMcpServer({ root, port: 0 });
-  t.after(() => new Promise((resolve) => instance.server.close(resolve)));
+  t.after(async () => { await new Promise((resolve) => instance.server.close(resolve)); await instance.workspace.close(); });
   const url = `http://127.0.0.1:${instance.address.port}/mcp`;
   const post = async (message, headers = {}) => {
     const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream', ...headers }, body: JSON.stringify(message) });
@@ -50,4 +50,31 @@ test('MCP origin restrictions and unsafe paths are enforced', async (t) => {
   const result = await post(request(2, 'tools/call', { name: 'read_file', arguments: { path: '../secret' } }));
   assert.equal(result.data.result.isError, true);
   assert.match(result.data.result.content[0].text, /Unsafe path/);
+});
+
+test('MCP preserves UTF-8 characters when a multibyte code point spans HTTP chunks', async (t) => {
+  const { root, request } = await setup(t);
+  const { createMcpServer } = await import('../src/mcp-server.mjs');
+  const http = await import('node:http');
+  await writeFile(path.join(root, 'unicode.py'), '# café is a valid search term\n');
+  // A separate instance is used for a deterministic, raw chunked HTTP client.
+  const instance = await createMcpServer({ root, port: 0 });
+  t.after(async () => { await new Promise((resolve) => instance.server.close(resolve)); await instance.workspace.close(); });
+  const body = Buffer.from(JSON.stringify(request(9, 'tools/call', { name: 'search_workspace', arguments: { query: 'café' } })));
+  const accentStart = body.indexOf(Buffer.from('é'));
+  assert.ok(accentStart >= 0);
+  const res = await new Promise((resolve, reject) => {
+    const req = http.request({ hostname: '127.0.0.1', port: instance.address.port, path: '/mcp', method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Transfer-Encoding': 'chunked' } }, (response) => {
+      const chunks = [];
+      response.on('data', (c) => chunks.push(c));
+      response.on('end', () => resolve(JSON.parse(Buffer.concat(chunks).toString('utf8'))));
+    });
+    req.on('error', reject);
+    req.write(body.subarray(0, accentStart + 1));
+    setTimeout(() => req.end(body.subarray(accentStart + 1)), 12);
+  });
+  const value = JSON.parse(res.result.content[0].text);
+  assert.equal(value.query, 'café');
+  assert.ok(value.matches.some((m) => m.path === 'unicode.py'));
 });

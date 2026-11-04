@@ -20,7 +20,7 @@ npm test
 npm run demo:inspect -- "SecureForge"
 ```
 
-To use an actual model, start TrueForge separately using `npx @truefoundry/trueforge@latest` and configure a model in its local dashboard at `http://localhost:8790`. For the SDK client, run `npm install`, then:
+To use an actual model, start TrueForge separately using `npx @truefoundry/trueforge@0.183.0` and configure a model in its local dashboard at `http://localhost:8790`. For the SDK client, run `npm install`, then:
 
 ```bash
 # Terminal 1, from the repository you want to inspect:
@@ -36,11 +36,11 @@ SECUREFORGE_MCP_NAME='secureforge-workspace' \
 npm run demo:agent -- 'Find the relevant source, propose a minimal README improvement, and do not apply it'
 ```
 
-Pin TrueForge runtime to **0.182.0** to match the tested SDK interface (`npx @truefoundry/trueforge@0.182.0`). The local model handshake is still unverified.
+TrueForge standalone runtime **0.183.0** has been verified locally with a configured Muse Spark 1.3 model and the SecureForge MCP connector (`npx @truefoundry/trueforge@0.183.0`). The SDK remains pinned to **0.182.0**; SDK-driven read-only sessions and event streaming have also been verified against runtime 0.183.0, but full cross-version compatibility and edit approvals remain unverified.
 
 `SECUREFORGE_MODEL` and `SECUREFORGE_MCP_NAME` are environment variables; don't commit real credentials. For local TrueForge with no login, no API key is needed **for the TrueForge SDK itself**, but your configured model provider may require one. TrueForge local mode has no login: never expose it or the MCP bridge to the public internet.
 
-The model request is **not tested by CI** because it requires a locally configured TrueForge server and model. A successful model call must be verified using the TrueForge session trace. This milestone is not Task A/B/C completion.
+The real model request is **not tested by CI** because it requires a locally configured TrueForge server and provider. Local TrueForge SDK sessions `01m6jv6d9hpamr03k79g5qwgza` and `01m6jvfvbnp7882gsv5xkhqcek` demonstrate read-only repository exploration. No official Task A/B/C is complete; full approval/application and command verification remain pending.
 
 ## Tool guarantees (current implementation)
 
@@ -50,6 +50,6 @@ The model request is **not tested by CI** because it requires a locally configur
 - `propose_edit` — stores full proposed content in process memory, requiring the expected SHA-256; **never writes source files**.
 - `get_proposal` and `check_proposal` — recover a proposal for UI display and detect stale bases.
 
-Known limitations: no persistence or diff hunk application; no full symbol analysis; no command execution/verification; no model fallback; no full MCP interoperability suite yet; best-effort secret redaction is not a DLP guarantee. Reading is blocked for symlinks, including internal symlinks, to fail closed. The bridge is for local development only.
+Known limitations: Linux workspace reads require `/proc/self/fd` and macOS reads use `O_NOFOLLOW_ANY` (test macOS support before relying on it); no persistence or diff hunk application; no full symbol analysis; no command execution/verification; no model fallback; no full MCP interoperability suite yet; best-effort secret redaction is not a DLP guarantee. Reading is blocked for symlinks, including internal symlinks, to fail closed. The bridge is for local development only.
 
 See [Architecture and integration contract](docs/ARCHITECTURE.md) for the handoff with Aditya. Please don't merge to `main` without review and clean-clone tests.

@@ -1,4 +1,5 @@
-import { lstat, readFile, readdir, realpath } from 'node:fs/promises';
+import { lstat, readdir, realpath, open } from 'node:fs/promises';
+import { constants as fsConstants } from 'node:fs';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 
@@ -13,6 +14,12 @@ const RESTRICTED_NAMES = /^(?:\.env(?:\..*)?|\.npmrc|\.pypirc|\.netrc|id_(?:rsa|
 const RESTRICTED_SUFFIX = /\.(?:pem|key|p12|pfx|sqlite|sqlite3|db|keystore)$/i;
 const MAX_FILE_BYTES = 256 * 1024;
 const MAX_READ_LINES = 180;
+const READ_CHUNK_BYTES = 64 * 1024;
+// macOS 11+ open(2): refuse symlinks in ANY path component, atomically.
+// This constant is in Apple's fcntl.h; Node does not currently expose it.
+const MAC_OS_O_NOFOLLOW_ANY = 0x20000000;
+const DIRECTORY_OPEN_FLAGS = fsConstants.O_RDONLY | fsConstants.O_DIRECTORY | fsConstants.O_NOFOLLOW;
+const FILE_OPEN_FLAGS = fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW | fsConstants.O_NONBLOCK;
 
 function safeRelativeName(name) {
   if (typeof name !== 'string' || !name || name.includes('\0') || path.isAbsolute(name)) {
@@ -42,46 +49,112 @@ export class Workspace {
     if (!root || typeof root !== 'string') throw new Error('Workspace root is required');
     this.requestedRoot = path.resolve(root);
     this.root = null;
+    this.rootHandle = null;
   }
 
   async init() {
     this.root = await realpath(this.requestedRoot);
     if (!(await lstat(this.root)).isDirectory()) throw new Error('Workspace root is not a directory');
+    // Keep the root directory descriptor pinned on Linux so every subsequent
+    // component can be opened relative to a trusted, already-open directory.
+    if (process.platform === 'linux') {
+      this.rootHandle = await open(this.root, DIRECTORY_OPEN_FLAGS);
+    } else if (process.platform === 'darwin') {
+      // O_NOFOLLOW_ANY is enforced by macOS during open() path traversal.
+      const handle = await open(this.root, DIRECTORY_OPEN_FLAGS | MAC_OS_O_NOFOLLOW_ANY);
+      await handle.close();
+    } else {
+      throw new Error('Race-resistant workspace reads require Linux or macOS');
+    }
     return this;
+  }
+
+  async close() {
+    if (this.rootHandle) {
+      const handle = this.rootHandle;
+      this.rootHandle = null;
+      await handle.close();
+    }
   }
 
   #requireRoot() {
     if (!this.root) throw new Error('Call workspace.init() first');
   }
 
-  async #resolveFile(relPath) {
+  async #openWorkspaceFile(relPath) {
     this.#requireRoot();
     const rel = safeRelativeName(relPath);
     const candidate = path.resolve(this.root, rel);
     const within = path.relative(this.root, candidate);
     if (!within || within.startsWith('..') || path.isAbsolute(within)) throw new Error('Path leaves workspace');
-    // Reject all symlink components, including internal symlinks: fail closed against link swaps.
-    let cursor = this.root;
-    for (const segment of rel.split('/')) {
-      cursor = path.join(cursor, segment);
-      if ((await lstat(cursor)).isSymbolicLink()) throw new Error('Symlink access is not permitted');
+
+    if (process.platform === 'darwin') {
+      // The kernel resolves every component with O_NOFOLLOW_ANY, including
+      // parents; unlike prechecking with lstat(), this closes swap races.
+      try {
+        return { handle: await open(candidate, FILE_OPEN_FLAGS | MAC_OS_O_NOFOLLOW_ANY), relative: rel };
+      } catch (err) {
+        if (err.code === 'ELOOP') throw new Error('Symlink access is not permitted');
+        throw err;
+      }
     }
-    const canonical = await realpath(candidate);
-    const actual = path.relative(this.root, canonical);
-    if (!actual || actual.startsWith('..') || path.isAbsolute(actual)) throw new Error('Path leaves workspace');
-    if (!(await lstat(candidate)).isFile()) throw new Error('Not a regular file');
-    return { absolute: candidate, relative: rel };
+
+    // Linux: /proc/self/fd/N anchors each lookup to an open directory fd.
+    // The fd is pinned even when another process renames/replaces a path;
+    // O_NOFOLLOW prevents symlinks at every newly opened component.
+    // Fail closed if procfs is unavailable. No unguarded pathname fallback.
+    if (!this.rootHandle) throw new Error('Workspace root descriptor is closed');
+    const segments = rel.split('/');
+    const directoryHandles = [];
+    try {
+      let parentFd = this.rootHandle.fd;
+      for (const component of segments.slice(0, -1)) {
+        const dir = await open(`/proc/self/fd/${parentFd}/${component}`, DIRECTORY_OPEN_FLAGS);
+        directoryHandles.push(dir);
+        parentFd = dir.fd;
+      }
+      const handle = await open(`/proc/self/fd/${parentFd}/${segments.at(-1)}`, FILE_OPEN_FLAGS);
+      return { handle, relative: rel };
+    } catch (err) {
+      if (err.code === 'ELOOP' || err.code === 'ENOTDIR') throw new Error('Symlink or non-directory component is not permitted');
+      throw err;
+    } finally {
+      for (const dir of directoryHandles.reverse()) await dir.close();
+    }
   }
 
   async #readRaw(relPath) {
-    const { absolute, relative } = await this.#resolveFile(relPath);
-    const stat = await lstat(absolute);
-    if (stat.size > MAX_FILE_BYTES) throw new Error('File exceeds 256 KiB limit');
-    const buf = await readFile(absolute);
-    if (buf.length > MAX_FILE_BYTES) throw new Error('File exceeds 256 KiB limit');
-    if (buf.includes(0)) throw new Error('Binary file not supported');
-    const decoded = new TextDecoder('utf-8', { fatal: true }).decode(buf);
-    return { relative, raw: decoded, hash: sha256(buf) };
+    const { handle, relative } = await this.#openWorkspaceFile(relPath);
+    try {
+      const stat = await handle.stat();
+      if (!stat.isFile()) throw new Error('Not a regular file');
+      if (stat.size > MAX_FILE_BYTES) throw new Error('File exceeds 256 KiB limit');
+      // Read through the same checked descriptor and cap bytes actually read.
+      // Size can increase between stat() and read(), so never read unbounded.
+      const chunks = [];
+      let total = 0;
+      while (total <= MAX_FILE_BYTES) {
+        const chunk = Buffer.allocUnsafe(Math.min(READ_CHUNK_BYTES, MAX_FILE_BYTES + 1 - total));
+        const { bytesRead } = await handle.read(chunk, 0, chunk.length, total);
+        if (!bytesRead) break;
+        chunks.push(chunk.subarray(0, bytesRead));
+        total += bytesRead;
+      }
+      if (total > MAX_FILE_BYTES) throw new Error('File exceeds 256 KiB limit');
+      const buf = Buffer.concat(chunks, total);
+      if (buf.includes(0)) throw new Error('Binary file not supported');
+      let decoded;
+      try {
+        decoded = new TextDecoder('utf-8', { fatal: true }).decode(buf);
+      } catch {
+        const error = new Error('Unsupported file encoding (expected UTF-8)');
+        error.code = 'ERR_UNSUPPORTED_ENCODING';
+        throw error;
+      }
+      return { relative, raw: decoded, hash: sha256(buf) };
+    } finally {
+      await handle.close();
+    }
   }
 
   async readFile(relPath, { startLine = 1, maxLines = 100 } = {}) {
@@ -90,14 +163,17 @@ export class Workspace {
       throw new Error(`maxLines must be 1..${MAX_READ_LINES}`);
     }
     const { relative, raw, hash } = await this.#readRaw(relPath);
-    const lines = raw.split(/\r?\n/);
+    // Redact with full-file context before extracting lines. Credentials with
+    // a key on one line and a value on the next must not escape in excerpts.
+    const masked = redactSecrets(raw);
+    const lines = masked.split(/\r?\n/);
     const from = Math.min(startLine - 1, lines.length);
     const selected = lines.slice(from, from + maxLines).map((text, i) => ({
-      line: from + i + 1, text: redactSecrets(text),
+      line: from + i + 1, text,
     }));
     return { path: relative, sha256: hash, startLine: from + 1, endLine: from + selected.length,
       totalLines: lines.length, truncated: from + maxLines < lines.length,
-      redacted: redactSecrets(raw) !== raw, lines: selected };
+      redacted: masked !== raw, lines: selected };
   }
 
   async rawForProposal(relPath) {
@@ -142,14 +218,15 @@ export class Workspace {
       try {
         const { raw, hash } = await this.#readRaw(file);
         const lines = raw.split(/\r?\n/);
+        const safeLines = redactSecrets(raw).split(/\r?\n/);
         for (let i = 0; i < lines.length; i++) {
           if (lines[i].toLowerCase().includes(term)) {
-            matches.push({ path: file, line: i + 1, snippet: redactSecrets(lines[i].slice(0, 260)), sha256: hash });
+            matches.push({ path: file, line: i + 1, snippet: safeLines[i].slice(0, 260), sha256: hash });
             if (matches.length >= maxResults) break;
           }
         }
       } catch (err) {
-        if (err.code !== 'ENOENT' && !/(limit|Binary|Symlink|Restricted)/.test(err.message)) throw err;
+        if (err.code !== 'ENOENT' && err.code !== 'ERR_UNSUPPORTED_ENCODING' && !/(limit|Binary|Symlink|Restricted)/.test(err.message)) throw err;
       }
       if (matches.length >= maxResults) break;
     }
