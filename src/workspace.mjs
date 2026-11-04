@@ -44,7 +44,12 @@ export function redactSecrets(content) {
   return content
     .replace(/\b(?:ghp_|github_pat_|sk-)[A-Za-z0-9_-]{12,}\b/g, '[REDACTED_TOKEN]')
     .replace(/\bAKIA[0-9A-Z]{16}\b/g, '[REDACTED_AWS_KEY]')
-    .replace(/((?:api[_-]?key|access[_-]?token|auth[_-]?token|password|secret)\s*[:=]\s*["']?)([^\s"',;]+)/gi, '$1[REDACTED]');
+    // Inline assignments: horizontal whitespace only. Never consume the next
+    // line's key as a value of an empty credential (e.g. password:\napi_key: x).
+    .replace(/((?:api[_-]?key|access[_-]?token|auth[_-]?token|password|secret)[ \t]*[:=][ \t]*["']?)([^\s"',;]+)/gi, '$1[REDACTED]')
+    // A multiline scalar must be indented and must not itself be an assignment.
+    // Preserve the newline so line evidence retains source line numbers.
+    .replace(/((?:api[_-]?key|access[_-]?token|auth[_-]?token|password|secret)[ \t]*[:=][ \t]*\r?\n[ \t]+["']?)(?![\w.-]+[ \t]*[:=])([^\s"',;]+)/gi, '$1[REDACTED]');
 }
 
 export class Workspace {
