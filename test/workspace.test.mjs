@@ -42,6 +42,8 @@ test('symlink escape and internal symlinks fail closed', async (t) => {
   await symlink('auth.py', path.join(root, 'src', 'alias.py'));
   await assert.rejects(workspace.readFile('src/hosts.py'), /Symlink/);
   await assert.rejects(workspace.readFile('src/alias.py'), /Symlink/);
+  await symlink('src', path.join(root, 'linked-src'));
+  await assert.rejects(workspace.readFile('linked-src/auth.py'), /Symlink/);
   assert.ok(!(await workspace.listFiles()).includes('src/hosts.py'));
 });
 
