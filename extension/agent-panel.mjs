@@ -21,7 +21,7 @@ export function registerAgentPanel(vscode, context, actions) {
       running = true;
       panel.webview.postMessage({ type: 'status', message: 'Running', running: true });
       let finalStatus = 'Idle. Review any returned proposals before applying.';
-   try { await actions.run(message.task); }
+      try { await actions.run(message.task); }
       catch (error) { finalStatus = error.message; }
       finally {
         running = false;

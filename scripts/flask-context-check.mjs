@@ -8,6 +8,7 @@ import { Workspace, sha256 } from '../src/workspace.mjs';
 import { assembleContext } from '../src/context.mjs';
 import { createTrueForgeClient } from '../src/agent.mjs';
 import { LiveRun } from '../src/live-run.mjs';
+import { discoverRelevantFiles } from '../src/build/repository-discovery.mjs';
 
 const checkout = path.resolve(process.argv[2] || '.tmp/flask-3.1.3');
 const output = path.resolve('outputs/flask-rehearsal/context-and-failure.json');
@@ -16,6 +17,10 @@ const workspace = await new Workspace(checkout).init();
 const execute = promisify(execFile);
 const status = async () => (await execute('git', ['status', '--porcelain', '--untracked-files=no'], { cwd: checkout })).stdout;
 try {
+  const discovery = await discoverRelevantFiles({ workspace, task: report.taskB.instruction });
+  for (const expected of ['src/flask/cli.py', 'docs/cli.rst']) {
+    assert.ok(discovery.candidates.some(source => source.path === expected));
+  }
   const context = await assembleContext(workspace, report.taskB.instruction);
   for (const expected of ['src/flask/cli.py', 'tests/test_cli.py', 'docs/cli.rst']) {
     assert.ok(context.sources.some(source => source.path === expected), `Missing task B context ${expected}`);
@@ -39,6 +44,7 @@ try {
   assert.deepEqual(after, before);
   const result = {
     mode: 'model-independent context and real SDK unreachable-endpoint checks',
+    discovery: { ...discovery, note: 'Post-reference discovery skips files with masked credential patterns, including the appended synthetic credential test. Extension context still includes redacted test excerpts.' },
     taskB: { sources: context.sources.map(({ content, ...source }) => source), usedBytes: context.usedBytes, budgetBytes: context.budgetBytes },
     taskC: { status: 'passed_local_failure_check', failure, elapsedMs: Date.now() - started, unchanged: true, before, after,
       limitation: 'Editor responsiveness and the official recording remain pending.' },

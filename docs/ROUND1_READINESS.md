@@ -30,7 +30,7 @@ Run **SecureForge: Open Agent Panel**. The panel supports tasks, file/symbol att
 
 ## Context strategy
 
-Lexical retrieval scores filenames and matching source lines. Related tests and documentation receive a bonus. Explicit `@file:path`, quoted file paths and `@symbol:name` mentions receive priority. Selection context uses the selected file. At most 12 excerpts enter automatic context. The default serialized-source budget is 24,000 UTF-8 bytes, configurable from 2,000 to 96,000. Reads scan at most 4 MiB and 2,500 candidate files. Token estimates use bytes divided by three and are approximate. The agent can retrieve additional bounded excerpts through MCP tools.
+Lexical retrieval scores filenames and matching source lines. Related tests and documentation receive a bonus. Explicit `@file:path`, quoted file paths and `@symbol:name` mentions receive priority. Selection context uses the selected file. At most 12 excerpts enter automatic context. The default serialized-source budget is 24,000 UTF-8 bytes, configurable from 2,000 to 96,000. Reads scan at most 4 MiB and 2,500 candidate files. Token estimates use bytes divided by three and are approximate. The agent can retrieve additional bounded excerpts through MCP tools. Shubhaang's integrated `discover_repository` tool adds independently bounded ranking and literal import relationships, using at most 160 files and 12 results by default. Discovery tasks are limited to 400 characters.
 
 Paths, line ranges, SHA-256 hashes, reasons and byte usage are shown before generation. Repository excerpts are marked untrusted. Retrieval does not resolve AST symbols, callers or dependency graphs.
 

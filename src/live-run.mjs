@@ -50,7 +50,7 @@ export class LiveRun {
     let registered = false;
     try {
       bridge = await createMcpServer({
-        root: this.root, port: 0, accessToken,
+        root: this.root, port: 0, accessToken, signal,
         onProposal: proposal => { if (!signal.aborted) this.staged.push(proposal); },
         onRunCommand: this.verifyCommand ? (workspace, request) => this.verifyCommand(workspace, request, signal) : undefined,
       });

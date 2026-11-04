@@ -78,3 +78,16 @@ test('MCP preserves UTF-8 characters when a multibyte code point spans HTTP chun
   assert.equal(value.query, 'café');
   assert.ok(value.matches.some((m) => m.path === 'unicode.py'));
 });
+
+
+test('repository discovery is available through bounded read-only MCP calls', async t => {
+  const { root, post, request } = await setup(t);
+  const before = await readFile(path.join(root, 'a.py'), 'utf8');
+  const response = await post(request(50, 'tools/call', { name: 'discover_repository', arguments: { task: 'verify function' } }));
+  assert.equal(response.data.result.isError, undefined);
+  const result = JSON.parse(response.data.result.content[0].text);
+  assert.ok(result.candidates.some(item => item.path === 'a.py'));
+  assert.equal(await readFile(path.join(root, 'a.py'), 'utf8'), before);
+  const invalid = await post(request(51, 'tools/call', { name: 'discover_repository', arguments: { task: 'x'.repeat(401) } }));
+  assert.equal(invalid.data.result.isError, true);
+});

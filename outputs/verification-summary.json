@@ -1,0 +1,49 @@
+{
+  "createdAt": "2026-11-04T17:05:47.887Z",
+  "node": "v24.5.0",
+  "platform": "darwin",
+  "unitTests": {
+    "passed": 66,
+    "failed": 0
+  },
+  "packagedEditor": {
+    "passed": 13,
+    "checks": [
+      "Extension activation and command registration",
+      "Mixed hunk decisions apply only the accepted edit in the editor",
+      "Repeated application is rejected",
+      "Guarded review Undo restores the original content",
+      "Changed document version is rejected even after Undo",
+      "Rejecting all hunks preserves content",
+      "External disk changes are preserved",
+      "Unicode, CRLF and missing final newline survive editor apply and Undo",
+      "One WorkspaceEdit applies a batch and one guarded Undo reverses both files",
+      "A stale member blocks the entire multi-file apply",
+      "Cancellation before batch apply preserves all documents",
+      "Owned security finding, editor-reviewed fix, saved regression proof and Patch Passport agree",
+      "Real TrueForge session 01m6krae398zzb3919c21w1f0y delivers a proposal into the editor (deterministic inference fixture)"
+    ],
+    "inference": "deterministic local fixture, not a production model"
+  },
+  "flaskReference": {
+    "cliTestsPassed": 59,
+    "mode": "manually specified reference edits"
+  },
+  "auditVulnerabilities": 0,
+  "integratedTeammateCommit": "a28fe80",
+  "sha256": {
+    "outputs/SecureForge-0.1.0.vsix": "fe3165ebcbdcc298f1869a98800b24ced681261f68ceab891f023d71d417de31",
+    "outputs/SecureForge-Round1-Writeup-DRAFT.pdf": "73d29f51bc3c931371be65f92e09e502eac3180feea6fc7d1a95e1f65c5af209",
+    "src/context.mjs": "b468a1d33939709e4783f1e929e58c25de7c20629f5c0f27eb67df98e8cbfead",
+    "src/build/repository-discovery.mjs": "275424ba089a8f48f337d657db83238fc47baa31be0f874527711fef593496d5",
+    "src/security.mjs": "c6ff7e906d59348b23ca4415df08fe6a52c25a3e8f1c7898b0376d99cd82b14f"
+  },
+  "remaining": [
+    "Real-model official A/B runs",
+    "Official A/B/C editor video",
+    "Team metadata and video timestamps",
+    "Advanced TrueForge context-engineering feature demonstration",
+    "Automatic model fallback and retry/backoff",
+    "Final competition portal submission"
+  ]
+}

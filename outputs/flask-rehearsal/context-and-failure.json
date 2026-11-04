@@ -1,5 +1,591 @@
 {
   "mode": "model-independent context and real SDK unreachable-endpoint checks",
+  "discovery": {
+    "schemaVersion": 1,
+    "task": "Add a new built-in CLI command flask config that prints the loaded application's configuration as JSON, masking the values of any key containing SECRET, PASSWORD, TOKEN or KEY as \"***\". It must appear in flask --help, be covered by a test, and be documented alongside the other built-in commands.",
+    "terms": [
+      "built",
+      "cli",
+      "command",
+      "flask",
+      "config",
+      "prints",
+      "loaded",
+      "application",
+      "configuration",
+      "json",
+      "masking",
+      "values",
+      "any",
+      "key",
+      "containing",
+      "secret"
+    ],
+    "coverage": {
+      "listedFiles": 160,
+      "inspectedFiles": 154,
+      "skippedFiles": 0,
+      "redactedFiles": 6,
+      "truncatedFiles": 45,
+      "mayBeCapped": true,
+      "maxReadLinesPerFile": 180
+    },
+    "candidates": [
+      {
+        "path": "src/flask/cli.py",
+        "sha256": "3741bd6097fa70dc2b1dc19be61b89e209cd06ffaa5962a3ebeed0d91e61ea80",
+        "score": 45,
+        "reasons": [
+          "filename: cli",
+          "directory: flask",
+          "source: any, application, flask, json, loaded, values",
+          "one-hop import relationship with relevant file"
+        ],
+        "evidence": [
+          {
+            "line": 7,
+            "excerpt": "import json"
+          },
+          {
+            "line": 35,
+            "excerpt": "from .app import Flask"
+          },
+          {
+            "line": 39,
+            "excerpt": "\"\"\"Raised if an application cannot be found or loaded.\"\"\""
+          }
+        ],
+        "imports": [
+          {
+            "path": "src/flask/app.py",
+            "line": 35
+          },
+          {
+            "path": "src/flask/globals.py",
+            "line": 24
+          },
+          {
+            "path": "src/flask/helpers.py",
+            "line": 25
+          }
+        ],
+        "importedBy": [
+          {
+            "path": "src/flask/__main__.py",
+            "line": 1
+          },
+          {
+            "path": "src/flask/app.py",
+            "line": 29
+          },
+          {
+            "path": "src/flask/blueprints.py",
+            "line": 7
+          },
+          {
+            "path": "src/flask/testing.py",
+            "line": 17
+          }
+        ],
+        "truncated": true
+      },
+      {
+        "path": "src/flask/config.py",
+        "sha256": "3e2a85d033da9ba1d6d051f8087d61a574c17b7d0d4b38cf10ec2bcf56fa92dd",
+        "score": 45,
+        "reasons": [
+          "filename: config",
+          "directory: flask",
+          "source: any, application, config, configuration, flask, json, key, loaded, secret, values",
+          "one-hop import relationship with relevant file"
+        ],
+        "evidence": [
+          {
+            "line": 4,
+            "excerpt": "import json"
+          },
+          {
+            "line": 20,
+            "excerpt": "class ConfigAttribute(t.Generic[T]):"
+          },
+          {
+            "line": 21,
+            "excerpt": "\"\"\"Makes an attribute forward to the config\"\"\""
+          }
+        ],
+        "imports": [],
+        "importedBy": [
+          {
+            "path": "src/flask/__init__.py",
+            "line": 8
+          }
+        ],
+        "truncated": true
+      },
+      {
+        "path": "docs/cli.rst",
+        "sha256": "46fda46f76fc6615dfd653934a3d8ff888bc5c8d29a4fa1cd26b0a4adb0791f8",
+        "score": 36,
+        "reasons": [
+          "filename: cli",
+          "source: any, application, built, cli, command, configuration, flask, loaded, values"
+        ],
+        "evidence": [
+          {
+            "line": 1,
+            "excerpt": ".. currentmodule:: flask"
+          },
+          {
+            "line": 3,
+            "excerpt": "Command Line Interface"
+          },
+          {
+            "line": 6,
+            "excerpt": "Installing Flask installs the ``flask`` script, a `Click`_ command line"
+          }
+        ],
+        "imports": [],
+        "importedBy": [],
+        "truncated": true
+      },
+      {
+        "path": "docs/config.rst",
+        "sha256": "096ba095a405c0cc9e6c65f2e0374812a42160703d43445d53879ee8411d02e6",
+        "score": 36,
+        "reasons": [
+          "filename: config",
+          "source: any, application, built, command, config, configuration, flask, key, loaded, secret, values"
+        ],
+        "evidence": [
+          {
+            "line": 1,
+            "excerpt": "Configuration Handling"
+          },
+          {
+            "line": 4,
+            "excerpt": "Applications need some kind of configuration.  There are different settings"
+          },
+          {
+            "line": 5,
+            "excerpt": "you might want to change depending on the application environment like"
+          }
+        ],
+        "imports": [],
+        "importedBy": [],
+        "truncated": true
+      },
+      {
+        "path": "tests/test_config.py",
+        "sha256": "09df8aec5f88df421fa5b47bd66ee4e3aef23384c7c36a1be191d24723caadd0",
+        "score": 36,
+        "reasons": [
+          "filename: config",
+          "source: config, configuration, flask, json, key, secret"
+        ],
+        "evidence": [
+          {
+            "line": 1,
+            "excerpt": "import json"
+          },
+          {
+            "line": 6,
+            "excerpt": "import flask"
+          },
+          {
+            "line": 8,
+            "excerpt": "# config keys used for the TestConfig"
+          }
+        ],
+        "imports": [],
+        "importedBy": [],
+        "truncated": true
+      },
+      {
+        "path": "tests/test_json.py",
+        "sha256": "f6c73c61a602ee3b8b87bfa90284fbc96e567b77c3a6d86c0e3919c5f12b64c6",
+        "score": 36,
+        "reasons": [
+          "filename: json",
+          "source: application, config, flask, json"
+        ],
+        "evidence": [
+          {
+            "line": 9,
+            "excerpt": "import flask"
+          },
+          {
+            "line": 10,
+            "excerpt": "from flask import json"
+          },
+          {
+            "line": 11,
+            "excerpt": "from flask.json.provider import DefaultJSONProvider"
+          }
+        ],
+        "imports": [],
+        "importedBy": [],
+        "truncated": true
+      },
+      {
+        "path": "src/flask/__init__.py",
+        "sha256": "987bc937d4b0b65d510ed8c2a82218c889e22bf499fe5fe1a94ca73b382927da",
+        "score": 33,
+        "reasons": [
+          "directory: flask",
+          "source: any, config, flask, json",
+          "one-hop import relationship with relevant file"
+        ],
+        "evidence": [
+          {
+            "line": 5,
+            "excerpt": "from . import json as json"
+          },
+          {
+            "line": 6,
+            "excerpt": "from .app import Flask as Flask"
+          },
+          {
+            "line": 8,
+            "excerpt": "from .config import Config as Config"
+          }
+        ],
+        "imports": [
+          {
+            "path": "src/flask/app.py",
+            "line": 6
+          },
+          {
+            "path": "src/flask/blueprints.py",
+            "line": 7
+          },
+          {
+            "path": "src/flask/config.py",
+            "line": 8
+          },
+          {
+            "path": "src/flask/ctx.py",
+            "line": 9
+          },
+          {
+            "path": "src/flask/globals.py",
+            "line": 13
+          },
+          {
+            "path": "src/flask/helpers.py",
+            "line": 17
+          },
+          {
+            "path": "src/flask/signals.py",
+            "line": 28
+          },
+          {
+            "path": "src/flask/templating.py",
+            "line": 38
+          },
+          {
+            "path": "src/flask/wrappers.py",
+            "line": 42
+          }
+        ],
+        "importedBy": [],
+        "truncated": false
+      },
+      {
+        "path": "src/flask/app.py",
+        "sha256": "93bb56f0b1d14a57548baccab0528aec0c5afd62f8ceed5edb03cdb6122cbbba",
+        "score": 33,
+        "reasons": [
+          "directory: flask",
+          "source: application, cli, config, configuration, flask, key",
+          "one-hop import relationship with relevant file"
+        ],
+        "evidence": [
+          {
+            "line": 17,
+            "excerpt": "from werkzeug.exceptions import BadRequestKeyError"
+          },
+          {
+            "line": 29,
+            "excerpt": "from . import cli"
+          },
+          {
+            "line": 61,
+            "excerpt": "from .testing import FlaskClient"
+          }
+        ],
+        "imports": [
+          {
+            "path": "src/flask/cli.py",
+            "line": 29
+          },
+          {
+            "path": "src/flask/ctx.py",
+            "line": 31
+          },
+          {
+            "path": "src/flask/globals.py",
+            "line": 33
+          },
+          {
+            "path": "src/flask/helpers.py",
+            "line": 40
+          },
+          {
+            "path": "src/flask/sessions.py",
+            "line": 46
+          },
+          {
+            "path": "src/flask/signals.py",
+            "line": 48
+          },
+          {
+            "path": "src/flask/templating.py",
+            "line": 53
+          },
+          {
+            "path": "src/flask/testing.py",
+            "line": 61
+          },
+          {
+            "path": "src/flask/typing.py",
+            "line": 30
+          },
+          {
+            "path": "src/flask/wrappers.py",
+            "line": 54
+          }
+        ],
+        "importedBy": [
+          {
+            "path": "src/flask/__init__.py",
+            "line": 6
+          },
+          {
+            "path": "src/flask/cli.py",
+            "line": 35
+          },
+          {
+            "path": "src/flask/ctx.py",
+            "line": 20
+          },
+          {
+            "path": "src/flask/globals.py",
+            "line": 9
+          },
+          {
+            "path": "src/flask/sessions.py",
+            "line": 19
+          },
+          {
+            "path": "src/flask/templating.py",
+            "line": 19
+          },
+          {
+            "path": "src/flask/testing.py",
+            "line": 24
+          }
+        ],
+        "truncated": true
+      },
+      {
+        "path": "src/flask/blueprints.py",
+        "sha256": "a79404da5635f0622d6ddaff44a46967c0e8d7b8343ef4062206644940e15f69",
+        "score": 33,
+        "reasons": [
+          "directory: flask",
+          "source: any, application, cli, command, config, configuration, flask, values",
+          "one-hop import relationship with relevant file"
+        ],
+        "evidence": [
+          {
+            "line": 7,
+            "excerpt": "from .cli import AppGroup"
+          },
+          {
+            "line": 28,
+            "excerpt": "url_defaults: dict[str, t.Any] | None = None,"
+          },
+          {
+            "line": 30,
+            "excerpt": "cli_group: str | None = _sentinel,  # type: ignore"
+          }
+        ],
+        "imports": [
+          {
+            "path": "src/flask/cli.py",
+            "line": 7
+          },
+          {
+            "path": "src/flask/globals.py",
+            "line": 8
+          },
+          {
+            "path": "src/flask/helpers.py",
+            "line": 9
+          },
+          {
+            "path": "src/flask/wrappers.py",
+            "line": 15
+          }
+        ],
+        "importedBy": [
+          {
+            "path": "src/flask/__init__.py",
+            "line": 7
+          },
+          {
+            "path": "src/flask/debughelpers.py",
+            "line": 8
+          }
+        ],
+        "truncated": false
+      },
+      {
+        "path": "src/flask/ctx.py",
+        "sha256": "a0c7b44d1b12716d2a75a22a6af56c93c3fdaa212f018e551e7d45020917f279",
+        "score": 33,
+        "reasons": [
+          "directory: flask",
+          "source: any, application, flask, key",
+          "one-hop import relationship with relevant file"
+        ],
+        "evidence": [
+          {
+            "line": 20,
+            "excerpt": "from .app import Flask"
+          },
+          {
+            "line": 31,
+            "excerpt": "application context."
+          },
+          {
+            "line": 36,
+            "excerpt": ".. describe:: 'key' in g"
+          }
+        ],
+        "imports": [
+          {
+            "path": "src/flask/app.py",
+            "line": 20
+          },
+          {
+            "path": "src/flask/globals.py",
+            "line": 12
+          },
+          {
+            "path": "src/flask/sessions.py",
+            "line": 21
+          },
+          {
+            "path": "src/flask/signals.py",
+            "line": 14
+          },
+          {
+            "path": "src/flask/typing.py",
+            "line": 11
+          },
+          {
+            "path": "src/flask/wrappers.py",
+            "line": 22
+          }
+        ],
+        "importedBy": [
+          {
+            "path": "src/flask/__init__.py",
+            "line": 9
+          },
+          {
+            "path": "src/flask/app.py",
+            "line": 31
+          },
+          {
+            "path": "src/flask/globals.py",
+            "line": 10
+          }
+        ],
+        "truncated": true
+      },
+      {
+        "path": "src/flask/debughelpers.py",
+        "sha256": "3c6203852b56fde7d18e969adf31c8a68fa1b52b49391e35229dce2563d8070a",
+        "score": 33,
+        "reasons": [
+          "directory: flask",
+          "source: any, application, flask, key",
+          "one-hop import relationship with relevant file"
+        ],
+        "evidence": [
+          {
+            "line": 23,
+            "excerpt": "class DebugFilesKeyError(KeyError, AssertionError):"
+          },
+          {
+            "line": 25,
+            "excerpt": "provide a better error message than just a generic KeyError/BadRequest."
+          },
+          {
+            "line": 28,
+            "excerpt": "def __init__(self, request: Request, key: str) -> None:"
+          }
+        ],
+        "imports": [
+          {
+            "path": "src/flask/blueprints.py",
+            "line": 8
+          },
+          {
+            "path": "src/flask/globals.py",
+            "line": 9
+          },
+          {
+            "path": "src/flask/wrappers.py",
+            "line": 14
+          }
+        ],
+        "importedBy": [
+          {
+            "path": "src/flask/templating.py",
+            "line": 84
+          }
+        ],
+        "truncated": false
+      },
+      {
+        "path": "src/flask/logging.py",
+        "sha256": "f2c33758c4ee6e2d5c05bd9cfe53e45a937427c74c02aae029160b2e2d5d0952",
+        "score": 33,
+        "reasons": [
+          "directory: flask",
+          "source: any, application, configuration, flask",
+          "one-hop import relationship with relevant file"
+        ],
+        "evidence": [
+          {
+            "line": 17,
+            "excerpt": "\"\"\"Find the most appropriate error stream for the application. If a request"
+          },
+          {
+            "line": 21,
+            "excerpt": "use this for the stream. If you are using file or dict configuration and"
+          },
+          {
+            "line": 23,
+            "excerpt": "``ext://flask.logging.wsgi_errors_stream``."
+          }
+        ],
+        "imports": [
+          {
+            "path": "src/flask/globals.py",
+            "line": 9
+          }
+        ],
+        "importedBy": [],
+        "truncated": false
+      }
+    ],
+    "limitations": "Lexical ranking and literal relative imports only; no AST or semantic proof. Evidence is bounded and untrusted. No file modifications.",
+    "note": "Post-reference discovery skips files with masked credential patterns, including the appended synthetic credential test. Extension context still includes redacted test excerpts."
+  },
   "taskB": {
     "sources": [
       {
@@ -93,7 +679,7 @@
   "taskC": {
     "status": "passed_local_failure_check",
     "failure": "TrueForge run failed (connection or model error). No proposals were applied.",
-    "elapsedMs": 49,
+    "elapsedMs": 50,
     "unchanged": true,
     "before": {
       "gitStatus": " M docs/cli.rst\n M src/flask/cli.py\n M src/flask/helpers.py\n M tests/test_cli.py\n",

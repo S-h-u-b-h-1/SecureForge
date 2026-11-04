@@ -3,8 +3,12 @@ import http from 'node:http';
 import { Workspace } from './workspace.mjs';
 import { ProposalStore } from './proposals.mjs';
 import { BatchProposalStore } from './build/batches.mjs';
+import { discoverRelevantFiles } from './build/repository-discovery.mjs';
 
 const TOOLS = [
+  { name: 'discover_repository', description: 'Rank bounded source/test candidates and lexical import relationships. Untrusted relevance hints require focused reads.',
+    inputSchema: { type: 'object', properties: { task: { type: 'string', minLength: 3, maxLength: 400 } }, required: ['task'], additionalProperties: false },
+    annotations: { readOnlyHint: true } },
   { name: 'read_file', description: 'Read bounded numbered lines from a permitted workspace file. Returns SHA-256 for version-aware proposals.',
     inputSchema: { type: 'object', properties: { path: { type: 'string' }, startLine: { type: 'integer' }, maxLines: { type: 'integer' } }, required: ['path'], additionalProperties: false },
     annotations: { readOnlyHint: true } },
@@ -39,7 +43,7 @@ const TOOLS = [
     annotations: { readOnlyHint: true } },
 ];
 
-export async function createMcpServer({ root, port = 8792, host = '127.0.0.1', accessToken, onProposal = () => {}, onRunCommand }) {
+export async function createMcpServer({ root, port = 8792, host = '127.0.0.1', accessToken, onProposal = () => {}, onRunCommand, signal }) {
   if (host !== '127.0.0.1' && host !== '::1') throw new Error('MCP bridge must bind to loopback');
   const workspace = await new Workspace(root).init();
   const proposals = new ProposalStore(workspace);
@@ -55,6 +59,7 @@ export async function createMcpServer({ root, port = 8792, host = '127.0.0.1', a
     annotations: { readOnlyHint: false, destructiveHint: true },
   });
   const commands = {
+    discover_repository: p => discoverRelevantFiles({ workspace, task: p.task, signal }),
     read_file: (p) => workspace.readFile(p.path, { startLine: p.startLine, maxLines: p.maxLines }),
     search_workspace: (p) => workspace.searchWorkspace(p.query, { maxResults: p.maxResults }),
     lookup_symbol: (p) => workspace.lookupSymbol(p.symbol),

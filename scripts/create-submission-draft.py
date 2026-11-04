@@ -1,10 +1,9 @@
 """Create the truthful two-page Round 1 readiness draft."""
 from pathlib import Path
 from reportlab.lib import colors
-from reportlab.lib.enums import TA_LEFT
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import mm
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle, PageBreak
 
 output = Path('outputs/SecureForge-Round1-Writeup-DRAFT.pdf')
 output.parent.mkdir(exist_ok=True)
@@ -33,11 +32,11 @@ para('Aditya Ranjan (@kvianAR) and Shubhaang Kataruka (@S-h-u-b-h-1). Team name,
 section('Starting point')
 para('Custom SecureForge extension and tools built from scratch, using the official TrueForge SDK and runtime. This branch extends the shared SecureForge core-agent foundation. It does not fork TrueForge. The executable agent definition is src/agent.mjs. Public repository <link href="https://github.com/S-h-u-b-h-1/SecureForge">github.com/S-h-u-b-h-1/SecureForge</link>.')
 section('Architecture on TrueForge')
-para('The VS Code client creates TrueForge sessions and streams turns through SDK 0.182.0 against local runtime 0.183.0. It registers one temporary authenticated loopback MCP connector per run. The model chooses read_file, search_workspace, lookup_symbol, propose_edit, propose_batch and separately approved run_command calls. Provider credentials stay in TrueForge.')
+para('The VS Code client creates TrueForge sessions and streams turns through SDK 0.182.0 against local runtime 0.183.0. It registers one temporary authenticated loopback MCP connector per run. The model chooses read_file, search_workspace, lookup_symbol, discover_repository, propose_edit, propose_batch and separately approved run_command calls. Provider credentials stay in TrueForge.')
 para('TrueForge approvals gate proposal staging. The extension then renders immutable hash-linked proposals for independent human hunk decisions. One WorkspaceEdit applies accepted batch changes to buffers. Guarded Undo checks versions and hashes. Save is explicit. Cancellation discards pending proposals and closes the bridge. Command approval is separate, shell execution is disabled and receipts are bounded and redacted.')
 section('How context is selected')
 para('Automatic lexical retrieval scores task terms in paths and source lines, then boosts related tests and documentation. Explicit file/symbol mentions and the inline selection\'s file receive priority. Each excerpt shows path, lines, hash and selection reason. Default serialized context budget is 24,000 UTF-8 bytes, adjustable from 2,000 to 96,000. At most 12 excerpts are selected after scanning at most 4 MiB across 2,500 candidates. Token counts are approximate bytes/3 estimates.')
-para('Repository excerpts are marked untrusted. Reads exclude restricted names, symlinks, binary data and oversized files. Lexical lookup does not infer callers or AST relationships. A pinned Flask rehearsal retrieved CLI source, tests and documentation without explicit filenames. A real-model recording must still demonstrate its usefulness.')
+para('Repository excerpts are marked untrusted. Reads exclude restricted names, symlinks, binary data and oversized files. The integrated discovery MCP tool adds lexical import hints with a separate 160-file default limit. Lexical lookup does not infer callers or AST relationships. A pinned Flask rehearsal retrieved CLI source, tests and documentation without explicit filenames. A real-model recording must still demonstrate its usefulness.')
 section('Model setup')
 para('The current TrueForge catalog is empty. Production-model A/B runs and provider cost measurement were skipped. Runtime/SDK/MCP/editor checks used a deterministic local inference fixture, which does not prove model reasoning. Configure a provider in TrueForge, then set secureforge.model to its model FQN. Example settings and agent spec are included. Actual model, provider location and measured cost must be entered after the official run.')
 
