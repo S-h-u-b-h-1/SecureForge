@@ -1,0 +1,118 @@
+{
+  "mode": "model-independent context and real SDK unreachable-endpoint checks",
+  "taskB": {
+    "sources": [
+      {
+        "path": "tests/static/config.json",
+        "sha256": "28d7be9c2566e893e5e2da9eec54951032b55485fefc36ab4d53fa97b271c981",
+        "startLine": 1,
+        "endLine": 5,
+        "reason": "Task terms in filename and source: config, json, test; related test/documentation for tests/static/config.json"
+      },
+      {
+        "path": "tests/test_apps/cliapp/inner1/inner2/flask.py",
+        "sha256": "570567aafaf185348cffa097d904b964c44fe1a92c5ec82488b97e3d93dbab38",
+        "startLine": 1,
+        "endLine": 4,
+        "reason": "Task terms in filename and source: cli, flask, test; related test/documentation for tests/test_apps/cliapp/inner1/inner2/flask.py"
+      },
+      {
+        "path": "tests/test_cli.py",
+        "sha256": "9beae8f59d21c81721d3b04fe586d21031c6bfad12cd6f6a106bdd002c5718f4",
+        "startLine": 700,
+        "endLine": 719,
+        "reason": "Task terms in filename and source: cli, test; related test/documentation for src/flask/cli.py"
+      },
+      {
+        "path": "tests/test_config.py",
+        "sha256": "09df8aec5f88df421fa5b47bd66ee4e3aef23384c7c36a1be191d24723caadd0",
+        "startLine": 104,
+        "endLine": 163,
+        "reason": "Task terms in filename and source: config, test; related test/documentation for tests/static/config.json"
+      },
+      {
+        "path": "tests/static/config.toml",
+        "sha256": "1551d036dd594e88079db2179d045df595760af46dd6c80c11ef828fa2f7a02a",
+        "startLine": 1,
+        "endLine": 3,
+        "reason": "Task terms in filename and source: config, test; related test/documentation for tests/static/config.json"
+      },
+      {
+        "path": "tests/test_instance_config.py",
+        "sha256": "26466b388aabecbce19f2122bf0631e964bb79fdab84eae4716fe488d71b3857",
+        "startLine": 38,
+        "endLine": 97,
+        "reason": "Task terms in filename and source: config, test; related test/documentation for tests/static/config.json"
+      },
+      {
+        "path": "docs/cli.rst",
+        "sha256": "46fda46f76fc6615dfd653934a3d8ff888bc5c8d29a4fa1cd26b0a4adb0791f8",
+        "startLine": 554,
+        "endLine": 566,
+        "reason": "Task terms in filename and source: cli; related test/documentation for src/flask/cli.py"
+      },
+      {
+        "path": "docs/config.rst",
+        "sha256": "096ba095a405c0cc9e6c65f2e0374812a42160703d43445d53879ee8411d02e6",
+        "startLine": 7,
+        "endLine": 66,
+        "reason": "Task terms in filename and source: config; related test/documentation for tests/static/config.json"
+      },
+      {
+        "path": "src/flask/cli.py",
+        "sha256": "3741bd6097fa70dc2b1dc19be61b89e209cd06ffaa5962a3ebeed0d91e61ea80",
+        "startLine": 1113,
+        "endLine": 1156,
+        "reason": "Task terms in filename and source: cli, flask"
+      },
+      {
+        "path": "tests/test_json.py",
+        "sha256": "f6c73c61a602ee3b8b87bfa90284fbc96e567b77c3a6d86c0e3919c5f12b64c6",
+        "startLine": 262,
+        "endLine": 321,
+        "reason": "Task terms in filename and source: json, test"
+      },
+      {
+        "path": "src/flask/blueprints.py",
+        "sha256": "a79404da5635f0622d6ddaff44a46967c0e8d7b8343ef4062206644940e15f69",
+        "startLine": 39,
+        "endLine": 98,
+        "reason": "Task terms in filename and source: flask, prints"
+      },
+      {
+        "path": "src/flask/config.py",
+        "sha256": "3e2a85d033da9ba1d6d051f8087d61a574c17b7d0d4b38cf10ec2bcf56fa92dd",
+        "startLine": 54,
+        "endLine": 113,
+        "reason": "Task terms in filename and source: flask, config"
+      }
+    ],
+    "usedBytes": 17924,
+    "budgetBytes": 24000
+  },
+  "taskC": {
+    "status": "passed_local_failure_check",
+    "failure": "TrueForge run failed (connection or model error). No proposals were applied.",
+    "elapsedMs": 49,
+    "unchanged": true,
+    "before": {
+      "gitStatus": " M docs/cli.rst\n M src/flask/cli.py\n M src/flask/helpers.py\n M tests/test_cli.py\n",
+      "hashes": {
+        "src/flask/helpers.py": "db4f3e159ee27430bccf4755c7a85782d698efbb3dc875cd41f1fa355dc1287c",
+        "src/flask/cli.py": "3741bd6097fa70dc2b1dc19be61b89e209cd06ffaa5962a3ebeed0d91e61ea80",
+        "tests/test_cli.py": "9beae8f59d21c81721d3b04fe586d21031c6bfad12cd6f6a106bdd002c5718f4",
+        "docs/cli.rst": "46fda46f76fc6615dfd653934a3d8ff888bc5c8d29a4fa1cd26b0a4adb0791f8"
+      }
+    },
+    "after": {
+      "gitStatus": " M docs/cli.rst\n M src/flask/cli.py\n M src/flask/helpers.py\n M tests/test_cli.py\n",
+      "hashes": {
+        "src/flask/helpers.py": "db4f3e159ee27430bccf4755c7a85782d698efbb3dc875cd41f1fa355dc1287c",
+        "src/flask/cli.py": "3741bd6097fa70dc2b1dc19be61b89e209cd06ffaa5962a3ebeed0d91e61ea80",
+        "tests/test_cli.py": "9beae8f59d21c81721d3b04fe586d21031c6bfad12cd6f6a106bdd002c5718f4",
+        "docs/cli.rst": "46fda46f76fc6615dfd653934a3d8ff888bc5c8d29a4fa1cd26b0a4adb0791f8"
+      }
+    },
+    "limitation": "Editor responsiveness and the official recording remain pending."
+  }
+}

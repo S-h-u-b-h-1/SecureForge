@@ -25,6 +25,12 @@ exports.run = async function run() {
     const commands = await vscode.commands.getCommands(true);
     assert.ok(commands.includes('secureforge.reviewProposal'));
     assert.ok(commands.includes('secureforge.reviewDemo'));
+    for (const command of ['secureforge.openAgentPanel', 'secureforge.inlineEdit', 'secureforge.previewContext', 'secureforge.attachFile', 'secureforge.attachSymbol']) assert.ok(commands.includes(command));
+    const agentPanel = await vscode.commands.executeCommand('secureforge.openAgentPanel');
+    assert.match(agentPanel.webview.html, /Selected context/);
+    const script = agentPanel.webview.html.match(/<script nonce="[^"]+">([\s\S]*?)<\/script>/)[1];
+    assert.doesNotThrow(() => new (require('node:vm').Script)(script));
+    agentPanel.dispose();
     results.push('Extension activation and command registration');
 
     await fs.writeFile(filename, original);

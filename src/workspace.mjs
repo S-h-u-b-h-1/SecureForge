@@ -6,10 +6,10 @@ import path from 'node:path';
 const CODE_EXTENSIONS = new Set([
   '.py', '.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs', '.go', '.rs', '.java',
   '.c', '.cc', '.cpp', '.h', '.hpp', '.html', '.css', '.scss', '.json', '.toml',
-  '.yaml', '.yml', '.md', '.txt', '.sql', '.sh', '.ini', '.cfg', '.xml', '.vue',
+  '.yaml', '.yml', '.md', '.rst', '.txt', '.sql', '.sh', '.ini', '.cfg', '.xml', '.vue',
 ]);
 const SKIP_DIRS = new Set(['.git', 'node_modules', '.venv', 'venv', 'dist', 'build',
-  'coverage', '.next', '.cache', '__pycache__', '.idea', '.vscode']);
+  'coverage', '.next', '.cache', '.tmp', '__pycache__', '.idea', '.vscode']);
 const RESTRICTED_NAMES = /^(?:\.env(?:\..*)?|\.npmrc|\.pypirc|\.netrc|id_(?:rsa|ed25519)|credentials(?:\..*)?|secrets?(?:\..*)?)$/i;
 const RESTRICTED_SUFFIX = /\.(?:pem|key|p12|pfx|sqlite|sqlite3|db|keystore)$/i;
 const MAX_FILE_BYTES = 256 * 1024;

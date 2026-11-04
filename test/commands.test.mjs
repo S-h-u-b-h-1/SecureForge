@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, writeFile, rm, mkdir, symlink } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { Workspace } from '../src/workspace.mjs';
@@ -96,4 +96,18 @@ test('MCP command capability is opt-in and still requires local approval', async
   const receipt = JSON.parse(result.content[0].text);
   assert.equal(receipt.executed, false);
   assert.equal(receipt.status, 'denied');
+});
+
+
+test('verification preserves the selected executable symlink path for virtual environments', async t => {
+  const options = await fixture(t);
+  const directory = path.join(options.workspace.root, 'bin');
+  await mkdir(directory);
+  await symlink(process.execPath, path.join(directory, 'node'));
+  const originalPath = process.env.PATH;
+  process.env.PATH = directory;
+  try {
+    const command = await prepareCommand(options.workspace, options.request);
+    assert.equal(command.executable, path.join(directory, 'node'));
+  } finally { process.env.PATH = originalPath; }
 });

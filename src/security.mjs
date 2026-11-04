@@ -24,6 +24,53 @@ const RULES = [
   },
 ];
 
+// Bounded lexical tracing for simple Python handlers. Every result needs review.
+function tracePythonInputs(raw, path, hash) {
+  if (!path.endsWith('.py')) return [];
+  const findings = [];
+  const values = new Map();
+  const lines = raw.split(/\r?\n/);
+  let functionIndent;
+  for (let index = 0; index < lines.length && findings.length < 25; index++) {
+    const text = lines[index];
+    if (!text.trim() || text.trimStart().startsWith('#')) continue;
+    const indent = text.length - text.trimStart().length;
+    if (/^\s*(?:async\s+)?(?:def|class)\s/.test(text) ||
+        (functionIndent !== undefined && indent <= functionIndent)) {
+      values.clear();
+      functionIndent = /^\s*(?:async\s+)?def\s/.test(text) ? indent : undefined;
+    }
+    for (const [name, trace] of values) {
+      if (index - trace[0].line >= 50) values.delete(name);
+    }
+    const source = /\brequest\.(?:args|form|json|values|headers|cookies)\b/;
+    const references = expression => [...values].filter(([name, trace]) =>
+      index - trace[0].line < 50 && new RegExp(`\\b${name}\\b`).test(expression));
+    const assignment = text.match(/^\s*([A-Za-z_]\w*)\s*=\s*(.+)$/);
+    if (assignment) {
+      const [, name, expression] = assignment;
+      const trace = source.test(expression) ? [] : references(expression)[0]?.[1];
+      values.delete(name);
+      if (trace && trace.length < 8) values.set(name, [...trace, {
+        line: index + 1, evidence: redactSecrets(text).slice(0, 500),
+      }]);
+    }
+    const sink = text.match(/\b((?:cursor|db)\.execute|os\.system|subprocess\.(?:run|call|Popen))\s*\(([^,\n]*)/);
+    if (!sink || (sink[1].startsWith('subprocess.') && !/shell\s*=\s*True/.test(text))) continue;
+    const trace = source.test(sink[2]) ? [] : references(sink[2])[0]?.[1];
+    if (!trace) continue;
+    findings.push({
+      id: randomUUID(), ruleId: 'SF-FLOW-001', title: 'Request input reaches a sensitive Python call',
+      path, line: index + 1, sourceSha256: hash, evidence: redactSecrets(text).slice(0, 500),
+      trace: [...trace, { line: index + 1, evidence: redactSecrets(text).slice(0, 500) }],
+      impact: 'Inspect whether request data controls SQL structure or shell syntax.',
+      confidence: 'low', status: 'candidate', verification: 'not_run',
+      limitation: 'Lexical, same-function trace with 50-line and 8-assignment bounds. Aliases, strings, sanitizers, branches and interprocedural flows require manual analysis.',
+    });
+  }
+  return findings;
+}
+
 export function inspectSecuritySource({ path, raw, hash }) {
   const findings = [];
   for (const rule of RULES) {
@@ -49,7 +96,7 @@ export function inspectSecuritySource({ path, raw, hash }) {
       limitation: 'Heuristic detection can miss secret formats or flag dummy values.',
     });
   }
-  return findings;
+  return [...findings, ...tracePythonInputs(raw, path, hash)];
 }
 
 export async function reviewSecurity(workspace, { paths, signal, maxFiles = 250 } = {}) {
@@ -79,7 +126,7 @@ export async function reviewSecurity(workspace, { paths, signal, maxFiles = 250 
   return {
     id: randomUUID(), createdAt: new Date().toISOString(), mode: 'read-only static review',
     sources, findings: findings.slice(0, 100), skipped,
-    limitations: ['Four narrow pattern checks; no complete authorization or interprocedural analysis.',
+    limitations: ['Four narrow pattern checks and bounded lexical Python input traces; no complete authorization or interprocedural analysis.',
       'No finding is labelled exploitable without separate evidence.',
       'Excluded files, budgets and unsupported patterns limit coverage.'],
   };

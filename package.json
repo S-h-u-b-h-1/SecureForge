@@ -9,16 +9,20 @@
   },
   "scripts": {
     "test": "node --test test/*.test.mjs",
-    "check": "node --check src/agent.mjs && node --check src/cli.mjs && node --check src/mcp-server.mjs && node --check src/workspace.mjs && node --check src/proposals.mjs && node --check src/build/batches.mjs && node --check src/review.mjs && node --check extension/extension.cjs && node --check extension/review-ui.mjs && node --check extension/apply-review.mjs && node --check test/editor/launch.mjs && node --check test/editor/run.cjs && node --check src/review-group.mjs && node --check src/commands.mjs && node --check src/live-run.mjs && node --check extension/workflows.mjs && node --check src/security.mjs && node --check src/proof.mjs && node --check src/passport.mjs && node --check extension/security-ui.mjs",
+    "check": "node --check src/agent.mjs && node --check src/cli.mjs && node --check src/mcp-server.mjs && node --check src/workspace.mjs && node --check src/proposals.mjs && node --check src/build/batches.mjs && node --check src/review.mjs && node --check extension/extension.cjs && node --check extension/review-ui.mjs && node --check extension/apply-review.mjs && node --check test/editor/launch.mjs && node --check test/editor/run.cjs && node --check src/review-group.mjs && node --check src/commands.mjs && node --check src/live-run.mjs && node --check extension/workflows.mjs && node --check src/security.mjs && node --check src/proof.mjs && node --check src/passport.mjs && node --check extension/security-ui.mjs && node --check src/context.mjs && node --check extension/agent-panel.mjs && node --check extension/entry.mjs && node --check scripts/package-extension.mjs && node --check scripts/flask-context-check.mjs",
     "start:mcp": "node src/mcp-server.mjs",
     "demo:agent": "node src/cli.mjs agent",
     "demo:inspect": "node src/cli.mjs inspect",
     "test:editor": "node test/editor/launch.mjs",
     "test:editor:wire": "node test/editor/launch.mjs --wire",
-    "test:wire": "node test/editor/trueforge-wire.mjs"
+    "test:wire": "node test/editor/trueforge-wire.mjs",
+    "package:extension": "node scripts/package-extension.mjs"
   },
   "dependencies": {
     "@truefoundry/trueforge-sdk": "0.182.0",
     "diff": "8.0.4"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
   }
 }

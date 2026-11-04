@@ -1,0 +1,40 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
+import path from 'node:path';
+import os from 'node:os';
+import { Workspace, sha256 } from '../src/workspace.mjs';
+import { assembleContext, parseMentions, validateInlineProposal } from '../src/context.mjs';
+
+test('context discovers implementation/tests/docs without named files and respects a byte budget', async t => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'sf-context-'));
+  for (const directory of ['src', 'tests', 'docs', '.tmp']) await mkdir(path.join(root, directory));
+  for (const [file, content] of Object.entries({
+    'src/cli.py': 'def config_command():\n    return "loaded config"\n',
+    'tests/test_cli.py': 'def test_config_command():\n    assert True\n',
+    'docs/cli.rst': 'Built-in CLI commands\nConfiguration command reference\n',
+    'src/unrelated.py': 'def bicycle():\n    pass\n',
+    '.tmp/cli.py': 'private generated scratch data',
+  })) await writeFile(path.join(root, file), content);
+  const workspace = await new Workspace(root).init();
+  t.after(async () => { await workspace.close(); await rm(root, { recursive: true, force: true }); });
+  const result = await assembleContext(workspace, 'Add a CLI config command with tests and docs', { budgetBytes: 2000 });
+  assert.deepEqual(new Set(result.sources.map(source => source.path)), new Set(['src/cli.py', 'tests/test_cli.py', 'docs/cli.rst']));
+  assert.ok(result.sources.every(source => source.reason && source.sha256 && source.startLine >= 1));
+  assert.equal(result.usedBytes, Buffer.byteLength(JSON.stringify(result.sources)));
+  assert.ok(result.usedBytes <= result.budgetBytes);
+  const explicit = await assembleContext(workspace, '@file:src/unrelated.py @symbol:config_command');
+  assert.equal(explicit.sources[0].path, 'src/unrelated.py');
+  const invalid = await assembleContext(workspace, '@file:../outside.py config');
+  assert.ok(invalid.skipped.some(item => item.path === '../outside.py'));
+});
+
+test('mentions support quoted paths and inline scope rejects unrelated edits', () => {
+  assert.deepEqual(parseMentions('@file:"source files/a.py" @symbol:readNote'), { files: ['source files/a.py'], symbols: ['readNote'] });
+  const originalContent = 'before\nold\nafter\n';
+  const selection = { path: 'file.py', startOffset: 7, endOffset: 10, baseSha256: sha256(originalContent) };
+  const proposal = { path: 'file.py', baseSha256: selection.baseSha256, originalContent, proposedContent: 'before\nNEW\nafter\n' };
+  assert.doesNotThrow(() => validateInlineProposal(selection, proposal));
+  assert.throws(() => validateInlineProposal(selection, { ...proposal, proposedContent: 'BEFORE\nNEW\nafter\n' }), /outside/);
+  assert.throws(() => validateInlineProposal(selection, { ...proposal, path: 'other.py' }), /another file/);
+});

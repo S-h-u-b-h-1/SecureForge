@@ -18,14 +18,23 @@
       { "command": "secureforge.securityReview", "title": "SecureForge: Security Review" },
       { "command": "secureforge.startSecurityLab", "title": "SecureForge: Start Owned Security Lab" },
       { "command": "secureforge.verifySecurityFix", "title": "SecureForge: Verify Security Fix" },
-      { "command": "secureforge.exportPassport", "title": "SecureForge: Export Patch Passport" }
+      { "command": "secureforge.exportPassport", "title": "SecureForge: Export Patch Passport" },
+      { "command": "secureforge.inlineEdit", "title": "SecureForge: Inline Edit Selection" },
+      { "command": "secureforge.previewContext", "title": "SecureForge: Preview Task Context" },
+      { "command": "secureforge.attachFile", "title": "SecureForge: Attach File Context" },
+      { "command": "secureforge.attachSymbol", "title": "SecureForge: Attach Symbol Context" },
+      { "command": "secureforge.openAgentPanel", "title": "SecureForge: Open Agent Panel" }
     ],
     "configuration": {
       "title": "SecureForge",
       "properties": {
         "secureforge.trueforgeUrl": { "type": "string", "default": "http://localhost:8790", "description": "Local TrueForge HTTP origin." },
-        "secureforge.model": { "type": "string", "default": "", "description": "Model FQN configured inside TrueForge. Credentials stay in TrueForge." }
+        "secureforge.model": { "type": "string", "default": "", "description": "Model FQN configured inside TrueForge. Credentials stay in TrueForge." },
+        "secureforge.contextBudgetBytes": { "type": "integer", "minimum": 2000, "maximum": 96000, "default": 24000, "description": "Hard UTF-8 byte budget for automatically assembled context. Token counts are estimates." }
       }
-    }
+    },
+    "keybindings": [
+      { "command": "secureforge.inlineEdit", "key": "ctrl+alt+i", "mac": "cmd+alt+i", "when": "editorHasSelection && editorTextFocus" }
+    ]
   }
 }

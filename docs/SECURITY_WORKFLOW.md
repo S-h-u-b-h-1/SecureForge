@@ -68,3 +68,9 @@ npm run test:editor:wire
 ```
 
 The real-runtime wire checks use deterministic inference responses and actual SDK sessions, deferred tool discovery, MCP reads, TrueForge approval turns and editor proposal handoff. They support reproducible integration verification without provider charges. Production-model behavior and the official Flask Tasks A/B/C remain separate release checks.
+
+## Bounded Python request tracing
+
+`SF-FLOW-001` links simple Python request-input assignments to `cursor.execute`, `db.execute`, `os.system`, or a subprocess call with `shell=True`. It records redacted source/propagation/sink lines and the source hash. Reassignment and function boundaries clear tracked values. Traces stop after 50 lines and eight assignments. Findings remain low-confidence candidates.
+
+This lexical pass does not parse Python strings or prove branch feasibility, sanitization, authorization, aliases, or interprocedural reachability. Parameterized SQL values and subprocess argument lists with `shell=False` have negative controls in the test suite. Controlled exploitability proof remains limited to the owned traversal fixture.

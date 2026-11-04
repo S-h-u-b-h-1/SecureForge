@@ -17,7 +17,7 @@ try {
     '--new-window', '--wait', '--disable-workspace-trust', '--skip-welcome', '--skip-release-notes',
     '--user-data-dir', path.join(runDirectory, 'profile'),
     '--extensions-dir', path.join(runDirectory, 'extensions'),
-    `--extensionDevelopmentPath=${path.join(root, 'extension')}`,
+    `--extensionDevelopmentPath=${process.env.SECUREFORGE_EXTENSION_PATH || path.join(root, 'extension')}`,
     `--extensionTestsPath=${path.join(root, 'test/editor/run.cjs')}`,
     root,
   ], { stdio: 'inherit', env: { ...process.env, SECUREFORGE_EDITOR_REPORT: reportPath,

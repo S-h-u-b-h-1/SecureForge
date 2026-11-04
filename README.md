@@ -17,6 +17,7 @@ Local verification includes real VS Code editor tests and actual TrueForge runti
 ```bash
 # In the repository root:
 node --version               # Node >=22.14
+npm ci
 npm run check
 npm test
 npm run demo:inspect -- "SecureForge"
@@ -38,7 +39,7 @@ SECUREFORGE_MCP_NAME='secureforge-workspace' \
 npm run demo:agent -- 'Find the relevant source, propose a minimal README improvement, and do not apply it'
 ```
 
-TrueForge standalone runtime **0.183.0** has been verified locally with a configured Muse Spark 1.3 model and the SecureForge MCP connector (`npx @truefoundry/trueforge@0.183.0`). The SDK remains pinned to **0.182.0**; SDK-driven read-only sessions and event streaming have also been verified against runtime 0.183.0, but full cross-version compatibility and edit approvals remain unverified.
+TrueForge standalone runtime **0.183.0** has been verified locally with a configured Muse Spark 1.3 model and the SecureForge MCP connector (`npx @truefoundry/trueforge@0.183.0`). The SDK remains pinned to **0.182.0**; SDK-driven read-only sessions and event streaming have also been verified against runtime 0.183.0, but editor/MCP approval handoff has additionally been verified using a deterministic local inference fixture. Production-model edit acceptance remains pending.
 
 `SECUREFORGE_MODEL` and `SECUREFORGE_MCP_NAME` are environment variables; don't commit real credentials. For local TrueForge with no login, no API key is needed **for the TrueForge SDK itself**, but your configured model provider may require one. TrueForge local mode has no login: never expose it or the MCP bridge to the public internet.
 
@@ -63,3 +64,7 @@ The security branch includes a VS Code review milestone for pending v1 proposals
 ## Security workflow and evidence
 
 Use **SecureForge: Security Review** for bounded read-only candidate findings. **Start Owned Security Lab** demonstrates an explicit reviewed repair with failing-before/passing-after regressions. **Export Patch Passport** records patch decisions, command receipts, finding confidence and remaining uncertainties. See [security workflow and supported scope](docs/SECURITY_WORKFLOW.md).
+
+## Round 1 deliverables
+
+Installable VSIX, bounded task context, inline-selection guard and agent panel are included in this branch. Follow [Round 1 readiness and recording plan](docs/ROUND1_READINESS.md) for setup, model configuration, official-task rehearsal evidence and remaining submission gates. The write-up PDF is a readiness draft. Live-model A/B, the official video and portal submission remain pending.

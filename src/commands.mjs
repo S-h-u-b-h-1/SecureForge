@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { access, realpath } from 'node:fs/promises';
+import { access } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -11,7 +11,7 @@ async function executablePath(name) {
     const candidate = path.join(directory, name);
     try {
       await access(candidate, constants.X_OK);
-      return await realpath(candidate);
+      return candidate;
     } catch { /* Try the next executable directory. */ }
   }
   throw new Error(`Executable not found: ${name}`);

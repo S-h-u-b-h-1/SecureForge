@@ -5,6 +5,9 @@ import { runApprovedCommand } from '../src/commands.mjs';
 import { openReviewPayload } from './review-ui.mjs';
 import { createPassport } from '../src/passport.mjs';
 import { registerSecurityCommands } from './security-ui.mjs';
+import path from 'node:path';
+import { assembleContext } from '../src/context.mjs';
+import { registerAgentPanel } from './agent-panel.mjs';
 
 export function registerWorkflows(vscode, context) {
   const output = vscode.window.createOutputChannel('SecureForge Activity');
@@ -12,8 +15,13 @@ export function registerWorkflows(vscode, context) {
   const applied = [];
   const securityReports = [];
   const proofs = [];
+  const mentions = [];
   let activeRun;
-  context.subscriptions.push(output, { dispose: () => { void activeRun?.cancel(); } });
+  let building = false;
+  let buildController;
+  const listeners = new Set();
+  function broadcast(message) { for (const listener of listeners) listener(message); }
+  context.subscriptions.push(output, { dispose: () => { buildController?.abort(); void activeRun?.cancel(); } });
 
   async function folder() {
     if (!vscode.workspace.isTrusted) throw new Error('A trusted local workspace is required');
@@ -35,23 +43,61 @@ export function registerWorkflows(vscode, context) {
     if (applied.length > 100) applied.shift();
   }
 
-  async function build(initialTask) {
+  async function build(initialTask, inline = false) {
+    if (!vscode.workspace.isTrusted) throw new Error('A trusted local workspace is required');
     if (activeRun) throw new Error('Cancel or finish the current agent run first');
-    const selected = await folder();
+    const editor = inline ? vscode.window.activeTextEditor : undefined;
+    if (inline && (!editor || editor.selection.isEmpty || editor.document.isDirty)) {
+      throw new Error('Select code in a saved source file before requesting an inline edit');
+    }
+    const selected = inline ? vscode.workspace.getWorkspaceFolder(editor.document.uri) : await folder();
     if (!selected) return;
-    const task = typeof initialTask === 'string' ? initialTask : await vscode.window.showInputBox({ title: 'SecureForge Build', prompt: 'Describe the repository change' });
+    const selectionVersion = editor?.document.version;
+    const startOffset = inline ? editor.document.offsetAt(editor.selection.start) : undefined;
+    const endOffset = inline ? editor.document.offsetAt(editor.selection.end) : undefined;
+    const task = typeof initialTask === 'string' ? initialTask : await vscode.window.showInputBox({
+      title: inline ? 'SecureForge Inline Edit' : 'SecureForge Build',
+      prompt: 'Describe the change. Optional @file:path and @symbol:name mentions.', value: mentions.join(' '),
+    });
     if (!task?.trim()) return;
+    buildController.signal.throwIfAborted();
+    mentions.length = 0;
     const settings = vscode.workspace.getConfiguration('secureforge');
+    const sourceWorkspace = await new Workspace(selected.uri.fsPath).init();
+    let context;
+    let selection;
+    try {
+      if (inline) {
+        const source = await sourceWorkspace.rawForProposal(path.relative(sourceWorkspace.root, editor.document.uri.fsPath));
+        if (editor.document.version !== selectionVersion || source.raw !== editor.document.getText()) {
+          throw new Error('Selected document changed while preparing the task');
+        }
+        selection = { path: source.relative, baseSha256: source.hash, startOffset, endOffset };
+      }
+      context = await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification,
+        title: 'SecureForge context selection', cancellable: true }, async (_progress, token) => {
+        const subscription = token.onCancellationRequested(() => buildController.abort());
+        try { return await assembleContext(sourceWorkspace, task, {
+          budgetBytes: settings.get('contextBudgetBytes', 24000), signal: buildController.signal, selectedPath: selection?.path,
+        }); } finally { subscription.dispose(); }
+      });
+    } finally { await sourceWorkspace.close(); }
     const baseUrl = localTrueForgeUrl(settings.get('trueforgeUrl', 'http://localhost:8790'));
     const model = settings.get('model', '').trim() || await vscode.window.showInputBox({
       title: 'TrueForge model', prompt: 'Enter the configured model FQN from TrueForge Settings → Models',
     });
     if (!model?.trim()) return;
+    buildController.signal.throwIfAborted();
     const client = await createTrueForgeClient({ baseUrl });
+    buildController.signal.throwIfAborted();
     let outputBytes = 0;
     output.clear();
     output.show(true);
     output.appendLine(`TrueForge ${baseUrl} | Build | ${model}`);
+    output.appendLine(`Context ${context.usedBytes}/${context.budgetBytes} UTF-8 bytes (${context.tokenEstimate} estimated tokens)`);
+    for (const source of context.sources) output.appendLine(`${source.path}:${source.startLine}-${source.endLine} — ${source.reason}`);
+    broadcast({ type: 'context', summary: `${context.usedBytes}/${context.budgetBytes} UTF-8 bytes\n` +
+      context.sources.map(source => `${source.path}:${source.startLine}-${source.endLine} | ${source.reason}`).join('\n') });
     activeRun = new LiveRun({
       client, root: selected.uri.fsPath,
       verifyCommand: (workspace, request, signal) => runCheck(workspace, request, signal),
@@ -60,6 +106,7 @@ export function registerWorkflows(vscode, context) {
         const line = redactSecrets(event.content || event.type);
         outputBytes += Buffer.byteLength(line);
         output.appendLine(line.slice(0, 4000));
+        broadcast({ type: 'activity', text: line.slice(0, 4000) });
       },
       approveTool: async ({ sessionId }) => await vscode.window.showWarningMessage(
         'Allow this TrueForge workspace-tool request?', { modal: true,
@@ -73,7 +120,7 @@ export function registerWorkflows(vscode, context) {
         location: vscode.ProgressLocation.Notification, title: 'SecureForge Build', cancellable: true,
       }, async (_progress, token) => {
         const subscription = token.onCancellationRequested(() => { void run.cancel(); });
-        try { return await run.run({ model: model.trim(), task }); }
+        try { return await run.run({ model: model.trim(), task, context, selection }); }
         finally { subscription.dispose(); }
       });
       if (!payload.proposals.length) {
@@ -89,6 +136,42 @@ export function registerWorkflows(vscode, context) {
     } finally {
       activeRun = undefined;
     }
+  }
+
+  async function guardedBuild(task, inline = false) {
+    if (building) throw new Error('A Build request is already active');
+    building = true;
+    buildController = new AbortController();
+    try { return await build(task, inline); }
+    finally { building = false; buildController = undefined; }
+  }
+
+  async function previewContext() {
+    const selected = await folder();
+    if (!selected) return;
+    const task = await vscode.window.showInputBox({ title: 'Preview task context', prompt: 'Task with optional @file:path and @symbol:name' });
+    if (!task?.trim()) return;
+    const workspace = await new Workspace(selected.uri.fsPath).init();
+    try {
+      const result = await assembleContext(workspace, task, { budgetBytes: vscode.workspace.getConfiguration('secureforge').get('contextBudgetBytes', 24000) });
+      await vscode.window.showTextDocument(await vscode.workspace.openTextDocument({ language: 'json', content: JSON.stringify(result, null, 2) }));
+    } finally { await workspace.close(); }
+  }
+
+  async function attachFile() {
+    const selected = await folder();
+    if (!selected) return;
+    const workspace = await new Workspace(selected.uri.fsPath).init();
+    try {
+      const file = await vscode.window.showQuickPick(await workspace.listFiles(), { title: 'Attach a file to the next Build request' });
+      if (file) { const mention = `@file:${JSON.stringify(file)}`; mentions.push(mention); return mention; }
+    } finally { await workspace.close(); }
+  }
+
+  async function attachSymbol() {
+    const symbol = await vscode.window.showInputBox({ title: 'Attach a symbol to the next Build request',
+      validateInput: value => /^[A-Za-z_$][\w$]{1,99}$/.test(value) ? undefined : 'Enter a symbol of 2..100 characters' });
+    if (symbol) { const mention = `@symbol:${symbol}`; mentions.push(mention); return mention; }
   }
 
   async function verify() {
@@ -148,8 +231,12 @@ export function registerWorkflows(vscode, context) {
   }
 
   const handlers = {
-    'secureforge.runBuild': build,
-    'secureforge.cancelRun': () => activeRun?.cancel(),
+    'secureforge.runBuild': guardedBuild,
+    'secureforge.inlineEdit': () => guardedBuild(undefined, true),
+    'secureforge.previewContext': previewContext,
+    'secureforge.attachFile': attachFile,
+    'secureforge.attachSymbol': attachSymbol,
+    'secureforge.cancelRun': () => { buildController?.abort(); return activeRun?.cancel(); },
     'secureforge.runVerification': verify,
     'secureforge.exportPassport': exportPassport,
   };
@@ -161,5 +248,7 @@ export function registerWorkflows(vscode, context) {
   }
   const state = { folder, receipts, applied, securityReports, proofs, output, runCheck, recordReview };
   registerSecurityCommands(vscode, context, state);
+  registerAgentPanel(vscode, context, { run: guardedBuild, cancel: () => { buildController?.abort(); return activeRun?.cancel(); }, attachFile, attachSymbol,
+    subscribe: listener => { listeners.add(listener); return { dispose: () => listeners.delete(listener) }; } });
   return state;
 }

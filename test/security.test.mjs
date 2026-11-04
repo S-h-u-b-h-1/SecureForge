@@ -101,3 +101,29 @@ test('passport redaction preserves JSON syntax for quoted and multiline output',
   assert.ok(!encoded.includes('second-private'));
   assert.deepEqual(JSON.parse(encoded).verification[0].status, 'failed');
 });
+
+test('Python input traces include source, propagation and sink while respecting reset boundaries', () => {
+  const raw = `def unsafe():
+    value = request.args.get("name")
+    query = "SELECT * FROM users WHERE name = " + value
+    cursor.execute(query)
+def parameterized():
+    value = request.args.get("name")
+    cursor.execute("SELECT * FROM users WHERE name = ?", (value,))
+def overwritten():
+    value = request.args.get("name")
+    value = "constant"
+    os.system(value)
+def isolated():
+    os.system(query)
+def subprocess_safe():
+    value = request.args.get("name")
+    subprocess.run(["echo", value], shell=False)
+`;
+  const findings = inspectSecuritySource({ path: 'handler.py', raw, hash: sha256(raw) });
+  const flows = findings.filter(item => item.ruleId === 'SF-FLOW-001');
+  assert.equal(flows.length, 1);
+  assert.deepEqual(flows[0].trace.map(step => step.line), [2, 3, 4]);
+  assert.equal(flows[0].status, 'candidate');
+  assert.equal(flows[0].sourceSha256, sha256(raw));
+});
