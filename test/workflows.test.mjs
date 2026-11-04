@@ -29,3 +29,23 @@ test('standalone verification cancellation uses its own controller without an ac
     error => error.name === 'AbortError');
   assert.equal(state.receipts.length, 0);
 });
+
+test('command failures reach the activity subscribers and visible notification', async () => {
+  const handlers = new Map();
+  const notifications = [];
+  const vscode = {
+    commands: { registerCommand: (name, handler) => { handlers.set(name, handler); return { dispose() {} }; } },
+    workspace: { isTrusted: false },
+    window: {
+      createOutputChannel: () => ({ appendLine() {}, dispose() {} }),
+      showErrorMessage: message => notifications.push(message),
+    },
+  };
+  const state = registerWorkflows(vscode, { subscriptions: [] });
+  const events = [];
+  const subscription = state.subscribe(event => events.push(event));
+  await handlers.get('secureforge.runBuild')('Update the docstring');
+  assert.match(notifications[0], /trusted local workspace/);
+  assert.deepEqual(events, [{ type: 'error', message: 'A trusted local workspace is required' }]);
+  subscription.dispose();
+});

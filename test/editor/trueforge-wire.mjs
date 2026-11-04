@@ -11,7 +11,7 @@ import { createTrueForgeClient } from '../../src/agent.mjs';
 import { LiveRun } from '../../src/live-run.mjs';
 import { sha256 } from '../../src/workspace.mjs';
 
-export async function verifyTrueForgeWire({ onPayload = async () => {} } = {}) {
+export async function verifyTrueForgeWire({ onPayload = async () => {}, onConfigured = async () => {} } = {}) {
   const root = await mkdtemp(path.join(os.tmpdir(), 'sf-wire-'));
   const original = 'first\nkeep\nlast\n';
   await writeFile(path.join(root, 'sample.py'), original);
@@ -71,6 +71,8 @@ export async function verifyTrueForgeWire({ onPayload = async () => {} } = {}) {
     assert.equal(await readFile(path.join(root, 'sample.py'), 'utf8'), original);
     assert.ok(events.includes('tool.approval_required'));
     await onPayload(payload, root);
+    requests = 0;
+    await onConfigured({ root, model: `${provider}/fixture` });
     return { sessionId: payload.sessionId, provider: 'deterministic local fixture', events, proposals: payload.proposals.length };
   } finally {
     if (registered) await client.settings.modelProviders.delete(provider);

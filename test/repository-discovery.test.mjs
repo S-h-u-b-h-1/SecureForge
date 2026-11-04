@@ -103,7 +103,14 @@ test('B1 excludes credential-bearing filenames and directories before returning 
   const output = await discoverRelevantFiles({ workspace, task: 'Fix login token authentication', maxCandidates: 20 });
   assert.ok(!JSON.stringify(output).includes(token), 'Credential must not appear in any discovery output');
   assert.ok(!output.candidates.some(({ path: name }) => name === secretFilename || name === secretDirectory));
-  assert.ok(output.coverage.redactedFiles >= 2);
+  assert.ok(!(await workspace.listFiles()).some(file => file.includes(token)));
+  const adapter = {
+    listFiles: async () => [...await workspace.listFiles(), secretFilename, secretDirectory],
+    readFile: (...args) => workspace.readFile(...args),
+  };
+  const adapterOutput = await discoverRelevantFiles({ workspace: adapter, task: 'login token verification', maxCandidates: 20 });
+  assert.ok(adapterOutput.coverage.redactedFiles >= 2);
+  assert.ok(!JSON.stringify(adapterOutput).includes(token));
 });
 
 test('B1 cancellation after listFiles and readFile does not return success', async () => {

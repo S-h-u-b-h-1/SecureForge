@@ -1,0 +1,32 @@
+{
+  "mode": "real packaged VS Code extension with actual SDK unreachable-endpoint failure",
+  "flaskCommit": "22d924701a6ae2e4cd01e9a15bbaf3946094af65",
+  "prompt": "Treat the values 'off' and 'n' as false as well, case-insensitively, and update the docstring to list every value that is treated as false.",
+  "error": "TrueForge run failed (connection or model error). No proposals were applied.",
+  "elapsedMs": 310,
+  "editorProbe": {
+    "command": "cursorMove",
+    "elapsedMs": 20,
+    "completedWhileBuildPending": true
+  },
+  "unchanged": true,
+  "before": {
+    "gitStatus": "",
+    "hashes": {
+      "src/flask/helpers.py": "ac96607bbfc9dbcf09d5442fe7e90d7f8a046b0df7d8f3fc3535b44112016d71",
+      "src/flask/cli.py": "3df87bdbe07196fa07d101c20ce7351ef5c6ecaab95deb5fdf3ccdcf690d4879",
+      "tests/test_cli.py": "bc9b456bcd5c8698f4a809ca9c5a595b8be47ac5f8f057442d6c78498b70e3f8",
+      "docs/cli.rst": "e8e5e9b220a5159e9c9c8b413de499aa5a51cd0ca487681e2352bbdf6f9b0cda"
+    }
+  },
+  "after": {
+    "gitStatus": "",
+    "hashes": {
+      "src/flask/helpers.py": "ac96607bbfc9dbcf09d5442fe7e90d7f8a046b0df7d8f3fc3535b44112016d71",
+      "src/flask/cli.py": "3df87bdbe07196fa07d101c20ce7351ef5c6ecaab95deb5fdf3ccdcf690d4879",
+      "tests/test_cli.py": "bc9b456bcd5c8698f4a809ca9c5a595b8be47ac5f8f057442d6c78498b70e3f8",
+      "docs/cli.rst": "e8e5e9b220a5159e9c9c8b413de499aa5a51cd0ca487681e2352bbdf6f9b0cda"
+    }
+  },
+  "limitation": "This is an automated editor check. The official A/B/C recording remains pending."
+}

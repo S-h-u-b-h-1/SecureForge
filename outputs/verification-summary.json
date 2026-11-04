@@ -1,13 +1,15 @@
 {
-  "createdAt": "2026-11-04T17:28:45.972Z",
+  "createdAt": "2026-11-04T21:53:20.177Z",
+  "sourceBaseRef": "ec2fefeeb1c77be9d0a36295dab1c949e84310b8",
+  "sourceIdentity": "Source hashes identify the verified follow-up implementation relative to sourceBaseRef.",
   "node": "v24.5.0",
   "platform": "darwin",
   "unitTests": {
-    "passed": 69,
+    "passed": 75,
     "failed": 0
   },
   "packagedEditor": {
-    "passed": 13,
+    "passed": 15,
     "checks": [
       "Extension activation and command registration",
       "Mixed hunk decisions apply only the accepted edit in the editor",
@@ -21,38 +23,47 @@
       "A stale member blocks the entire multi-file apply",
       "Cancellation before batch apply preserves all documents",
       "Owned security finding, editor-reviewed fix, saved regression proof and Patch Passport agree",
-      "Real TrueForge session 01m6ksnc60nvfxpqma66vpzb1b delivers a proposal into the editor (deterministic inference fixture)"
+      "Task C uses the exact Task A prompt, shows a clear failure, remains responsive and preserves pinned Flask sources",
+      "Normal Build command delivers a real runtime proposal into review using fixture editor surfaces",
+      "Real TrueForge session 01m6m8s84khfvqnem9as0zt889 delivers a proposal into the editor (deterministic inference fixture)"
     ],
     "inference": "deterministic local fixture, not a production model"
   },
-  "flaskReference": {
-    "cliTestsPassed": 59,
-    "mode": "manually specified reference edits"
+  "normalBuildRegression": "Actual SDK/runtime proposal reaches review through the normal command handler with fixture VS Code surfaces.",
+  "taskC": {
+    "status": "passed automated packaged-editor check",
+    "report": "outputs/task-c-editor-check.json",
+    "unchanged": true,
+    "editorResponsiveWhilePending": true
+  },
+  "installation": {
+    "path": "/Users/Apple/.vscode/extensions/secureforge.secureforge-review-0.1.0",
+    "bundleSha256": "36733e6b383c14865d2b1b3fe40ad10c1706716ca190f9b304f7315230463a16",
+    "matchesTestedPackage": true
+  },
+  "modelSetup": {
+    "configuredModelCount": 0,
+    "productionModelTasks": "blocked: no model configured in TrueForge"
   },
   "auditVulnerabilities": 0,
-  "integratedTeammateCommit": "a28fe80",
   "sha256": {
-    "outputs/SecureForge-0.1.0.vsix": "6fecd51c778f07aa4a9c8af94276bc8d8c82e12b654b7642dabab1238a6e737a",
-    "outputs/SecureForge-Round1-Writeup-DRAFT.pdf": "73d29f51bc3c931371be65f92e09e502eac3180feea6fc7d1a95e1f65c5af209",
+    "outputs/SecureForge-0.1.0.vsix": "906ed9324e174ee1fc9e6edc38c26cc5b5b46abdb97e3a2a553b5fd9479a93ab",
+    "src/workspace.mjs": "b0485d63b867c9784912233ea8316e5deb530855565687ee997573ab03967cf8",
+    "src/mcp-server.mjs": "3200bb2dc8dab26f78e92cd040cd77bb421b3c700b574d26ec453e1029f1cb6a",
     "src/context.mjs": "aead4292aeffa362862f7c3fadd9056949637111b1698de9f90b5f1e3d4b8c8b",
-    "src/build/repository-discovery.mjs": "275424ba089a8f48f337d657db83238fc47baa31be0f874527711fef593496d5",
-    "src/security.mjs": "c6ff7e906d59348b23ca4415df08fe6a52c25a3e8f1c7898b0376d99cd82b14f",
-    "src/live-run.mjs": "fd82c6fd74acd19271b5bdc59392402be0ff7051441d44c086a374ffbae01e5e"
+    "src/live-run.mjs": "fd82c6fd74acd19271b5bdc59392402be0ff7051441d44c086a374ffbae01e5e",
+    "extension/review-ui.mjs": "032f0cd7244cec3715d67c262bde64b0a2842b89b7072bfe20d562f59e02869f",
+    "extension/workflows.mjs": "3f1f7b40f5a724d8992a9799281bbb12ac0bc25e84b1dde3d63aa8e98a999b6d",
+    "extension/agent-panel.mjs": "e728af3772d546a8a726503e943ef0dd6d55db37a220725a3504ac249ec7229f"
   },
   "remaining": [
-    "Real-model official A/B runs",
-    "Official A/B/C editor video",
-    "Team metadata and video timestamps",
-    "Advanced TrueForge context-engineering feature demonstration",
-    "Automatic model fallback and retry/backoff",
-    "Final competition portal submission"
-  ],
-  "contextCredentialGuard": {
-    "regression": "Reproduced sensitive-path disclosure with synthetic credentials before the fix",
-    "paths": "Excluded from reads, candidates, explicit mentions, inline selection context and diagnostics",
-    "sourceBodies": "Entire files excluded if credential redaction changes content",
-    "liveInputs": "Credential-bearing tasks and inline paths rejected before TrueForge contact"
-  },
-  "verifiedSourceRef": "8d814af67f9a351be64a8df91932cb54b7e9091d",
-  "sourceAuditFollowup": "Later source audit fixes have independent source review and unexecuted regression tests. This historical report and VSIX do not validate those later changes."
+    "Production-model official A/B runs",
+    "Real-generation inline editing and cancellation",
+    "Official A/B/C recording",
+    "Final team metadata and video timestamps",
+    "Final competition submission",
+    "Advanced TrueForge context-engineering demonstration",
+    "Automatic fallback and retry/backoff",
+    "Deferred audit directory, descendant cancellation and MCP schema checks"
+  ]
 }

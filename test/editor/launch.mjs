@@ -19,7 +19,7 @@ try {
     '--extensions-dir', path.join(runDirectory, 'extensions'),
     `--extensionDevelopmentPath=${process.env.SECUREFORGE_EXTENSION_PATH || path.join(root, 'extension')}`,
     `--extensionTestsPath=${path.join(root, 'test/editor/run.cjs')}`,
-    root,
+    process.env.SECUREFORGE_EDITOR_WORKSPACE || root,
   ], { stdio: 'inherit', env: { ...process.env, SECUREFORGE_EDITOR_REPORT: reportPath,
     SECUREFORGE_EDITOR_WIRE: process.argv.includes('--wire') ? '1' : '' } });
   const code = await new Promise((resolve, reject) => {

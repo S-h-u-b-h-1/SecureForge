@@ -60,6 +60,9 @@ window.addEventListener('message', event => {
     runButton.disabled = message.running;
     cancelButton.disabled = !message.running;
   }
+  if (message.type === 'error') {
+    document.getElementById('status').textContent = message.message;
+  }
   if (message.type === 'context') {
     document.getElementById('context').textContent = message.summary;
   }

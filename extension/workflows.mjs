@@ -21,6 +21,10 @@ export function registerWorkflows(vscode, context) {
   let buildController;
   const listeners = new Set();
   function broadcast(message) { for (const listener of listeners) listener(message); }
+  function subscribe(listener) {
+    listeners.add(listener);
+    return { dispose: () => listeners.delete(listener) };
+  }
   context.subscriptions.push(output, { dispose: () => { buildController?.abort(); void activeRun?.cancel(); } });
 
   async function folder() {
@@ -64,7 +68,7 @@ export function registerWorkflows(vscode, context) {
     mentions.length = 0;
     const settings = vscode.workspace.getConfiguration('secureforge');
     const sourceWorkspace = await new Workspace(selected.uri.fsPath).init();
-    let context;
+    let taskContext;
     let selection;
     try {
       if (inline) {
@@ -74,7 +78,7 @@ export function registerWorkflows(vscode, context) {
         }
         selection = { path: source.relative, baseSha256: source.hash, startOffset, endOffset };
       }
-      context = await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification,
+      taskContext = await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification,
         title: 'SecureForge context selection', cancellable: true }, async (_progress, token) => {
         const subscription = token.onCancellationRequested(() => buildController.abort());
         try { return await assembleContext(sourceWorkspace, task, {
@@ -94,10 +98,10 @@ export function registerWorkflows(vscode, context) {
     output.clear();
     output.show(true);
     output.appendLine(`TrueForge ${baseUrl} | Build | ${model}`);
-    output.appendLine(`Context ${context.usedBytes}/${context.budgetBytes} UTF-8 bytes (${context.tokenEstimate} estimated tokens)`);
-    for (const source of context.sources) output.appendLine(`${source.path}:${source.startLine}-${source.endLine} — ${source.reason}`);
-    broadcast({ type: 'context', summary: `${context.usedBytes}/${context.budgetBytes} UTF-8 bytes\n` +
-      context.sources.map(source => `${source.path}:${source.startLine}-${source.endLine} | ${source.reason}`).join('\n') });
+    output.appendLine(`Context ${taskContext.usedBytes}/${taskContext.budgetBytes} UTF-8 bytes (${taskContext.tokenEstimate} estimated tokens)`);
+    for (const source of taskContext.sources) output.appendLine(`${source.path}:${source.startLine}-${source.endLine} — ${source.reason}`);
+    broadcast({ type: 'context', summary: `${taskContext.usedBytes}/${taskContext.budgetBytes} UTF-8 bytes\n` +
+      taskContext.sources.map(source => `${source.path}:${source.startLine}-${source.endLine} | ${source.reason}`).join('\n') });
     activeRun = new LiveRun({
       client, root: selected.uri.fsPath,
       verifyCommand: (workspace, request, signal) => runCheck(workspace, request, signal),
@@ -120,7 +124,7 @@ export function registerWorkflows(vscode, context) {
         location: vscode.ProgressLocation.Notification, title: 'SecureForge Build', cancellable: true,
       }, async (_progress, token) => {
         const subscription = token.onCancellationRequested(() => { void run.cancel(); });
-        try { return await run.run({ model: model.trim(), task, context, selection }); }
+        try { return await run.run({ model: model.trim(), task, context: taskContext, selection }); }
         finally { subscription.dispose(); }
       });
       if (!payload.proposals.length) {
@@ -243,12 +247,17 @@ export function registerWorkflows(vscode, context) {
   for (const [name, handler] of Object.entries(handlers)) {
     context.subscriptions.push(vscode.commands.registerCommand(name, async (...args) => {
       try { return await handler(...args); }
-      catch (error) { vscode.window.showErrorMessage(`SecureForge: ${redactSecrets(error.message)}`); }
+      catch (error) {
+        const message = redactSecrets(error.message);
+        output.appendLine(message);
+        broadcast({ type: 'error', message });
+        vscode.window.showErrorMessage(`SecureForge: ${message}`);
+      }
     }));
   }
-  const state = { folder, receipts, applied, securityReports, proofs, output, runCheck, recordReview };
+  const state = { folder, receipts, applied, securityReports, proofs, output, runCheck, recordReview, subscribe };
   registerSecurityCommands(vscode, context, state);
   registerAgentPanel(vscode, context, { run: guardedBuild, cancel: () => { buildController?.abort(); return activeRun?.cancel(); }, attachFile, attachSymbol,
-    subscribe: listener => { listeners.add(listener); return { dispose: () => listeners.delete(listener) }; } });
+    subscribe });
   return state;
 }

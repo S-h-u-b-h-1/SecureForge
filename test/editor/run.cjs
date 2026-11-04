@@ -157,10 +157,15 @@ exports.run = async function run() {
       assert.ok(!JSON.stringify(passport).includes('originalContent'));
       results.push('Owned security finding, editor-reviewed fix, saved regression proof and Patch Passport agree');
     } finally { await labWorkspace.close(); }
+    if (process.env.SECUREFORGE_EDITOR_FAILURE_REPORT) {
+      await require('./failure-check.cjs').verifyEditorFailure(vscode, api);
+      results.push('Task C uses the exact Task A prompt, shows a clear failure, remains responsive and preserves pinned Flask sources');
+    }
     if (process.env.SECUREFORGE_EDITOR_WIRE === '1') {
       const { verifyTrueForgeWire } = await import('./trueforge-wire.mjs');
       const { openReviewPayload } = await import('../../extension/review-ui.mjs');
-      const wire = await verifyTrueForgeWire({ onPayload: async (payload, root) => {
+      const { verifyBuildWorkflow } = await import('./workflow-check.mjs');
+      const wire = await verifyTrueForgeWire({ onConfigured: verifyBuildWorkflow, onPayload: async (payload, root) => {
         const source = await new Workspace(root).init();
         const context = { subscriptions: [] };
         const panel = await openReviewPayload(vscode, context, source, payload);
@@ -168,6 +173,7 @@ exports.run = async function run() {
         assert.match(panel.webview.html, /Review proposed changes/);
         panel.dispose();
       } });
+      results.push('Normal Build command delivers a real runtime proposal into review using fixture editor surfaces');
       results.push(`Real TrueForge session ${wire.sessionId} delivers a proposal into the editor (deterministic inference fixture)`);
     }
     if (process.env.SECUREFORGE_EDITOR_REPORT) {
