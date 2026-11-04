@@ -28,6 +28,7 @@ function safeRelativeName(name) {
   if (typeof name !== 'string' || !name || name.includes('\0') || path.isAbsolute(name)) {
     throw new Error('A nonempty workspace-relative path is required');
   }
+  if (redactSecrets(name) !== name) throw new Error('Restricted credential-bearing file path');
   const segments = name.replaceAll('\\', '/').split('/');
   if (segments.some((s) => !s || s === '.' || s === '..')) throw new Error('Unsafe path component');
   if (segments.some((s) => SKIP_DIRS.has(s) || RESTRICTED_NAMES.test(s) || RESTRICTED_SUFFIX.test(s))) {
@@ -200,7 +201,7 @@ export class Workspace {
       for (const entry of entries) {
         if (entry.isSymbolicLink()) continue;
         const rel = base ? `${base}/${entry.name}` : entry.name;
-        if (RESTRICTED_NAMES.test(entry.name) || RESTRICTED_SUFFIX.test(entry.name)) continue;
+        if (RESTRICTED_NAMES.test(entry.name) || RESTRICTED_SUFFIX.test(entry.name) || redactSecrets(rel) !== rel) continue;
         if (entry.isDirectory()) {
           if (!SKIP_DIRS.has(entry.name)) queue.push(rel);
         } else if (entry.isFile() && CODE_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) {
@@ -225,10 +226,10 @@ export class Workspace {
     for (const file of all) {
       try {
         const { raw, hash } = await this.#readRaw(file);
-        const lines = raw.split(/\r?\n/);
+        // Match only disclosure-safe text so hidden values cannot become a search oracle.
         const safeLines = redactSecrets(raw).split(/\r?\n/);
-        for (let i = 0; i < lines.length; i++) {
-          if (lines[i].toLowerCase().includes(term)) {
+        for (let i = 0; i < safeLines.length; i++) {
+          if (safeLines[i].toLowerCase().includes(term)) {
             matches.push({ path: file, line: i + 1, snippet: safeLines[i].slice(0, 260), sha256: hash });
             if (matches.length >= maxResults) break;
           }

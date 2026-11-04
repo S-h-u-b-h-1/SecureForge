@@ -91,3 +91,37 @@ test('repository discovery is available through bounded read-only MCP calls', as
   const invalid = await post(request(51, 'tools/call', { name: 'discover_repository', arguments: { task: 'x'.repeat(401) } }));
   assert.equal(invalid.data.result.isError, true);
 });
+
+test('cancelled MCP capabilities reject new calls and suppress in-flight source results', { timeout: 5000 }, async t => {
+  const root = await mkdtemp(path.join(tmpdir(), 'secureforge-revocation-'));
+  const controller = new AbortController();
+  const instance = await createMcpServer({ root, port: 0, signal: controller.signal });
+  t.after(async () => {
+    instance.server.closeAllConnections();
+    await new Promise(resolve => instance.server.close(resolve));
+    await instance.workspace.close();
+    await rm(root, { recursive: true, force: true });
+  });
+  let entered;
+  let release;
+  const started = new Promise(resolve => { entered = resolve; });
+  const pendingRead = new Promise(resolve => { release = resolve; });
+  instance.workspace.readFile = async () => {
+    entered();
+    await pendingRead;
+    return { lines: [{ text: 'private dummy source' }] };
+  };
+  const url = `http://127.0.0.1:${instance.address.port}/mcp`;
+  const call = () => fetch(url, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'read_file', arguments: { path: 'dummy.py' } } }),
+  });
+  const inFlight = call();
+  await started;
+  controller.abort();
+  release();
+  const response = await inFlight;
+  assert.equal(response.status, 410);
+  assert.ok(!(await response.text()).includes('private dummy source'));
+  assert.equal((await call()).status, 410);
+});

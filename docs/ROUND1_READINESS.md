@@ -74,3 +74,10 @@ The reference rehearsal is separate from this recording. The exact A/B prompts a
 - Submit public repository, final 1-3 page PDF and video through the competition portal before the brief's deadline of 20 November 2026, 23:59 IST.
 
 Automatic fallback, retry/backoff and a demonstrated TrueForge context-engineering feature remain future work. Current failure handling stops cleanly and preserves workspace state. The scorecard draft does not award those higher anchors.
+
+
+## Source audit follow-up
+
+The quick source audit added shared credential-path exclusion, matching search results against already-redacted text, MCP cancellation gates before dispatch and result delivery, and descriptor-bound proposal import with a 4 MiB actual-read cap. Five regression tests were added. Independent source reviewers accepted the fixes.
+
+These follow-up tests have not been executed locally. The Security Audit skill requires an OS-enforced isolated environment with all specified filesystem, network and resource limits, which was not established during that audit. The existing VSIX and verification summary describe the earlier `8d814af` revision. Rebuild the extension after validating these source changes before distributing an updated package. The quick audit also deferred directory-traversal work budgets, command-descendant cancellation lifecycle and MCP schema/dispatcher agreement.

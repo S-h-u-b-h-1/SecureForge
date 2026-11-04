@@ -52,5 +52,7 @@
     "paths": "Excluded from reads, candidates, explicit mentions, inline selection context and diagnostics",
     "sourceBodies": "Entire files excluded if credential redaction changes content",
     "liveInputs": "Credential-bearing tasks and inline paths rejected before TrueForge contact"
-  }
+  },
+  "verifiedSourceRef": "8d814af67f9a351be64a8df91932cb54b7e9091d",
+  "sourceAuditFollowup": "Later source audit fixes have independent source review and unexecuted regression tests. This historical report and VSIX do not validate those later changes."
 }

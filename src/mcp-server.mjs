@@ -95,6 +95,7 @@ export async function createMcpServer({ root, port = 8792, host = '127.0.0.1', a
         if (!['localhost', '127.0.0.1', '[::1]'].includes(u.hostname)) return send(403, { error: 'Origin not allowed' });
       } catch { return send(403, { error: 'Origin not allowed' }); }
     }
+    if (signal?.aborted) return send(410, { error: 'MCP session cancelled' });
     if (req.url === '/health' && req.method === 'GET') return send(200, { status: 'ok', root: '(private)' });
     if (req.url !== '/mcp' || req.method !== 'POST') return send(405, { error: 'Use POST /mcp' });
     if (!String(req.headers['content-type'] ?? '').includes('application/json')) return send(415, { error: 'JSON required' });
@@ -125,7 +126,9 @@ export async function createMcpServer({ root, port = 8792, host = '127.0.0.1', a
             const params = message.params?.arguments ?? {};
             if (params === null || typeof params !== 'object' || Array.isArray(params)) throw new Error('Invalid arguments');
             try {
+              signal?.throwIfAborted();
               const data = await commands[name](params);
+              signal?.throwIfAborted();
               return { content: [{ type: 'text', text: JSON.stringify(data) }] };
             } catch (err) {
               return { isError: true, content: [{ type: 'text', text: err.message }] };
@@ -135,6 +138,7 @@ export async function createMcpServer({ root, port = 8792, host = '127.0.0.1', a
         }
       };
       const value = await result();
+      if (signal?.aborted) return send(410, { error: 'MCP session cancelled' });
       if (value === undefined) return send(200, { jsonrpc: '2.0', id: message.id, error: { code: -32601, message: 'Method not found' } });
       return send(200, { jsonrpc: '2.0', id: message.id, result: value });
     } catch (err) {

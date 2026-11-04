@@ -1,10 +1,33 @@
 import path from 'node:path';
 import { randomBytes } from 'node:crypto';
-import { readFile, stat } from 'node:fs/promises';
+import { open } from 'node:fs/promises';
+import { constants } from 'node:fs';
 import { Workspace, sha256 } from '../src/workspace.mjs';
 import { ProposalStore } from '../src/proposals.mjs';
 import { createReviewGroup } from '../src/review-group.mjs';
 import { applyReviewGroup, undoReviewGroup } from './apply-review.mjs';
+
+const MAX_IMPORT_BYTES = 4 * 1024 * 1024;
+
+export async function readProposalFile(filename) {
+  const handle = await open(filename, constants.O_RDONLY | constants.O_NONBLOCK | constants.O_NOFOLLOW);
+  try {
+    const metadata = await handle.stat();
+    if (!metadata.isFile() || metadata.size > MAX_IMPORT_BYTES) {
+      throw new Error('Proposal JSON must be a regular file no larger than 4 MiB');
+    }
+    const chunks = [];
+    let bytes = 0;
+    while (true) {
+      const buffer = Buffer.alloc(Math.min(64 * 1024, MAX_IMPORT_BYTES + 1 - bytes));
+      const { bytesRead } = await handle.read(buffer, 0, buffer.length, null);
+      if (bytesRead === 0) return Buffer.concat(chunks, bytes).toString('utf8');
+      bytes += bytesRead;
+      if (bytes > MAX_IMPORT_BYTES) throw new Error('Proposal JSON exceeds 4 MiB');
+      chunks.push(buffer.subarray(0, bytesRead));
+    }
+  } finally { await handle.close(); }
+}
 
 export function registerReviewCommands(vscode, context, onApplied = () => {}) {
   async function openReview(demo) {
@@ -24,11 +47,8 @@ export function registerReviewCommands(vscode, context, onApplied = () => {}) {
         filters: { 'Proposal JSON': ['json'] },
       });
       if (!selected?.length) return;
-      if (selected[0].scheme !== 'file' || (await stat(selected[0].fsPath)).size > 4 * 1024 * 1024) {
-        throw new Error('Proposal JSON must be a local file no larger than 4 MiB');
-      }
-      const json = await readFile(selected[0].fsPath, 'utf8');
-      if (Buffer.byteLength(json) > 4 * 1024 * 1024) throw new Error('Proposal JSON exceeds 4 MiB');
+      if (selected[0].scheme !== 'file') throw new Error('Proposal JSON must be a local file');
+      const json = await readProposalFile(selected[0].fsPath);
       proposal = JSON.parse(json);
     }
     const workspace = await new Workspace(choice.folder.uri.fsPath).init();
