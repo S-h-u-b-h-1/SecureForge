@@ -157,6 +157,22 @@ test('an empty credential must not swallow the next credential key', async (t) =
   assert.ok(search.matches.every((x) => !x.snippet.includes('superprivate')));
 });
 
+test('quoted JSON and YAML credential keys are redacted in read/search and block proposals', async (t) => {
+  const { root, workspace } = await fixture(t);
+  const sample = '{"password": "superprivate", "api_key": "anothersecret"}\n';
+  assert.equal(redactSecrets(sample), '{"password": "[REDACTED]", "api_key": "[REDACTED]"}\n');
+  assert.equal(redactSecrets("'password': superprivate\n"), "'password': [REDACTED]\n");
+  await writeFile(path.join(root, 'src', 'config.json'), sample);
+  const read = await workspace.readFile('src/config.json');
+  assert.equal(read.redacted, true);
+  assert.ok(read.lines.every((x) => !x.text.includes('superprivate') && !x.text.includes('anothersecret')));
+  const search = await workspace.searchWorkspace('superprivate');
+  assert.ok(search.matches.some((x) => x.path === 'src/config.json'));
+  assert.ok(search.matches.every((x) => !x.snippet.includes('superprivate')));
+  const store = new ProposalStore(workspace);
+  await assert.rejects(store.proposeEdit({ path: 'src/config.json', expectedSha256: read.sha256, proposedContent: '{}' }), /redacted credentials/);
+});
+
 test('workspace search skips invalid UTF-8 rather than failing entirely', async (t) => {
   const { root, workspace } = await fixture(t);
   await writeFile(path.join(root, 'src', 'invalid.txt'), Buffer.from([0xff, 0xfe, 0x61]));
