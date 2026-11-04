@@ -60,9 +60,10 @@ export class Workspace {
     if (process.platform === 'linux') {
       this.rootHandle = await open(this.root, DIRECTORY_OPEN_FLAGS);
     } else if (process.platform === 'darwin') {
-      // O_NOFOLLOW_ANY is enforced by macOS during open() path traversal.
-      const handle = await open(this.root, DIRECTORY_OPEN_FLAGS | MAC_OS_O_NOFOLLOW_ANY);
-      await handle.close();
+      // No directory descriptor is needed on macOS: each file is opened with
+      // O_NOFOLLOW_ANY in #openWorkspaceFile. Opening the *directory* with
+      // O_DIRECTORY | O_NOFOLLOW_ANY returns EINVAL on supported macOS builds.
+      // Do not remove the O_NOFOLLOW_ANY guard from individual file opens.
     } else {
       throw new Error('Race-resistant workspace reads require Linux or macOS');
     }
