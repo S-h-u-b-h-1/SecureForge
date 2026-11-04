@@ -5,8 +5,10 @@ import { buildAgentSpec, runAgentTurn } from '../src/agent.mjs';
 test('agent spec uses TrueForge runtime with only explicitly allowed workspace tools', () => {
   const spec = buildAgentSpec({ model: 'configured-provider/test-model', mcpServerName: 'secureforge-workspace' });
   assert.equal(spec.model.name, 'configured-provider/test-model');
-  assert.deepEqual(spec.mcp_servers[0].require_approval_for_tools, ['propose_edit']);
+  assert.deepEqual(spec.mcp_servers[0].require_approval_for_tools, ['propose_edit', 'propose_batch']);
   assert.equal(spec.mcp_servers[0].enable_tools.includes('run_command'), false);
+  assert.equal(spec.mcp_servers[0].enable_tools.includes('propose_batch'), true);
+  assert.equal(spec.mcp_servers[0].enable_tools.includes('apply_patch'), false);
   assert.equal(spec.instructions.includes('untrusted data'), true);
 });
 
