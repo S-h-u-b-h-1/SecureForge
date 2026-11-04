@@ -20,6 +20,9 @@ const READ_CHUNK_BYTES = 64 * 1024;
 const MAC_OS_O_NOFOLLOW_ANY = 0x20000000;
 const DIRECTORY_OPEN_FLAGS = fsConstants.O_RDONLY | fsConstants.O_DIRECTORY | fsConstants.O_NOFOLLOW;
 const FILE_OPEN_FLAGS = fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW | fsConstants.O_NONBLOCK;
+// XNU rejects O_NOFOLLOW and O_NOFOLLOW_ANY together (EINVAL). The latter
+// already rejects symlinks at every component, including the final file.
+const MAC_FILE_OPEN_FLAGS = fsConstants.O_RDONLY | fsConstants.O_NONBLOCK | MAC_OS_O_NOFOLLOW_ANY;
 
 function safeRelativeName(name) {
   if (typeof name !== 'string' || !name || name.includes('\0') || path.isAbsolute(name)) {
@@ -60,10 +63,9 @@ export class Workspace {
     if (process.platform === 'linux') {
       this.rootHandle = await open(this.root, DIRECTORY_OPEN_FLAGS);
     } else if (process.platform === 'darwin') {
-      // No directory descriptor is needed on macOS: each file is opened with
-      // O_NOFOLLOW_ANY in #openWorkspaceFile. Opening the *directory* with
-      // O_DIRECTORY | O_NOFOLLOW_ANY returns EINVAL on supported macOS builds.
-      // Do not remove the O_NOFOLLOW_ANY guard from individual file opens.
+      // A root descriptor is unnecessary on macOS: individual file opens use
+      // O_NOFOLLOW_ANY, which protects every path component atomically.
+      // Do not combine it with O_NOFOLLOW: XNU returns EINVAL for that pair.
     } else {
       throw new Error('Race-resistant workspace reads require Linux or macOS');
     }
@@ -93,7 +95,7 @@ export class Workspace {
       // The kernel resolves every component with O_NOFOLLOW_ANY, including
       // parents; unlike prechecking with lstat(), this closes swap races.
       try {
-        return { handle: await open(candidate, FILE_OPEN_FLAGS | MAC_OS_O_NOFOLLOW_ANY), relative: rel };
+        return { handle: await open(candidate, MAC_FILE_OPEN_FLAGS), relative: rel };
       } catch (err) {
         if (err.code === 'ELOOP') throw new Error('Symlink access is not permitted');
         throw err;
