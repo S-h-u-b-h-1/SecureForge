@@ -20,7 +20,8 @@ try {
     `--extensionDevelopmentPath=${path.join(root, 'extension')}`,
     `--extensionTestsPath=${path.join(root, 'test/editor/run.cjs')}`,
     root,
-  ], { stdio: 'inherit', env: { ...process.env, SECUREFORGE_EDITOR_REPORT: reportPath } });
+  ], { stdio: 'inherit', env: { ...process.env, SECUREFORGE_EDITOR_REPORT: reportPath,
+    SECUREFORGE_EDITOR_WIRE: process.argv.includes('--wire') ? '1' : '' } });
   const code = await new Promise((resolve, reject) => {
     child.once('error', reject);
     child.once('exit', (exitCode, signal) => {

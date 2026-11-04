@@ -4,25 +4,6 @@ const path = require('node:path');
 const os = require('node:os');
 const vscode = require('vscode');
 
-async function undoAndWait(document, expected) {
-  await vscode.window.showTextDocument(document, { preview: false });
-  await vscode.commands.executeCommand('workbench.action.focusActiveEditorGroup');
-  const restored = new Promise((resolve, reject) => {
-    const subscription = vscode.workspace.onDidChangeTextDocument(event => {
-      if (event.document === document && document.getText() === expected) {
-        clearTimeout(timer);
-        subscription.dispose();
-        resolve();
-      }
-    });
-    const timer = setTimeout(() => {
-      subscription.dispose();
-      reject(new Error('Native Undo did not restore the expected document within 10 seconds'));
-    }, 10000);
-  });
-  await vscode.commands.executeCommand('undo');
-  await restored;
-}
 
 exports.run = async function run() {
   const results = [];
@@ -30,7 +11,9 @@ exports.run = async function run() {
   const { Workspace, sha256 } = await import('../../src/workspace.mjs');
   const { ProposalStore } = await import('../../src/proposals.mjs');
   const { createReview } = await import('../../src/review.mjs');
-  const { applyReview } = await import('../../extension/apply-review.mjs');
+  const { applyReview, applyReviewGroup, undoReviewGroup } = await import('../../extension/apply-review.mjs');
+  const { createReviewGroup } = await import('../../src/review-group.mjs');
+  const { BatchProposalStore } = await import('../../src/build/batches.mjs');
   const workspace = await new Workspace(root).init();
   const original = 'first\nunchanged\nlast\n';
   const proposed = 'FIRST\nunchanged\nLAST\n';
@@ -55,16 +38,18 @@ exports.run = async function run() {
     const baseVersion = document.version;
     const decisions = { [review.hunks[0].id]: 'accept', [review.hunks[1].id]: 'reject' };
     const inputs = { vscode, workspace, document, review, decisions, baseVersion };
-    assert.equal((await applyReview(inputs)).status, 'applied');
+    const singleEntries = [{ document, review, baseVersion }];
+    const singleReceipt = await applyReviewGroup({ vscode, workspace, entries: singleEntries, decisions });
+    assert.equal(singleReceipt.status, 'applied');
     assert.equal(document.getText(), 'FIRST\nunchanged\nlast\n');
     assert.equal(await fs.readFile(filename, 'utf8'), original);
     results.push('Mixed hunk decisions apply only the accepted edit in the editor');
 
     await assert.rejects(applyReview(inputs), /Stale/);
     results.push('Repeated application is rejected');
-    await undoAndWait(document, original);
+    await undoReviewGroup({ vscode, workspace, entries: singleEntries, receipt: singleReceipt });
     assert.equal(document.getText(), original);
-    results.push('Native VS Code Undo restores the original content');
+    results.push('Guarded review Undo restores the original content');
     await document.save();
 
     await assert.rejects(applyReview(inputs), /Stale/);
@@ -90,15 +75,63 @@ exports.run = async function run() {
     const unicodeReview = createReview(store.getProposal(unicodeSummary.id));
     const unicodeDocument = await vscode.workspace.openTextDocument(vscode.Uri.file(unicodePath));
     await vscode.window.showTextDocument(unicodeDocument);
-    await applyReview({
-      vscode, workspace, document: unicodeDocument, review: unicodeReview,
-      baseVersion: unicodeDocument.version,
+    const unicodeEntries = [{ document: unicodeDocument, review: unicodeReview, baseVersion: unicodeDocument.version }];
+    const unicodeReceipt = await applyReviewGroup({
+      vscode, workspace, entries: unicodeEntries,
       decisions: Object.fromEntries(unicodeReview.hunks.map(hunk => [hunk.id, 'accept'])),
     });
     assert.equal(unicodeDocument.getText(), unicodeProposed);
-    await undoAndWait(unicodeDocument, unicodeOriginal);
+    await undoReviewGroup({ vscode, workspace, entries: unicodeEntries, receipt: unicodeReceipt });
     assert.equal(unicodeDocument.getText(), unicodeOriginal);
     results.push('Unicode, CRLF and missing final newline survive editor apply and Undo');
+
+    await fs.writeFile(path.join(workspace.root, 'first.py'), original);
+    await fs.writeFile(path.join(workspace.root, 'second.py'), original);
+    const batches = new BatchProposalStore(store);
+    const batch = await batches.proposeBatch({ edits: ['first.py', 'second.py'].map(file => ({
+      path: file, expectedSha256: sha256(original), proposedContent: proposed,
+    })) });
+    const group = createReviewGroup({ ...batch, proposals: batch.proposals.map(item => store.getProposal(item.id)) });
+    const entries = [];
+    for (const file of group.files) {
+      const document = await vscode.workspace.openTextDocument(vscode.Uri.file(path.join(workspace.root, file.path)));
+      entries.push({ document, review: file, baseVersion: document.version });
+    }
+    const groupDecisions = Object.fromEntries(group.files.flatMap(file => file.hunks.map(hunk => [hunk.id, 'accept'])));
+    const groupInput = { vscode, workspace, entries, decisions: groupDecisions };
+    const groupReceipt = await applyReviewGroup(groupInput);
+    assert.equal(groupReceipt.accepted, 4);
+    assert.equal(entries[0].document.getText(), proposed);
+    assert.equal(entries[1].document.getText(), proposed);
+    await undoReviewGroup({ ...groupInput, receipt: groupReceipt });
+    assert.equal(entries[1].document.getText(), original);
+    results.push('One WorkspaceEdit applies a batch and one guarded Undo reverses both files');
+    for (const entry of entries) {
+      await entry.document.save();
+      entry.baseVersion = entry.document.version;
+    }
+    await fs.writeFile(path.join(workspace.root, 'second.py'), 'external edit\n');
+    await assert.rejects(applyReviewGroup(groupInput), /Stale/);
+    assert.equal(entries[0].document.getText(), original);
+    results.push('A stale member blocks the entire multi-file apply');
+    const controller = new AbortController();
+    controller.abort();
+    await assert.rejects(applyReviewGroup({ ...groupInput, signal: controller.signal }));
+    assert.equal(entries[0].document.getText(), original);
+    results.push('Cancellation before batch apply preserves all documents');
+    if (process.env.SECUREFORGE_EDITOR_WIRE === '1') {
+      const { verifyTrueForgeWire } = await import('./trueforge-wire.mjs');
+      const { openReviewPayload } = await import('../../extension/review-ui.mjs');
+      const wire = await verifyTrueForgeWire({ onPayload: async (payload, root) => {
+        const source = await new Workspace(root).init();
+        const context = { subscriptions: [] };
+        const panel = await openReviewPayload(vscode, context, source, payload);
+        assert.ok(panel);
+        assert.match(panel.webview.html, /Review proposed changes/);
+        panel.dispose();
+      } });
+      results.push(`Real TrueForge session ${wire.sessionId} delivers a proposal into the editor (deterministic inference fixture)`);
+    }
     if (process.env.SECUREFORGE_EDITOR_REPORT) {
       await fs.writeFile(process.env.SECUREFORGE_EDITOR_REPORT, JSON.stringify({ passed: results }, null, 2));
     }
@@ -110,6 +143,12 @@ exports.run = async function run() {
     throw error;
   } finally {
     await workspace.close();
+    for (const document of vscode.workspace.textDocuments) {
+      if (document.uri.scheme === 'file' && document.uri.fsPath.startsWith(workspace.root + path.sep) && document.isDirty) {
+        await vscode.window.showTextDocument(document);
+        await vscode.commands.executeCommand('workbench.action.files.revert');
+      }
+    }
     await vscode.commands.executeCommand('workbench.action.closeAllEditors');
     await fs.rm(root, { recursive: true, force: true });
   }

@@ -2,6 +2,7 @@
 import http from 'node:http';
 import { Workspace } from './workspace.mjs';
 import { ProposalStore } from './proposals.mjs';
+import { BatchProposalStore } from './build/batches.mjs';
 
 const TOOLS = [
   { name: 'read_file', description: 'Read bounded numbered lines from a permitted workspace file. Returns SHA-256 for version-aware proposals.',
@@ -22,25 +23,54 @@ const TOOLS = [
   { name: 'check_proposal', description: 'Check whether an in-memory edit proposal is stale against current disk content.',
     inputSchema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'], additionalProperties: false },
     annotations: { readOnlyHint: true } },
+  { name: 'propose_batch', description: 'Stage 2..8 coordinated UNAPPLIED file edit proposals atomically. Requires each original SHA-256. No source file writes.',
+    inputSchema: { type: 'object', properties: {
+      edits: { type: 'array', minItems: 2, maxItems: 8, items: { type: 'object', properties: {
+        path: { type: 'string' }, expectedSha256: { type: 'string' }, proposedContent: { type: 'string' }, rationale: { type: 'string' },
+      }, required: ['path', 'expectedSha256', 'proposedContent'], additionalProperties: false } },
+      rationale: { type: 'string' },
+    }, required: ['edits'], additionalProperties: false },
+    annotations: { readOnlyHint: false, destructiveHint: false } },
+  { name: 'get_batch', description: 'Return a pending batch with the existing v1 proposal IDs; no file contents or approval decisions.',
+    inputSchema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'], additionalProperties: false },
+    annotations: { readOnlyHint: true } },
+  { name: 'check_batch', description: 'Recheck every underlying file SHA-256; never authorizes applying a patch.',
+    inputSchema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'], additionalProperties: false },
+    annotations: { readOnlyHint: true } },
 ];
 
-export async function createMcpServer({ root, port = 8792, host = '127.0.0.1' }) {
+export async function createMcpServer({ root, port = 8792, host = '127.0.0.1', accessToken, onProposal = () => {} }) {
   if (host !== '127.0.0.1' && host !== '::1') throw new Error('MCP bridge must bind to loopback');
   const workspace = await new Workspace(root).init();
   const proposals = new ProposalStore(workspace);
+  const batches = new BatchProposalStore(proposals);
   const commands = {
     read_file: (p) => workspace.readFile(p.path, { startLine: p.startLine, maxLines: p.maxLines }),
     search_workspace: (p) => workspace.searchWorkspace(p.query, { maxResults: p.maxResults }),
     lookup_symbol: (p) => workspace.lookupSymbol(p.symbol),
-    propose_edit: (p) => proposals.proposeEdit(p),
+    propose_edit: async (p) => {
+      const result = await proposals.proposeEdit(p);
+      onProposal({ kind: 'proposal', id: result.id });
+      return result;
+    },
     get_proposal: (p) => proposals.getProposal(p.id),
     check_proposal: (p) => proposals.checkProposal(p.id),
+    propose_batch: async (p) => {
+      const result = await batches.proposeBatch(p);
+      onProposal({ kind: 'batch', id: result.id });
+      return result;
+    },
+    get_batch: (p) => batches.getBatch(p.id),
+    check_batch: (p) => batches.checkBatch(p.id),
   };
   const server = http.createServer(async (req, res) => {
     const send = (status, body) => {
       res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
       res.end(JSON.stringify(body));
     };
+    if (accessToken && req.headers.authorization !== `Bearer ${accessToken}`) {
+      return send(401, { error: 'Bridge authorization required' });
+    }
     // Origin validation helps prevent browser-based DNS rebinding; host is loopback only.
     const origin = req.headers.origin;
     if (origin) {
@@ -96,7 +126,7 @@ export async function createMcpServer({ root, port = 8792, host = '127.0.0.1' })
     }
   });
   await new Promise((resolve, reject) => { server.once('error', reject); server.listen(port, host, resolve); });
-  return { server, workspace, proposals, address: server.address() };
+  return { server, workspace, proposals, batches, address: server.address() };
 }
 
 if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href) {

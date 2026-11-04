@@ -11,7 +11,17 @@
   "contributes": {
     "commands": [
       { "command": "secureforge.reviewProposal", "title": "SecureForge: Review Proposal JSON" },
-      { "command": "secureforge.reviewDemo", "title": "SecureForge: Open Two-Hunk Review Demo" }
-    ]
+      { "command": "secureforge.reviewDemo", "title": "SecureForge: Open Two-Hunk Review Demo" },
+      { "command": "secureforge.runBuild", "title": "SecureForge: Build with TrueForge" },
+      { "command": "secureforge.cancelRun", "title": "SecureForge: Cancel Agent Run" },
+      { "command": "secureforge.runVerification", "title": "SecureForge: Run Approved Verification" }
+    ],
+    "configuration": {
+      "title": "SecureForge",
+      "properties": {
+        "secureforge.trueforgeUrl": { "type": "string", "default": "http://localhost:8790", "description": "Local TrueForge HTTP origin." },
+        "secureforge.model": { "type": "string", "default": "", "description": "Model FQN configured inside TrueForge. Credentials stay in TrueForge." }
+      }
+    }
   }
 }

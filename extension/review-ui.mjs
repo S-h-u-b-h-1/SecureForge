@@ -3,8 +3,8 @@ import { randomBytes } from 'node:crypto';
 import { readFile, stat } from 'node:fs/promises';
 import { Workspace, sha256 } from '../src/workspace.mjs';
 import { ProposalStore } from '../src/proposals.mjs';
-import { createReview } from '../src/review.mjs';
-import { applyReview } from './apply-review.mjs';
+import { createReviewGroup } from '../src/review-group.mjs';
+import { applyReviewGroup, undoReviewGroup } from './apply-review.mjs';
 
 export function registerReviewCommands(vscode, context) {
   async function openReview(demo) {
@@ -48,17 +48,7 @@ export function registerReviewCommands(vscode, context) {
         });
         proposal = store.getProposal(summary.id);
       }
-      const review = createReview(proposal);
-      const source = await workspace.rawForProposal(review.path);
-      if (source.hash !== review.baseSha256) throw new Error('Stale proposal: source file changed');
-      const document = await vscode.workspace.openTextDocument(
-        vscode.Uri.file(path.resolve(workspace.root, review.path))
-      );
-      if (document.isDirty || sha256(document.getText()) !== review.baseSha256) {
-        throw new Error('Save or undo existing editor changes before opening this proposal');
-      }
-      await vscode.window.showTextDocument(document, vscode.ViewColumn.One);
-      showReview(vscode, context, workspace, document, review);
+      await openReviewPayload(vscode, context, workspace, proposal);
     } catch (error) {
       await workspace.close();
       throw error;
@@ -77,22 +67,40 @@ export function registerReviewCommands(vscode, context) {
   }
 }
 
-function showReview(vscode, context, workspace, document, review) {
+export async function openReviewPayload(vscode, context, workspace, proposal, onApplied = () => {}) {
+  const group = createReviewGroup(proposal);
+  const entries = [];
+  for (const review of group.files) {
+    const source = await workspace.rawForProposal(review.path);
+    if (source.hash !== review.baseSha256) throw new Error('Stale proposal: source file changed');
+    const document = await vscode.workspace.openTextDocument(vscode.Uri.file(path.resolve(workspace.root, review.path)));
+    if (document.isDirty || sha256(document.getText()) !== review.baseSha256) {
+      throw new Error('Save or undo existing editor changes before opening this proposal');
+    }
+    entries.push({ document, review, baseVersion: document.version });
+  }
+  await vscode.window.showTextDocument(entries[0].document, vscode.ViewColumn.One);
+  return showReview(vscode, context, workspace, entries, group, onApplied);
+}
+
+function showReview(vscode, context, workspace, entries, group, onApplied) {
   const panel = vscode.window.createWebviewPanel('secureforge.review', 'SecureForge Review', vscode.ViewColumn.Beside, {
     enableScripts: true,
     localResourceRoots: [],
     retainContextWhenHidden: true,
   });
-  const baseVersion = document.version;
+  const controller = new AbortController();
+  const hunks = group.files.flatMap(review => review.hunks.map(hunk => ({ ...hunk, path: review.path })));
   const decisions = Object.create(null);
   let status = 'pending';
+  let appliedReceipt;
   let disposed = false;
-  const knownIds = new Set(review.hunks.map(hunk => hunk.id));
+  const knownIds = new Set(hunks.map(hunk => hunk.id));
   function send(message) {
     if (!disposed) panel.webview.postMessage(message);
   }
   const changes = vscode.workspace.onDidChangeTextDocument(event => {
-    if (event.document === document && status === 'pending' && document.version !== baseVersion) {
+    if (status === 'pending' && entries.some(entry => event.document === entry.document && entry.document.version !== entry.baseVersion)) {
       status = 'stale';
       send({ type: 'status', status, message: 'The document changed. Prepare a new proposal.' });
     }
@@ -100,7 +108,8 @@ function showReview(vscode, context, workspace, document, review) {
   const messages = panel.webview.onDidReceiveMessage(async message => {
     if (disposed || !message || typeof message !== 'object') return;
     if (message.type === 'ready') {
-      send({ type: 'review', path: review.path, rationale: review.rationale, hunks: review.hunks });
+      send({ type: 'review', path: group.files.map(file => file.path).join(', '),
+        rationale: group.files.map(file => file.rationale).filter(Boolean).join('\n'), hunks });
       send({ type: 'status', status, message: 'Decide every hunk, then apply. Changes remain unsaved and support native Undo.' });
     } else if (message.type === 'decision' && status === 'pending' && knownIds.has(message.id) &&
         ['accept', 'reject'].includes(message.decision)) {
@@ -109,18 +118,30 @@ function showReview(vscode, context, workspace, document, review) {
       status = 'discarded';
       send({ type: 'status', status, message: 'Proposal discarded.' });
     } else if (message.type === 'apply' && status === 'pending') {
-      if (review.hunks.some(hunk => !Object.hasOwn(decisions, hunk.id))) {
+      if (hunks.some(hunk => !Object.hasOwn(decisions, hunk.id))) {
         send({ type: 'status', status, message: 'Accept or reject every hunk first.' });
         return;
       }
       status = 'applying';
       send({ type: 'status', status, message: 'Validating document and applying approved hunks…' });
       try {
-        const result = await applyReview({ vscode, workspace, document, review, decisions, baseVersion });
+        const result = await applyReviewGroup({ vscode, workspace, entries, decisions, signal: controller.signal });
+        appliedReceipt = result;
         status = result.status;
+        await onApplied({ group, decisions: { ...decisions }, result });
         send({ type: 'status', status, message: result.status === 'applied'
           ? `Applied ${result.accepted} hunk(s). Save when ready. Use Undo in the source editor to reverse the edit.`
           : 'All hunks rejected. The document was not edited.' });
+      } catch (error) {
+        status = 'blocked';
+        send({ type: 'status', status, message: error.message });
+      }
+    } else if (message.type === 'undo' && status === 'applied') {
+      status = 'undoing';
+      try {
+        await undoReviewGroup({ vscode, workspace, entries, receipt: appliedReceipt });
+        status = 'undone';
+        send({ type: 'status', status, message: 'Accepted changes undone in the editor.' });
       } catch (error) {
         status = 'blocked';
         send({ type: 'status', status, message: error.message });
@@ -129,12 +150,14 @@ function showReview(vscode, context, workspace, document, review) {
   });
   panel.onDidDispose(() => {
     disposed = true;
+    controller.abort();
     changes.dispose();
     messages.dispose();
     void workspace.close();
   });
   context.subscriptions.push(panel);
   panel.webview.html = reviewHtml();
+  return panel;
 }
 
 function reviewHtml() {
@@ -158,6 +181,7 @@ button:disabled { opacity: .5; cursor: default; }
 <h1>Review proposed changes</h1><h2 id="path"></h2><p id="rationale"></p>
 <p>Review each change independently. Apply affects the editor buffer. Save and Undo remain under your control.</p>
 <div id="hunks"></div><button id="apply" disabled>Apply accepted hunks</button><button id="discard">Discard proposal</button>
+<button id="undo" disabled>Undo applied hunks</button>
 <p id="status" role="status" aria-live="polite">Loading proposal…</p>
 <script nonce="${nonce}">
 const vscode = acquireVsCodeApi();
@@ -168,6 +192,7 @@ const apply = document.getElementById('apply');
 function update() {
   apply.disabled = state !== 'pending' || decisions.size !== ids.length || ids.length === 0;
   document.getElementById('discard').disabled = state !== 'pending';
+  document.getElementById('undo').disabled = state !== 'applied';
   document.querySelectorAll('[data-decision]').forEach(button => { button.disabled = state !== 'pending'; });
 }
 window.addEventListener('message', event => {
@@ -181,7 +206,7 @@ window.addEventListener('message', event => {
     message.hunks.forEach((hunk, index) => {
       const article = document.createElement('article');
       const heading = document.createElement('h3');
-      heading.textContent = 'Hunk ' + (index + 1) + ' · original line ' + hunk.startLine;
+      heading.textContent = hunk.path + ' · hunk ' + (index + 1) + ' · original line ' + hunk.startLine;
       article.append(heading);
       [['Original', hunk.oldText, 'removed'], ['Proposed', hunk.newText, 'added']].forEach(([label, text, kind]) => {
         const title = document.createElement('strong'); title.textContent = label;
@@ -213,6 +238,7 @@ apply.addEventListener('click', () => {
   state = 'applying'; update(); vscode.postMessage({ type: 'apply' });
 });
 document.getElementById('discard').addEventListener('click', () => vscode.postMessage({ type: 'discard' }));
+document.getElementById('undo').addEventListener('click', () => { state = 'undoing'; update(); vscode.postMessage({ type: 'undo' }); });
 vscode.postMessage({ type: 'ready' });
 </script></body></html>`;
 }

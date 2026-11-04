@@ -8,7 +8,7 @@ User task (CLI; future VS Code editor)
   -> registered local SecureForge MCP connector
   -> read_file / search_workspace / lookup_symbol (bounded, no writes)
   -> propose_edit (pending proposal in process memory, SHA-256 base check)
-  -> human review (local Aditya-owned extension; live proposal delivery pending)
+  -> human review (Aditya-owned extension with live proposal delivery)
 ```
 
 TrueForge is **always** the model/agent runtime. SecureForge does not call model providers directly.
@@ -29,7 +29,7 @@ TrueForge is **always** the model/agent runtime. SecureForge does not call model
 
 `propose_edit` output: `{schemaVersion:1,id,path,baseSha256,proposedSha256,rationale,createdAt,status,originalBytes,proposedBytes}`. `get_proposal` returns the complete `originalContent` and `proposedContent` for a diff UI. `check_proposal` returns `{id,path,fresh,expectedSha256,currentSha256}` when the file is still readable.
 
-**Important:** Proposal creation is not approval. Neither the TrueForge SDK nor MCP tools apply the edit. The local VS Code approval engine validates workspace ownership, compares the current document SHA-256 and editor version, shows hunk-level Accept/Reject, then applies **accepted hunks only** with `WorkspaceEdit`. It currently consumes a synthetic demo or an exported full v1 proposal JSON. Live proposal delivery remains pending. The separate tool approval flag on `propose_edit` does not replace hunk approval. See [review setup](REVIEW.md).
+**Important:** Proposal creation is not approval. Neither the TrueForge SDK nor MCP tools apply the edit. The local VS Code approval engine validates workspace ownership, compares the current document SHA-256 and editor version, shows hunk-level Accept/Reject, then applies **accepted hunks only** with `WorkspaceEdit`. It consumes live TrueForge proposals, a synthetic demo or exported full v1 proposal JSON. Coordinated groups reuse the upstream BatchProposalStore contract. The separate tool approval flag on `propose_edit` does not replace hunk approval. See [review setup](REVIEW.md).
 
 ## Current security boundaries
 
