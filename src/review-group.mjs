@@ -2,6 +2,9 @@ import { randomUUID } from 'node:crypto';
 import { createReview } from './review.mjs';
 
 export function createReviewGroup(payload) {
+  if (payload?.id !== undefined && (typeof payload.id !== 'string' || !payload.id || payload.id.length > 200)) {
+    throw new Error('Invalid review group ID');
+  }
   const proposals = Array.isArray(payload?.proposals) ? payload.proposals : [payload];
   if (proposals.length < 1 || proposals.length > 8) throw new Error('Review requires 1..8 full proposals');
   const files = proposals.map(createReview);

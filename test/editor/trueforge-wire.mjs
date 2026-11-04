@@ -22,7 +22,6 @@ export async function verifyTrueForgeWire({ onPayload = async () => {} } = {}) {
     for await (const chunk of req) chunks.push(chunk);
     const body = JSON.parse(Buffer.concat(chunks).toString());
     requests++;
-    const tools = body.tools ?? [];
     const connector = JSON.stringify(body).match(/secureforge-[0-9a-f]{8}/)?.[0];
     let tool;
     if (requests === 1) {

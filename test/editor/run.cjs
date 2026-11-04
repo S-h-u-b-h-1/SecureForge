@@ -21,7 +21,7 @@ exports.run = async function run() {
   try {
     const extension = vscode.extensions.getExtension('secureforge.secureforge-review');
     assert.ok(extension, 'Review extension is installed in the development host');
-    await extension.activate();
+    const api = await extension.activate();
     const commands = await vscode.commands.getCommands(true);
     assert.ok(commands.includes('secureforge.reviewProposal'));
     assert.ok(commands.includes('secureforge.reviewDemo'));
@@ -119,6 +119,38 @@ exports.run = async function run() {
     await assert.rejects(applyReviewGroup({ ...groupInput, signal: controller.signal }));
     assert.equal(entries[0].document.getText(), original);
     results.push('Cancellation before batch apply preserves all documents');
+    const { createOwnedLab, assessFixProof } = await import('../../src/proof.mjs');
+    const { reviewSecurity, prepareOwnedFixtureFix } = await import('../../src/security.mjs');
+    const { runApprovedCommand } = await import('../../src/commands.mjs');
+    const { createPassport } = await import('../../src/passport.mjs');
+    const lab = await createOwnedLab(workspace.root);
+    const labWorkspace = await new Workspace(lab.root).init();
+    try {
+      const report = await reviewSecurity(labWorkspace, { paths: [lab.targetPath, 'safe/storage.mjs'] });
+      assert.equal(report.findings.length, 1);
+      const finding = report.findings[0];
+      const request = { executable: 'node', args: ['--test', lab.testPath], evidencePaths: [lab.targetPath] };
+      const before = await runApprovedCommand({ workspace: labWorkspace, request, approve: async () => true });
+      assert.equal(before.status, 'failed');
+      const proposal = await prepareOwnedFixtureFix(labWorkspace, finding);
+      const review = createReview(proposal);
+      const document = await vscode.workspace.openTextDocument(vscode.Uri.file(path.join(labWorkspace.root, lab.targetPath)));
+      const entries = [{ document, review, baseVersion: document.version }];
+      const decisions = Object.fromEntries(review.hunks.map(hunk => [hunk.id, 'accept']));
+      const result = await applyReviewGroup({ vscode, workspace: labWorkspace, entries, decisions });
+      await document.save();
+      const after = await runApprovedCommand({ workspace: labWorkspace, request, approve: async () => true });
+      const proof = assessFixProof({ before, after, beforeSha256: finding.sourceSha256,
+        afterContent: document.getText(), finding, approvedProposalId: proposal.id });
+      assert.equal(proof.status, 'verified_on_owned_fixture');
+      api.recordReview({ group: { id: review.id, files: [review] }, decisions, result });
+      const passport = createPassport({ reviews: api.applied, receipts: [before, after], securityReports: [report], proofs: [proof] });
+      assert.equal(passport.patches.at(-1).status, 'applied');
+      assert.equal(passport.verification[1].status, 'passed');
+      assert.equal(passport.proofs[0].status, 'verified_on_owned_fixture');
+      assert.ok(!JSON.stringify(passport).includes('originalContent'));
+      results.push('Owned security finding, editor-reviewed fix, saved regression proof and Patch Passport agree');
+    } finally { await labWorkspace.close(); }
     if (process.env.SECUREFORGE_EDITOR_WIRE === '1') {
       const { verifyTrueForgeWire } = await import('./trueforge-wire.mjs');
       const { openReviewPayload } = await import('../../extension/review-ui.mjs');

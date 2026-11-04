@@ -14,7 +14,11 @@
       { "command": "secureforge.reviewDemo", "title": "SecureForge: Open Two-Hunk Review Demo" },
       { "command": "secureforge.runBuild", "title": "SecureForge: Build with TrueForge" },
       { "command": "secureforge.cancelRun", "title": "SecureForge: Cancel Agent Run" },
-      { "command": "secureforge.runVerification", "title": "SecureForge: Run Approved Verification" }
+      { "command": "secureforge.runVerification", "title": "SecureForge: Run Approved Verification" },
+      { "command": "secureforge.securityReview", "title": "SecureForge: Security Review" },
+      { "command": "secureforge.startSecurityLab", "title": "SecureForge: Start Owned Security Lab" },
+      { "command": "secureforge.verifySecurityFix", "title": "SecureForge: Verify Security Fix" },
+      { "command": "secureforge.exportPassport", "title": "SecureForge: Export Patch Passport" }
     ],
     "configuration": {
       "title": "SecureForge",

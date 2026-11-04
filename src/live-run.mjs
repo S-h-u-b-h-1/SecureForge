@@ -13,11 +13,12 @@ export function localTrueForgeUrl(value) {
 }
 
 export class LiveRun {
-  constructor({ client, root, onEvent = () => {}, approveTool = async () => false }) {
+  constructor({ client, root, onEvent = () => {}, approveTool = async () => false, verifyCommand }) {
     this.client = client;
     this.root = root;
     this.onEvent = onEvent;
     this.approveTool = approveTool;
+    this.verifyCommand = verifyCommand;
     this.controller = new AbortController();
     this.sessionId = null;
     this.state = 'idle';
@@ -50,6 +51,7 @@ export class LiveRun {
       bridge = await createMcpServer({
         root: this.root, port: 0, accessToken,
         onProposal: proposal => { if (!signal.aborted) this.staged.push(proposal); },
+        onRunCommand: this.verifyCommand ? (workspace, request) => this.verifyCommand(workspace, request, signal) : undefined,
       });
       signal.throwIfAborted();
       await this.client.settings.mcpServers.create({ manifest: {
@@ -58,8 +60,13 @@ export class LiveRun {
         auth: { type: 'header', headers: { Authorization: `Bearer ${accessToken}` } },
       } }, requestOptions);
       registered = true;
+      const spec = buildAgentSpec({ model, mcpServerName: name });
+      if (this.verifyCommand) {
+        spec.mcp_servers[0].enable_tools.push('run_command');
+        spec.mcp_servers[0].require_approval_for_tools.push('run_command');
+      }
       const { data: session } = await this.client.sessions.create({
-        agent: { spec: buildAgentSpec({ model, mcpServerName: name }) },
+        agent: { spec },
       }, requestOptions);
       this.sessionId = session.id;
       signal.throwIfAborted();
@@ -75,8 +82,8 @@ export class LiveRun {
           if (event.type === 'tool.approval_required') approvals.push(event);
           if (event.type === 'turn.done') final = event.state;
           // Never render raw tool results or hidden model reasoning in activity logs.
-          this.onEvent({ type: event.type, content: event.type === 'model.message.delta'
-            ? redactSecrets(event.content ?? '') : '' });
+          this.onEvent({ type: event.type, content: event.type === 'model.message.delta' && typeof event.content === 'string'
+            ? redactSecrets(event.content) : '' });
         }
         if (!final) throw new Error('TrueForge stream ended without a terminal event');
         // Runtime 0.183 reports a terminal turn with required actions as "done";
@@ -92,6 +99,9 @@ export class LiveRun {
             }
           }
           continue;
+        }
+        if ((final.required_actions?.length || final.actionRequiredOnEvents?.length) && !approvals.length) {
+          throw new Error('TrueForge requested an unsupported interactive action');
         }
         if (final.status !== 'done') throw new Error(`TrueForge run ended with ${final.status}`, { cause: final });
         const result = [];
@@ -119,6 +129,11 @@ export class LiveRun {
           try { await this.client.sessions.cancel(this.sessionId, {}, { timeoutInSeconds: 5, maxRetries: 0 }); } catch { /* Bridge shutdown prevents further tools. */ }
         }
         throw new Error('Run cancelled; no proposals were applied');
+      }
+      this.controller.abort();
+      if (this.sessionId) {
+        try { await this.client.sessions.cancel(this.sessionId, {}, { timeoutInSeconds: 5, maxRetries: 0 }); }
+        catch { /* Bridge closure also prevents subsequent workspace calls. */ }
       }
       this.state = 'error';
       throw new Error(`TrueForge run failed (${error.statusCode ?? error.code ?? 'connection or model error'}). No proposals were applied.`, { cause: error });

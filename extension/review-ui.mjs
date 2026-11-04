@@ -6,7 +6,7 @@ import { ProposalStore } from '../src/proposals.mjs';
 import { createReviewGroup } from '../src/review-group.mjs';
 import { applyReviewGroup, undoReviewGroup } from './apply-review.mjs';
 
-export function registerReviewCommands(vscode, context) {
+export function registerReviewCommands(vscode, context, onApplied = () => {}) {
   async function openReview(demo) {
     if (!vscode.workspace.isTrusted) throw new Error('Open a trusted local workspace');
     const folders = vscode.workspace.workspaceFolders?.filter(folder => folder.uri.scheme === 'file');
@@ -48,7 +48,7 @@ export function registerReviewCommands(vscode, context) {
         });
         proposal = store.getProposal(summary.id);
       }
-      await openReviewPayload(vscode, context, workspace, proposal);
+      await openReviewPayload(vscode, context, workspace, proposal, onApplied);
     } catch (error) {
       await workspace.close();
       throw error;
@@ -141,6 +141,7 @@ function showReview(vscode, context, workspace, entries, group, onApplied) {
       try {
         await undoReviewGroup({ vscode, workspace, entries, receipt: appliedReceipt });
         status = 'undone';
+        await onApplied({ group, decisions: { ...decisions }, result: { ...appliedReceipt, status: 'undone' } });
         send({ type: 'status', status, message: 'Accepted changes undone in the editor.' });
       } catch (error) {
         status = 'blocked';

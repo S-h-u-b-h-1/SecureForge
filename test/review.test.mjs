@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createReview, composeAcceptedHunks } from '../src/review.mjs';
 import { sha256 } from '../src/workspace.mjs';
-import { applyReview } from '../extension/apply-review.mjs';
+import { applyReview, undoReviewGroup } from '../extension/apply-review.mjs';
 
 function proposal(originalContent, proposedContent, extra = {}) {
   return {
@@ -125,4 +125,18 @@ test('all rejected hunks perform zero writes and failed WorkspaceEdit is surface
   assert.equal(fixture.writes(), 0);
   fixture.decisions = decide(fixture.review, 'accept');
   await assert.rejects(applyReview(fixture), /declined/);
+});
+
+test('guarded Undo cannot overwrite intervening document changes', async () => {
+  const fixture = applyFixture();
+  fixture.document.version = 2;
+  await assert.rejects(undoReviewGroup({ ...fixture,
+    entries: [{ document: fixture.document, review: fixture.review }],
+    receipt: { status: 'applied', files: [{
+      path: fixture.review.path, documentVersion: 1,
+      beforeSha256: fixture.review.baseSha256, afterSha256: fixture.review.baseSha256,
+      acceptedHunkIds: [fixture.review.hunks[0].id],
+    }] },
+  }), /Cannot undo/);
+  assert.equal(fixture.writes(), 0);
 });

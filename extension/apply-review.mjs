@@ -96,10 +96,13 @@ export async function undoReviewGroup({ vscode, workspace, entries, receipt }) {
     const edit = new vscode.WorkspaceEdit();
     for (const { document, review } of changed) {
       const record = receipt.files.find(file => file.path === review.path);
-      if (document.version !== record.documentVersion) throw new Error('Document changed while preparing Undo');
+      if (document.isClosed || document.version !== record.documentVersion) throw new Error('Document changed while preparing Undo');
       edit.replace(document.uri, new vscode.Range(document.positionAt(0), document.positionAt(document.getText().length)), review.originalContent);
     }
     if (!await vscode.workspace.applyEdit(edit)) throw new Error('VS Code declined Undo');
+    if (changed.some(entry => entry.document.getText() !== entry.review.originalContent)) {
+      throw new Error('Document changed during Undo. Inspect the source editor before continuing.');
+    }
     return { status: 'undone', files: changed.map(entry => entry.review.path) };
   } finally { activeRoots.delete(workspace.root); }
 }

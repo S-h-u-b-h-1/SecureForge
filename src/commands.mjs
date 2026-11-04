@@ -23,12 +23,16 @@ export async function prepareCommand(workspace, request) {
     throw new Error('Only reviewed node --test or python3 -m pytest commands are supported');
   }
   const args = [...request.args];
+  if (request.timeoutMs !== undefined && (!Number.isInteger(request.timeoutMs) || request.timeoutMs < 100 || request.timeoutMs > 120000)) {
+    throw new Error('Command timeout must be an integer between 100 and 120000 ms');
+  }
   let files;
   if (request.executable === 'node' && args[0] === '--test') {
     files = args.slice(1);
     if (!files.length || files.some(file => file.startsWith('-') || !/\.(?:test|spec)\.(?:mjs|cjs|js)$/.test(file))) {
       throw new Error('Node verification requires explicit test files');
     }
+    args.splice(1, 0, '--test-reporter=tap');
   } else if (request.executable === 'python3' && args[0] === '-m' && args[1] === 'pytest') {
     files = args.slice(2).filter(arg => !['-q', '-x', '--disable-warnings'].includes(arg));
     if (!files.length || files.some(file => !/(?:^|\/)test_[\w.-]+\.py$/.test(file))) {
@@ -117,12 +121,15 @@ export async function runApprovedCommand({ workspace, request, approve, signal }
       clearTimeout(timeout);
       clearTimeout(killTimer);
       signal?.removeEventListener('abort', abort);
+      const masked = redactSecrets(Buffer.concat(chunks).toString('utf8'));
+      const encoded = Buffer.from(masked);
+      const output = encoded.length <= 64 * 1024 ? masked : encoded.subarray(0, 64 * 1024 - 4).toString('utf8');
       resolve({
         id: randomUUID(), command, executed: !spawnError,
         status: reason || (spawnError ? 'error' : exitCode === 0 ? 'passed' : 'failed'),
         exitCode, signal: exitSignal, durationMs: Date.now() - started,
-        output: redactSecrets(Buffer.concat(chunks).toString('utf8')),
-        truncated, ...(spawnError ? { error: spawnError } : {}),
+        output,
+        truncated: truncated || encoded.length > 64 * 1024, ...(spawnError ? { error: spawnError } : {}),
       });
     });
   });

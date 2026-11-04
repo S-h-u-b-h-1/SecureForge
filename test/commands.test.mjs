@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { Workspace } from '../src/workspace.mjs';
 import { prepareCommand, runApprovedCommand } from '../src/commands.mjs';
+import { createMcpServer } from '../src/mcp-server.mjs';
 
 async function fixture(t, source = "console.log('verification ran');") {
   const root = await mkdtemp(path.join(os.tmpdir(), 'sf-command-'));
@@ -70,4 +71,29 @@ test('verification timeout and cancellation stop a running test process', async 
     return true;
   } });
   assert.equal((await run).status, 'cancelled');
+});
+
+test('MCP command capability is opt-in and still requires local approval', async t => {
+  const options = await fixture(t);
+  const bridge = await createMcpServer({ root: options.workspace.root, port: 0,
+    onRunCommand: (workspace, request) => runApprovedCommand({ workspace, request, approve: async () => false }),
+  });
+  t.after(async () => {
+    bridge.server.closeAllConnections();
+    await new Promise(resolve => bridge.server.close(resolve));
+    await bridge.workspace.close();
+  });
+  async function request(method, params) {
+    const response = await fetch(`http://127.0.0.1:${bridge.address.port}/mcp`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+    });
+    return (await response.json()).result;
+  }
+  const tools = await request('tools/list');
+  assert.equal(tools.tools.find(tool => tool.name === 'run_command').annotations.destructiveHint, true);
+  const result = await request('tools/call', { name: 'run_command', arguments: options.request });
+  const receipt = JSON.parse(result.content[0].text);
+  assert.equal(receipt.executed, false);
+  assert.equal(receipt.status, 'denied');
 });

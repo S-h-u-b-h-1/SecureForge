@@ -39,11 +39,21 @@ const TOOLS = [
     annotations: { readOnlyHint: true } },
 ];
 
-export async function createMcpServer({ root, port = 8792, host = '127.0.0.1', accessToken, onProposal = () => {} }) {
+export async function createMcpServer({ root, port = 8792, host = '127.0.0.1', accessToken, onProposal = () => {}, onRunCommand }) {
   if (host !== '127.0.0.1' && host !== '::1') throw new Error('MCP bridge must bind to loopback');
   const workspace = await new Workspace(root).init();
   const proposals = new ProposalStore(workspace);
   const batches = new BatchProposalStore(proposals);
+  const tools = [...TOOLS];
+  if (onRunCommand) tools.push({
+    name: 'run_command', description: 'Request a bounded verification command. A local user must separately approve the exact executable, arguments and working directory. Tests execute repository code.',
+    inputSchema: { type: 'object', properties: {
+      executable: { type: 'string', enum: ['node', 'python3'] },
+      args: { type: 'array', items: { type: 'string' }, maxItems: 25 },
+      timeoutMs: { type: 'integer', minimum: 100, maximum: 120000 },
+    }, required: ['executable', 'args'], additionalProperties: false },
+    annotations: { readOnlyHint: false, destructiveHint: true },
+  });
   const commands = {
     read_file: (p) => workspace.readFile(p.path, { startLine: p.startLine, maxLines: p.maxLines }),
     search_workspace: (p) => workspace.searchWorkspace(p.query, { maxResults: p.maxResults }),
@@ -63,6 +73,7 @@ export async function createMcpServer({ root, port = 8792, host = '127.0.0.1', a
     get_batch: (p) => batches.getBatch(p.id),
     check_batch: (p) => batches.checkBatch(p.id),
   };
+  if (onRunCommand) commands.run_command = parameters => onRunCommand(workspace, parameters);
   const server = http.createServer(async (req, res) => {
     const send = (status, body) => {
       res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
@@ -102,7 +113,7 @@ export async function createMcpServer({ root, port = 8792, host = '127.0.0.1', a
         switch (message.method) {
           case 'initialize': return { protocolVersion: '2025-06-18', capabilities: { tools: {} }, serverInfo: { name: 'secureforge-workspace', version: '0.1.0' } };
           case 'ping': return {};
-          case 'tools/list': return { tools: TOOLS };
+          case 'tools/list': return { tools };
           case 'tools/call': {
             const name = message.params?.name;
             if (!Object.hasOwn(commands, name)) throw new Error('Unknown tool');
