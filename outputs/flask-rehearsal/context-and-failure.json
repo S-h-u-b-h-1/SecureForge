@@ -584,9 +584,47 @@
       }
     ],
     "limitations": "Lexical ranking and literal relative imports only; no AST or semantic proof. Evidence is bounded and untrusted. No file modifications.",
-    "note": "Post-reference discovery skips files with masked credential patterns, including the appended synthetic credential test. Extension context still includes redacted test excerpts."
+    "note": "Post-reference discovery skips files with masked credential patterns, including the appended synthetic credential test. Both discovery and extension context exclude complete credential-bearing source bodies."
   },
   "taskB": {
+    "skipped": [
+      {
+        "path": "docs/testing.rst",
+        "reason": "Source excluded because credential patterns were detected"
+      },
+      {
+        "path": "tests/test_cli.py",
+        "reason": "Source excluded because credential patterns were detected"
+      },
+      {
+        "path": "docs/patterns/flashing.rst",
+        "reason": "Source excluded because credential patterns were detected"
+      },
+      {
+        "path": "docs/patterns/wtforms.rst",
+        "reason": "Source excluded because credential patterns were detected"
+      },
+      {
+        "path": "docs/tutorial/tests.rst",
+        "reason": "Source excluded because credential patterns were detected"
+      },
+      {
+        "path": "docs/tutorial/views.rst",
+        "reason": "Source excluded because credential patterns were detected"
+      },
+      {
+        "path": "examples/tutorial/flaskr/auth.py",
+        "reason": "Source excluded because credential patterns were detected"
+      },
+      {
+        "path": "examples/tutorial/tests/conftest.py",
+        "reason": "Source excluded because credential patterns were detected"
+      },
+      {
+        "path": "examples/tutorial/tests/test_auth.py",
+        "reason": "Source excluded because credential patterns were detected"
+      }
+    ],
     "sources": [
       {
         "path": "tests/static/config.json",
@@ -601,13 +639,6 @@
         "startLine": 1,
         "endLine": 4,
         "reason": "Task terms in filename and source: cli, flask, test; related test/documentation for tests/test_apps/cliapp/inner1/inner2/flask.py"
-      },
-      {
-        "path": "tests/test_cli.py",
-        "sha256": "9beae8f59d21c81721d3b04fe586d21031c6bfad12cd6f6a106bdd002c5718f4",
-        "startLine": 700,
-        "endLine": 719,
-        "reason": "Task terms in filename and source: cli, test; related test/documentation for src/flask/cli.py"
       },
       {
         "path": "tests/test_config.py",
@@ -671,15 +702,22 @@
         "startLine": 54,
         "endLine": 113,
         "reason": "Task terms in filename and source: flask, config"
+      },
+      {
+        "path": "src/flask/json/__init__.py",
+        "sha256": "84b351f3df296aaa1e7dd78086b69ae70c89cbe6e6441da4d9d578120572d99f",
+        "startLine": 132,
+        "endLine": 171,
+        "reason": "Task terms in filename and source: flask, json"
       }
     ],
-    "usedBytes": 17924,
+    "usedBytes": 18529,
     "budgetBytes": 24000
   },
   "taskC": {
     "status": "passed_local_failure_check",
     "failure": "TrueForge run failed (connection or model error). No proposals were applied.",
-    "elapsedMs": 50,
+    "elapsedMs": 42,
     "unchanged": true,
     "before": {
       "gitStatus": " M docs/cli.rst\n M src/flask/cli.py\n M src/flask/helpers.py\n M tests/test_cli.py\n",

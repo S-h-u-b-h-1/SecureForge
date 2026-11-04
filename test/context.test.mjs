@@ -38,3 +38,44 @@ test('mentions support quoted paths and inline scope rejects unrelated edits', (
   assert.throws(() => validateInlineProposal(selection, { ...proposal, proposedContent: 'BEFORE\nNEW\nafter\n' }), /outside/);
   assert.throws(() => validateInlineProposal(selection, { ...proposal, path: 'other.py' }), /another file/);
 });
+
+test('context excludes credential-bearing paths from discovery, mentions, selections and diagnostics', async () => {
+  const token = 'ghp_abcdefghijklmnopqrstuv';
+  const sensitive = `src/login-${token}.js`;
+  const safe = 'src/login.js';
+  const raw = 'export function login() {}\n';
+  for (const scenario of ['listed', 'explicit', 'selected', 'unreadable', 'returned-path']) {
+    const reads = [];
+    const workspace = {
+      listFiles: async () => ['listed', 'unreadable'].includes(scenario) ? [sensitive, safe] : [safe],
+      rawForProposal: async file => {
+        reads.push(file);
+        if (scenario === 'unreadable' && file === sensitive) throw new Error('Denied');
+        return { relative: scenario === 'returned-path' ? sensitive : file, raw, hash: sha256(raw) };
+      },
+    };
+    const task = scenario === 'explicit' ? `Fix login @file:"${sensitive}"` : 'Fix login response';
+    const result = await assembleContext(workspace, task, {
+      budgetBytes: 2000, selectedPath: scenario === 'selected' ? sensitive : undefined,
+    });
+    assert.equal(JSON.stringify(result).includes(token), false, scenario);
+    assert.equal(reads.includes(sensitive), false, `${scenario} must exclude paths before reading`);
+    if (scenario !== 'returned-path') assert.ok(result.sources.some(source => source.path === safe));
+  }
+  const mentions = parseMentions(`@file:${sensitive} @symbol:${token} @file:${safe} @symbol:login`);
+  assert.deepEqual(mentions, { files: [safe], symbols: ['login'] });
+});
+
+test('context skips complete credential-bearing source bodies including explicitly attached files', async () => {
+  const token = 'ghp_abcdefghijklmnopqrstuv';
+  const safeRaw = 'export function login() {}\n';
+  const unsafeRaw = `// ${token}\nexport function login() {}\n`;
+  const workspace = {
+    listFiles: async () => ['src/login.js', 'src/clean.js'],
+    rawForProposal: async file => ({ relative: file, raw: file === 'src/login.js' ? unsafeRaw : safeRaw, hash: sha256(file) }),
+  };
+  const result = await assembleContext(workspace, 'Fix login @file:src/login.js', { budgetBytes: 2000 });
+  assert.deepEqual(result.sources.map(source => source.path), ['src/clean.js']);
+  assert.equal(JSON.stringify(result).includes(token), false);
+  assert.ok(result.skipped.some(item => item.path === 'src/login.js' && /credential/i.test(item.reason)));
+});

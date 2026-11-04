@@ -7,15 +7,18 @@ export function parseMentions(task) {
   const files = [...task.matchAll(/@file:(?:"([^"]+)"|([^\s]+))/g)].map(match => match[1] ?? match[2]);
   const symbols = [...task.matchAll(/@symbol:([A-Za-z_$][\w$]{1,99})/g)].map(match => match[1]);
   if (files.length + symbols.length > 12) throw new Error('Attach at most 12 file/symbol mentions');
-  return { files: [...new Set(files)], symbols: [...new Set(symbols)] };
+  return {
+    files: [...new Set(files)].filter(file => redactSecrets(file) === file),
+    symbols: [...new Set(symbols)].filter(symbol => redactSecrets(symbol) === symbol),
+  };
 }
 
 export async function assembleContext(workspace, task, { budgetBytes = 24000, signal, selectedPath } = {}) {
   if (typeof task !== 'string' || !task.trim()) throw new Error('A context request is required');
   if (!Number.isInteger(budgetBytes) || budgetBytes < 2000 || budgetBytes > 96000) throw new Error('Context budget must be 2000..96000 UTF-8 bytes');
   const mentions = parseMentions(task);
-  if (selectedPath && !mentions.files.includes(selectedPath)) mentions.files.unshift(selectedPath);
-  const terms = [...new Set(task.replace(/@(?:file|symbol):(?:"[^"]+"|\S+)/g, '').toLowerCase().match(/[a-z_][a-z0-9_]{2,}/g) ?? [])]
+  if (selectedPath && redactSecrets(selectedPath) === selectedPath && !mentions.files.includes(selectedPath)) mentions.files.unshift(selectedPath);
+  const terms = [...new Set(redactSecrets(task).replace(/@(?:file|symbol):(?:"[^"]+"|\S+)/g, '').toLowerCase().match(/[a-z_][a-z0-9_]{2,}/g) ?? [])]
     .filter(term => !STOP_WORDS.has(term)).slice(0, 24);
   const listed = await workspace.listFiles({ maxFiles: 2500 });
   const files = [...new Set([...mentions.files, ...listed])];
@@ -25,12 +28,24 @@ export async function assembleContext(workspace, task, { budgetBytes = 24000, si
   let scannedFiles = 0;
   for (const file of files) {
     signal?.throwIfAborted();
+    if (redactSecrets(file) !== file) {
+      skipped.push({ reason: 'Credential-bearing path excluded' });
+      continue;
+    }
     try {
       const source = await workspace.rawForProposal(file);
+      if (redactSecrets(source.relative) !== source.relative) {
+        skipped.push({ reason: 'Credential-bearing path excluded' });
+        continue;
+      }
       scannedBytes += Buffer.byteLength(source.raw);
       if (scannedBytes > 4 * 1024 * 1024) { skipped.push({ path: file, reason: '4 MiB scan budget reached' }); break; }
       scannedFiles++;
-      const lines = redactSecrets(source.raw).split(/\r?\n/);
+      if (redactSecrets(source.raw) !== source.raw) {
+        skipped.push({ path: file, reason: 'Source excluded because credential patterns were detected' });
+        continue;
+      }
+      const lines = source.raw.split(/\r?\n/);
       const name = file.toLowerCase();
       const nameTerms = terms.filter(term => name.includes(term));
       const explicit = mentions.files.includes(file);

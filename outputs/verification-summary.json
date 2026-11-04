@@ -1,9 +1,9 @@
 {
-  "createdAt": "2026-11-04T17:05:47.887Z",
+  "createdAt": "2026-11-04T17:28:45.972Z",
   "node": "v24.5.0",
   "platform": "darwin",
   "unitTests": {
-    "passed": 66,
+    "passed": 69,
     "failed": 0
   },
   "packagedEditor": {
@@ -21,7 +21,7 @@
       "A stale member blocks the entire multi-file apply",
       "Cancellation before batch apply preserves all documents",
       "Owned security finding, editor-reviewed fix, saved regression proof and Patch Passport agree",
-      "Real TrueForge session 01m6krae398zzb3919c21w1f0y delivers a proposal into the editor (deterministic inference fixture)"
+      "Real TrueForge session 01m6ksnc60nvfxpqma66vpzb1b delivers a proposal into the editor (deterministic inference fixture)"
     ],
     "inference": "deterministic local fixture, not a production model"
   },
@@ -32,11 +32,12 @@
   "auditVulnerabilities": 0,
   "integratedTeammateCommit": "a28fe80",
   "sha256": {
-    "outputs/SecureForge-0.1.0.vsix": "fe3165ebcbdcc298f1869a98800b24ced681261f68ceab891f023d71d417de31",
+    "outputs/SecureForge-0.1.0.vsix": "6fecd51c778f07aa4a9c8af94276bc8d8c82e12b654b7642dabab1238a6e737a",
     "outputs/SecureForge-Round1-Writeup-DRAFT.pdf": "73d29f51bc3c931371be65f92e09e502eac3180feea6fc7d1a95e1f65c5af209",
-    "src/context.mjs": "b468a1d33939709e4783f1e929e58c25de7c20629f5c0f27eb67df98e8cbfead",
+    "src/context.mjs": "aead4292aeffa362862f7c3fadd9056949637111b1698de9f90b5f1e3d4b8c8b",
     "src/build/repository-discovery.mjs": "275424ba089a8f48f337d657db83238fc47baa31be0f874527711fef593496d5",
-    "src/security.mjs": "c6ff7e906d59348b23ca4415df08fe6a52c25a3e8f1c7898b0376d99cd82b14f"
+    "src/security.mjs": "c6ff7e906d59348b23ca4415df08fe6a52c25a3e8f1c7898b0376d99cd82b14f",
+    "src/live-run.mjs": "fd82c6fd74acd19271b5bdc59392402be0ff7051441d44c086a374ffbae01e5e"
   },
   "remaining": [
     "Real-model official A/B runs",
@@ -45,5 +46,11 @@
     "Advanced TrueForge context-engineering feature demonstration",
     "Automatic model fallback and retry/backoff",
     "Final competition portal submission"
-  ]
+  ],
+  "contextCredentialGuard": {
+    "regression": "Reproduced sensitive-path disclosure with synthetic credentials before the fix",
+    "paths": "Excluded from reads, candidates, explicit mentions, inline selection context and diagnostics",
+    "sourceBodies": "Entire files excluded if credential redaction changes content",
+    "liveInputs": "Credential-bearing tasks and inline paths rejected before TrueForge contact"
+  }
 }

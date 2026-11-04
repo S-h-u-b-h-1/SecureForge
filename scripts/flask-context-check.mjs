@@ -22,9 +22,11 @@ try {
     assert.ok(discovery.candidates.some(source => source.path === expected));
   }
   const context = await assembleContext(workspace, report.taskB.instruction);
-  for (const expected of ['src/flask/cli.py', 'tests/test_cli.py', 'docs/cli.rst']) {
+  for (const expected of ['src/flask/cli.py', 'docs/cli.rst']) {
     assert.ok(context.sources.some(source => source.path === expected), `Missing task B context ${expected}`);
   }
+  assert.ok(context.skipped.some(source => source.path === 'tests/test_cli.py' && /credential/i.test(source.reason)));
+  assert.ok(!context.sources.some(source => source.path === 'tests/test_cli.py'));
   const files = ['src/flask/helpers.py', 'src/flask/cli.py', 'tests/test_cli.py', 'docs/cli.rst'];
   const hashes = async () => Object.fromEntries(await Promise.all(files.map(async file => [file, sha256(await readFile(path.join(checkout, file)))])));
   const before = { gitStatus: await status(), hashes: await hashes() };
@@ -44,8 +46,8 @@ try {
   assert.deepEqual(after, before);
   const result = {
     mode: 'model-independent context and real SDK unreachable-endpoint checks',
-    discovery: { ...discovery, note: 'Post-reference discovery skips files with masked credential patterns, including the appended synthetic credential test. Extension context still includes redacted test excerpts.' },
-    taskB: { sources: context.sources.map(({ content, ...source }) => source), usedBytes: context.usedBytes, budgetBytes: context.budgetBytes },
+    discovery: { ...discovery, note: 'Post-reference discovery skips files with masked credential patterns, including the appended synthetic credential test. Both discovery and extension context exclude complete credential-bearing source bodies.' },
+    taskB: { skipped: context.skipped, sources: context.sources.map(({ content, ...source }) => source), usedBytes: context.usedBytes, budgetBytes: context.budgetBytes },
     taskC: { status: 'passed_local_failure_check', failure, elapsedMs: Date.now() - started, unchanged: true, before, after,
       limitation: 'Editor responsiveness and the official recording remain pending.' },
   };

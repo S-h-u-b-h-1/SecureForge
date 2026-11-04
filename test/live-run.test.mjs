@@ -86,3 +86,20 @@ test('model failures preserve files and local URL validation blocks remote origi
     assert.throws(() => localTrueForgeUrl(url));
   }
 });
+
+test('credential-bearing task mentions and inline paths never reach TrueForge', async t => {
+  const root = await fixture(t);
+  const token = 'ghp_abcdefghijklmnopqrstuv';
+  let contacted = false;
+  const client = new Proxy({}, { get() { contacted = true; throw new Error('Unexpected API access'); } });
+  for (const request of [
+    { task: `Fix login @file:src/login-${token}.js` },
+    { task: 'Fix login', selection: { path: `src/login-${token}.js` } },
+  ]) {
+    const run = new LiveRun({ client, root });
+    await assert.rejects(run.run({ model: 'test/model', ...request }), /recognized credential patterns/);
+    assert.equal(run.state, 'idle');
+  }
+  assert.equal(contacted, false);
+  assert.equal(await readFile(path.join(root, 'sample.py'), 'utf8'), 'old\n');
+});

@@ -30,7 +30,7 @@ Run **SecureForge: Open Agent Panel**. The panel supports tasks, file/symbol att
 
 ## Context strategy
 
-Lexical retrieval scores filenames and matching source lines. Related tests and documentation receive a bonus. Explicit `@file:path`, quoted file paths and `@symbol:name` mentions receive priority. Selection context uses the selected file. At most 12 excerpts enter automatic context. The default serialized-source budget is 24,000 UTF-8 bytes, configurable from 2,000 to 96,000. Reads scan at most 4 MiB and 2,500 candidate files. Token estimates use bytes divided by three and are approximate. The agent can retrieve additional bounded excerpts through MCP tools. Shubhaang's integrated `discover_repository` tool adds independently bounded ranking and literal import relationships, using at most 160 files and 12 results by default. Discovery tasks are limited to 400 characters.
+Lexical retrieval scores filenames and matching source lines. Related tests and documentation receive a bonus. Explicit `@file:path`, quoted file paths and `@symbol:name` mentions receive priority. Selection context uses the selected file. At most 12 excerpts enter automatic context. The default serialized-source budget is 24,000 UTF-8 bytes, configurable from 2,000 to 96,000. Reads scan at most 4 MiB and 2,500 candidate files. Token estimates use bytes divided by three and are approximate. Paths containing recognized credentials are excluded before reads and omitted from mentions and diagnostics. Entire source files are skipped when credential redaction would change their contents, including explicit attachments. This also excludes synthetic credential fixtures. Runs reject credential-bearing task text and inline-selection paths before contacting TrueForge. The agent can retrieve additional bounded excerpts through MCP tools. Shubhaang's integrated `discover_repository` tool adds independently bounded ranking and literal import relationships, using at most 160 files and 12 results by default. Discovery tasks are limited to 400 characters.
 
 Paths, line ranges, SHA-256 hashes, reasons and byte usage are shown before generation. Repository excerpts are marked untrusted. Retrieval does not resolve AST symbols, callers or dependency graphs.
 
@@ -51,7 +51,7 @@ node scripts/flask-context-check.mjs .tmp/flask-3.1.3
 
 Flask 3.1.3 resolves to `22d924701a6ae2e4cd01e9a15bbaf3946094af65`. The tested rehearsal used Python 3.12.14 and pytest 8.x. Pytest 9 cannot collect this pinned Flask test suite because it removed an internal import used upstream.
 
-Reference results include Task A false values, Task B masked JSON, command registration, documentation, 59 CLI tests, source/test/doc retrieval, and an actual SDK unreachable-endpoint failure with unchanged tracked-file hashes and Git status. Reference proposals and patch are provided for inspection. They do not establish autonomous Task B discovery or official scorecard success. The included Flask BSD license covers the reference excerpts.
+Reference results include Task A false values, Task B masked JSON, command registration, documentation, 59 CLI tests, source/doc retrieval with credential-bearing test fixtures excluded, and an actual SDK unreachable-endpoint failure with unchanged tracked-file hashes and Git status. Reference proposals and patch are provided for inspection. They do not establish autonomous Task B discovery or official scorecard success. The included Flask BSD license covers the reference excerpts.
 
 ## Official recording plan
 

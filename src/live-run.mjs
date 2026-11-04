@@ -41,6 +41,9 @@ export class LiveRun {
   async run({ model, task, context, selection }) {
     if (this.state !== 'idle') throw new Error('This run cannot be replayed');
     if (typeof task !== 'string' || !task.trim() || task.length > 20000) throw new Error('Task must contain 1..20000 characters');
+    if (redactSecrets(task) !== task || (selection && redactSecrets(selection.path) !== selection.path)) {
+      throw new Error('Task or selection contains recognized credential patterns. Remove sensitive values before starting a run.');
+    }
     this.state = 'running';
     const accessToken = randomBytes(32).toString('hex');
     const name = `secureforge-${randomUUID().slice(0, 8)}`;
