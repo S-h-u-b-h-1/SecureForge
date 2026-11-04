@@ -1,6 +1,6 @@
 # SecureForge
 
-> **Status: Core-agent foundation — not a finished VS Code extension.**
+> **Status: Core-agent foundation with a local VS Code hunk-review milestone.**
 
 SecureForge is a security-first AI coding assistant built around **TrueForge**. The long-term product has Build, Security Review and Verify workflows with human-controlled edit approval. This repository currently contains the first independently testable Build foundation: local workspace tools, in-memory patch proposals, a small MCP HTTP bridge, a TrueForge SDK client, and regression tests. There is **no automatic source-file write** or command-execution tool.
 
@@ -50,6 +50,10 @@ The real model request is **not tested by CI** because it requires a locally con
 - `propose_edit` — stores full proposed content in process memory, requiring the expected SHA-256; **never writes source files**.
 - `get_proposal` and `check_proposal` — recover a proposal for UI display and detect stale bases.
 
-Known limitations: Linux workspace reads require `/proc/self/fd` and macOS reads use `O_NOFOLLOW_ANY` (test macOS support before relying on it); no persistence or diff hunk application; no full symbol analysis; no command execution/verification; no model fallback; no full MCP interoperability suite yet; best-effort secret redaction is not a DLP guarantee. Reading is blocked for symlinks, including internal symlinks, to fail closed. The bridge is for local development only.
+Known limitations: Linux workspace reads require `/proc/self/fd` and macOS reads use `O_NOFOLLOW_ANY` (test macOS support before relying on it); proposal persistence and live delivery into the review extension remain pending; no full symbol analysis; no command execution/verification; no model fallback; no full MCP interoperability suite yet; best-effort secret redaction is not a DLP guarantee. Reading is blocked for symlinks, including internal symlinks, to fail closed. The bridge is for local development only.
 
 See [Architecture and integration contract](docs/ARCHITECTURE.md) for the handoff with Aditya. Please don't merge to `main` without review and clean-clone tests.
+
+## Local hunk review extension
+
+The security branch includes a VS Code review milestone for pending v1 proposals. It supports independent hunk decisions, guarded editor-buffer application and native Undo. Run `npm ci`, open this repository in VS Code, press F5 and choose **Run SecureForge Review**. Then run **SecureForge: Open Two-Hunk Review Demo** in the development host. See [review setup and limitations](docs/REVIEW.md). Real TrueForge proposal delivery into this UI remains pending.

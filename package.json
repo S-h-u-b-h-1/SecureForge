@@ -4,15 +4,19 @@
   "private": true,
   "type": "module",
   "description": "TrueForge-powered security-first coding agent (foundation)",
-  "engines": { "node": ">=22.14.0" },
+  "engines": {
+    "node": ">=22.14.0"
+  },
   "scripts": {
     "test": "node --test test/*.test.mjs",
-    "check": "node --check src/agent.mjs && node --check src/cli.mjs && node --check src/mcp-server.mjs && node --check src/workspace.mjs && node --check src/proposals.mjs",
+    "check": "node --check src/agent.mjs && node --check src/cli.mjs && node --check src/mcp-server.mjs && node --check src/workspace.mjs && node --check src/proposals.mjs && node --check src/review.mjs && node --check extension/extension.cjs && node --check extension/review-ui.mjs && node --check extension/apply-review.mjs && node --check test/editor/launch.mjs && node --check test/editor/run.cjs",
     "start:mcp": "node src/mcp-server.mjs",
     "demo:agent": "node src/cli.mjs agent",
-    "demo:inspect": "node src/cli.mjs inspect"
+    "demo:inspect": "node src/cli.mjs inspect",
+    "test:editor": "node test/editor/launch.mjs"
   },
   "dependencies": {
-    "@truefoundry/trueforge-sdk": "0.182.0"
+    "@truefoundry/trueforge-sdk": "0.182.0",
+    "diff": "8.0.4"
   }
 }

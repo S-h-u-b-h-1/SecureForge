@@ -1,0 +1,17 @@
+{
+  "name": "secureforge-review",
+  "displayName": "SecureForge Review",
+  "publisher": "secureforge",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Human-controlled hunk review for SecureForge v1 proposals.",
+  "engines": { "vscode": "^1.95.0" },
+  "main": "./extension.cjs",
+  "capabilities": { "untrustedWorkspaces": { "supported": false } },
+  "contributes": {
+    "commands": [
+      { "command": "secureforge.reviewProposal", "title": "SecureForge: Review Proposal JSON" },
+      { "command": "secureforge.reviewDemo", "title": "SecureForge: Open Two-Hunk Review Demo" }
+    ]
+  }
+}
