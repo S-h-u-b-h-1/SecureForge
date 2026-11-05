@@ -104,3 +104,52 @@ test('wrong Flask repository is rejected before creating a TrueForge client', as
   assert.match(events.find(item => item.type === 'workspaceMismatch').message, /Recent projects/);
   assert.deepEqual(notifications, []);
 });
+
+test('verification UI selects multiple repository test files, runs only after approval and reports status', async t => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'sf-verify-ui-'));
+  await writeFile(path.join(root, 'one.test.mjs'),
+    "import test from 'node:test'; test('one', () => {});\n");
+  await writeFile(path.join(root, 'two.spec.mjs'),
+    "import test from 'node:test'; test('two', () => {});\n");
+  t.after(async () => rm(root, { recursive: true, force: true }));
+  const commands = new Map();
+  const prompts = [];
+  const emitted = [];
+  const output = { appendLine() {}, show() {}, dispose() {} };
+  const vscode = {
+    commands: { registerCommand: (name, handler) => {
+      commands.set(name, handler); return { dispose() {} };
+    } },
+    ProgressLocation: { Notification: 1 },
+    workspace: { isTrusted: true,
+      workspaceFolders: [{ name: 'test-repo', uri: { scheme: 'file', fsPath: root } }],
+    },
+    window: {
+      createOutputChannel: () => output,
+      registerWebviewViewProvider: () => ({ dispose() {} }),
+      showQuickPick: async (items, options) => {
+        if (!options.canPickMany) return 'Node test';
+        assert.deepEqual(items.map(item => item.label).sort(), ['one.test.mjs', 'two.spec.mjs']);
+        return items;
+      },
+      withProgress: async (_options, callback) => callback({}, {
+        onCancellationRequested: () => ({ dispose() {} }),
+      }),
+      showWarningMessage: async (_prompt, options) => {
+        prompts.push(options.detail);
+        return 'Run verification';
+      },
+    },
+  };
+  const state = registerWorkflows(vscode, { subscriptions: [] });
+  state.subscribe(value => emitted.push(value));
+  const receipt = await commands.get('secureforge.runVerification')();
+  assert.equal(receipt.status, 'passed');
+  assert.equal(receipt.executed, true);
+  assert.ok(receipt.command.args.includes('one.test.mjs'));
+  assert.ok(receipt.command.args.includes('two.spec.mjs'));
+  assert.equal(prompts.length, 1, 'Execution still requires one explicit local approval');
+  assert.deepEqual(emitted.at(-1), {
+    type: 'verificationResult', status: 'passed', executed: true, fileCount: 2,
+  });
+});
