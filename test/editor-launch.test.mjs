@@ -11,7 +11,7 @@ const execFileAsync = promisify(execFile);
 
 test('VS Code editor-host launcher does not block on the window-closing --wait flag', async () => {
   const source = await readFile(new URL('editor/launch.mjs', import.meta.url), 'utf8');
-  const start = source.indexOf('const child = spawn(executable, [');
+  const start = source.indexOf('child = spawn(executable, [');
   const end = source.indexOf("], { stdio: 'inherit'", start);
   assert.ok(start >= 0 && end > start, 'The editor launcher should use an explicit argument list');
   const args = source.slice(start, end);
