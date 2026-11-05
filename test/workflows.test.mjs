@@ -100,5 +100,7 @@ test('wrong Flask repository is rejected before creating a TrueForge client', as
     'Fix FLASK_DEBUG and FLASK_SKIP_DOTENV in the existing parser');
   assert.equal(result.status, 'workspace_mismatch');
   assert.equal(events.find(item => item.type === 'workspaceMismatch')?.code, 'FLASK_SOURCE_ABSENT');
+  assert.match(events.find(item => item.type === 'workspaceMismatch').message, /currently in node-project/);
+  assert.match(events.find(item => item.type === 'workspaceMismatch').message, /Recent projects/);
   assert.deepEqual(notifications, []);
 });
