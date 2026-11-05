@@ -41,6 +41,27 @@ export function buildAgentSpec({ model, mcpServerName } = {}) {
   };
 }
 
+// Prefer the local runtime's model catalog instead of requiring an unfamiliar FQN
+// on each task. The caller validates baseUrl as a localhost-only origin.
+export async function resolveTrueForgeModel({ configured, baseUrl, chooseModel, enterModel,
+  fetchImpl = fetch } = {}) {
+  if (typeof configured === 'string' && configured.trim()) return configured.trim();
+  try {
+    const response = await fetchImpl(`${baseUrl}/api/v1/models`, {
+      method: 'GET', redirect: 'error', signal: AbortSignal.timeout(3500),
+    });
+    if (response.ok) {
+      const data = await response.json();
+      const names = [...new Set((Array.isArray(data?.data) ? data.data : [])
+        .map(item => item?.name).filter(name => typeof name === 'string' &&
+          /^[A-Za-z0-9][A-Za-z0-9_./-]{1,127}$/.test(name)))].slice(0, 50);
+      if (names.length === 1) return names[0];
+      if (names.length > 1) return await chooseModel(names);
+    }
+  } catch { /* Old or unavailable local runtime: fall back to manual entry. */ }
+  return await enterModel();
+}
+
 export async function createTrueForgeClient({ baseUrl = 'http://localhost:8790', token } = {}) {
   // Lazy import keeps unit tests and safe local workspace tools runnable offline.
   const { TrueForge } = await import('@truefoundry/trueforge-sdk');
