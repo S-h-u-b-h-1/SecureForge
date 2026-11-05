@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { Workspace, sha256 } from '../src/workspace.mjs';
-import { assembleContext, parseMentions, validateInlineProposal } from '../src/context.mjs';
+import { assembleContext, parseMentions, validateInlineProposal, detectWorkspaceMismatch } from '../src/context.mjs';
 
 test('context discovers implementation/tests/docs without named files and respects a byte budget', async t => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'sf-context-'));
@@ -78,4 +78,31 @@ test('context skips complete credential-bearing source bodies including explicit
   assert.deepEqual(result.sources.map(source => source.path), ['src/clean.js']);
   assert.equal(JSON.stringify(result).includes(token), false);
   assert.ok(result.skipped.some(item => item.path === 'src/login.js' && /credential/i.test(item.reason)));
+});
+
+test('Flask-specific existing-code requests in a Node-only workspace stop before source reads', async () => {
+  const task = 'Fix FLASK_DEBUG and FLASK_SKIP_DOTENV parsing of off and n; add regression tests';
+  const files = ['src/intelligence.js', 'server.js', 'package.json', 'tests/intelligence.test.js'];
+  const mismatch = detectWorkspaceMismatch(task, files);
+  assert.equal(mismatch?.code, 'FLASK_SOURCE_ABSENT');
+  assert.match(mismatch.message, /Open your Flask project folder/);
+
+  let readCount = 0;
+  const workspace = {
+    listFiles: async () => files,
+    rawForProposal: async () => { readCount++; throw new Error('Should not read code'); },
+  };
+  const context = await assembleContext(workspace, task);
+  assert.equal(context.workspaceMismatch?.code, 'FLASK_SOURCE_ABSENT');
+  assert.deepEqual(context.sources, []);
+  assert.equal(readCount, 0);
+});
+
+test('workspace mismatch guard is conservative when there is Python or a new integration request', () => {
+  const task = 'Fix FLASK_DEBUG and FLASK_SKIP_DOTENV to recognize off and n';
+  assert.equal(detectWorkspaceMismatch(task, ['src/flask/helpers.py', 'tests/test_helpers.py']), null);
+  assert.equal(detectWorkspaceMismatch('Explain FLASK_DEBUG behavior', ['server.js']), null);
+  assert.equal(detectWorkspaceMismatch('Implement a new Flask service in Node project', ['server.js']), null);
+  assert.equal(detectWorkspaceMismatch(task, Array(2500).fill('src/file.js')), null);
+  assert.equal(detectWorkspaceMismatch('Fix the Node server', ['server.js']), null);
 });
