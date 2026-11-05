@@ -97,12 +97,17 @@ export class LiveRun {
       for (let step = 0; step < 20; step++) {
         signal.throwIfAborted();
         let final;
+        let visibleReply = '';
         const approvals = [];
         const stream = await this.client.sessions.createTurnStream(session.id, { input }, requestOptions);
         for await (const { data: event } of stream.withMetadata()) {
           signal.throwIfAborted();
           if (event.type === 'tool.approval_required') approvals.push(event);
           if (event.type === 'turn.done') final = event.state;
+          // Only collect explicit, user-visible model text. Never include tool results,
+          // hidden reasoning or untrusted repository snippets as an assistant answer.
+          if (event.type === 'model.message.delta' && typeof event.content === 'string' &&
+              visibleReply.length < 4000) visibleReply += event.content.slice(0, 4000 - visibleReply.length);
           // Never render raw tool results or hidden model reasoning in activity logs.
           this.onEvent({ type: event.type, content: event.type === 'model.message.delta' && typeof event.content === 'string'
             ? redactSecrets(event.content) : '' });
@@ -150,7 +155,8 @@ export class LiveRun {
         this.state = 'done';
         const diagnostics = this.getDiagnostics();
         this.onEvent({ type: 'secureforge.summary', content: JSON.stringify(diagnostics) });
-        return { id: session.id, proposals: result, sessionId: session.id, diagnostics };
+        return { id: session.id, proposals: result, sessionId: session.id, diagnostics,
+          reply: redactSecrets(visibleReply).trim().slice(0, 3000) };
       }
       throw new Error('Approval round limit exceeded');
     } catch (error) {
