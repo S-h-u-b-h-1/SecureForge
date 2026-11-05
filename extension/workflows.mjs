@@ -133,6 +133,7 @@ export function registerWorkflows(vscode, context) {
       }
       const workspace = await new Workspace(selected.uri.fsPath).init();
       try {
+        broadcast({ type: 'reviewReady', fileCount: payload.proposals.length });
         await openReviewPayload(vscode, context, workspace, payload, record => {
           recordReview({ ...record, sessionId: payload.sessionId });
         });
