@@ -12,6 +12,10 @@ export function registerAgentPanel(vscode, context, actions) {
     panel.webview.onDidReceiveMessage(async message => {
       if (disposed || !message || typeof message !== 'object') return;
       if (message.type === 'cancel') { await actions.cancel(); return; }
+      if (message.type === 'verify') {
+        if (!running) await vscode.commands.executeCommand('secureforge.runVerification');
+        return;
+      }
       if (message.type === 'openRecent') {
         await vscode.commands.executeCommand('workbench.action.openRecent');
         return;
@@ -161,7 +165,29 @@ window.addEventListener('message',event=>{const data=event.data;if(!data||typeof
    const note=data.status==='applied'?'Applied '+count+' approved hunk(s) to the editor. Save the files and run tests before committing.':
      data.status==='undone'?'Approved changes were undone in the editor.':
      'No changes applied; all hunks were rejected.';
-   message('agent',note);status.textContent=data.status==='applied'?'Save and verify your changes':'Review complete';
+   const box=message('agent',note);
+   if(data.status==='applied'){
+     const button=document.createElement('button');
+     button.className='change-folder';
+     button.textContent='Run tests (save files first)';
+     button.onclick=()=>vscode.postMessage({type:'verify'});
+     box.append(button);
+   }
+   status.textContent=data.status==='applied'?'Save and verify your changes':'Review complete';
+ }
+ if(data.type==='verificationResult'){
+   const n=Number.isInteger(data.fileCount)?data.fileCount:0;
+   const description=data.executed===true&&data.status==='passed'?
+      'Verification passed for '+n+' selected test file(s). Review the diff before committing.':
+      data.executed===true&&data.status==='failed'?
+      'Verification failed. Open SecureForge Activity in the Output panel for details.':
+      data.status==='denied'?
+      'Verification was not approved. No tests were executed.':
+      data.status==='timed_out'?'Verification timed out. Inspect SecureForge Activity for details.':
+      data.status==='cancelled'?'Verification was cancelled.':
+      'Verification did not pass. Inspect SecureForge Activity for details.';
+   message('agent',description);
+   status.textContent=data.executed===true&&data.status==='passed'?'Tests passed':'Verification incomplete';
  }
  if(data.type==='workspace'){
    const label=document.querySelector('.folder span');
