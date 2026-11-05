@@ -23,7 +23,9 @@ Diagnostic report: ${reportPath}`);
 
 try {
   const child = spawn(executable, [
-    '--new-window', '--wait', '--disable-workspace-trust', '--skip-welcome', '--skip-release-notes',
+    // --extensionTestsPath already manages the test-host lifecycle; --wait
+    // can keep this CLI alive after the test script has written its final report.
+    '--new-window', '--disable-workspace-trust', '--skip-welcome', '--skip-release-notes',
     '--user-data-dir', path.join(runDirectory, 'profile'),
     '--extensions-dir', path.join(runDirectory, 'extensions'),
     `--extensionDevelopmentPath=${process.env.SECUREFORGE_EXTENSION_PATH || path.join(root, 'extension')}`,
