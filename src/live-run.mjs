@@ -24,6 +24,14 @@ export class LiveRun {
     this.sessionId = null;
     this.state = 'idle';
     this.staged = [];
+    this.toolCounts = Object.create(null);
+    this.sourceEvidence = new Map();
+    this.terminalStatus = null;
+  }
+
+  getDiagnostics() {
+    return { sessionId: this.sessionId, status: this.state, terminalStatus: this.terminalStatus,
+      toolCounts: { ...this.toolCounts }, sources: [...this.sourceEvidence.values()] };
   }
 
   async cancel() {
@@ -54,6 +62,13 @@ export class LiveRun {
     try {
       bridge = await createMcpServer({
         root: this.root, port: 0, accessToken, signal,
+        onTool: event => {
+          if (event.status === 'started') this.toolCounts[event.name] = (this.toolCounts[event.name] ?? 0) + 1;
+          for (const source of event.sources ?? []) {
+            if (this.sourceEvidence.has(source.path) || this.sourceEvidence.size < 100) this.sourceEvidence.set(source.path, source);
+          }
+          this.onEvent({ type: 'secureforge.tool', content: `${event.name}: ${event.status}` });
+        },
         onProposal: proposal => { if (!signal.aborted) this.staged.push(proposal); },
         onRunCommand: this.verifyCommand ? (workspace, request) => this.verifyCommand(workspace, request, signal) : undefined,
       });
@@ -92,7 +107,8 @@ export class LiveRun {
           this.onEvent({ type: event.type, content: event.type === 'model.message.delta' && typeof event.content === 'string'
             ? redactSecrets(event.content) : '' });
         }
-        if (!final) throw new Error('TrueForge stream ended without a terminal event');
+        if (!final) throw Object.assign(new Error('TrueForge stream ended without a terminal event'), { code: 'TF_INCOMPLETE' });
+        this.terminalStatus = final.status;
         // Runtime 0.183 reports a terminal turn with required actions as "done";
         // SDK 0.182 also describes "paused". Both still require an approval turn.
         if (['paused', 'done'].includes(final.status) && approvals.length) {
@@ -110,7 +126,10 @@ export class LiveRun {
         if ((final.required_actions?.length || final.actionRequiredOnEvents?.length) && !approvals.length) {
           throw new Error('TrueForge requested an unsupported interactive action');
         }
-        if (final.status !== 'done') throw new Error(`TrueForge run ended with ${final.status}`, { cause: final });
+        if (final.status !== 'done') {
+          const iterationLimit = final.status === 'error' && typeof final.message === 'string' && /iteration[ _-]+limit/i.test(final.message);
+          throw Object.assign(new Error('TrueForge returned a terminal failure'), { code: iterationLimit ? 'TF_ITERATION_LIMIT' : 'TF_TERMINAL_ERROR' });
+        }
         const result = [];
         const seen = new Set();
         for (const staged of this.staged) {
@@ -129,7 +148,9 @@ export class LiveRun {
           validateInlineProposal(selection, result[0]);
         }
         this.state = 'done';
-        return { id: session.id, proposals: result, sessionId: session.id };
+        const diagnostics = this.getDiagnostics();
+        this.onEvent({ type: 'secureforge.summary', content: JSON.stringify(diagnostics) });
+        return { id: session.id, proposals: result, sessionId: session.id, diagnostics };
       }
       throw new Error('Approval round limit exceeded');
     } catch (error) {
@@ -147,7 +168,17 @@ export class LiveRun {
         catch { /* Bridge closure also prevents subsequent workspace calls. */ }
       }
       this.state = 'error';
-      throw new Error(`TrueForge run failed (${error.statusCode ?? error.code ?? 'connection or model error'}). No proposals were applied.`, { cause: error });
+      const failures = {
+        TF_ITERATION_LIMIT: ['iteration_limit', 'iteration limit 30 reached; inspect tool counts and retrieved sources before retrying'],
+        TF_TERMINAL_ERROR: ['terminal_error', 'model or runtime returned a terminal error; inspect the TrueForge session'],
+        TF_INCOMPLETE: ['incomplete_turn', 'stream ended before a terminal event'],
+      };
+      const [code, reason] = Object.hasOwn(failures, error.code)
+        ? failures[error.code]
+        : ['runtime_or_model_error', 'connection or model error; check the configured runtime and model'];
+      const diagnostics = this.getDiagnostics();
+      this.onEvent({ type: 'secureforge.summary', content: JSON.stringify(diagnostics) });
+      throw Object.assign(new Error(`TrueForge run failed (${reason}). Session ${this.sessionId ?? '(not created)'}. No proposals were applied.`, { cause: error }), { code, diagnostics });
     } finally {
       if (bridge) {
         bridge.server.closeAllConnections();

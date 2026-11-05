@@ -125,3 +125,37 @@ test('cancelled MCP capabilities reject new calls and suppress in-flight source 
   assert.ok(!(await response.text()).includes('private dummy source'));
   assert.equal((await call()).status, 410);
 });
+
+test('source bundles round-trip complete UTF-8 bytes and hashes through read-only MCP', async t => {
+  const { root, post, request } = await setup(t);
+  const second = 'def café():\r\n    return "✓"\r\n';
+  await writeFile(path.join(root, 'b.py'), second);
+  const tools = (await post(request(70, 'tools/list'))).data.result.tools;
+  const advertised = tools.find(tool => tool.name === 'read_source_bundle');
+  assert.equal(advertised.annotations.readOnlyHint, true);
+  assert.equal(advertised.inputSchema.properties.paths.maxItems, 4);
+  const response = await post(request(71, 'tools/call', { name: 'read_source_bundle', arguments: { paths: ['a.py', 'b.py'] } }));
+  const bundle = JSON.parse(response.data.result.content[0].text);
+  assert.equal(bundle.status, 'read_only');
+  assert.equal(bundle.fileCount, 2);
+  assert.equal(bundle.files[1].content, second);
+  const { sha256 } = await import('../src/workspace.mjs');
+  assert.equal(bundle.files[1].sha256, sha256(second));
+  assert.equal(await readFile(path.join(root, 'b.py'), 'utf8'), second);
+});
+
+test('MCP source bundles reject denied paths, credentials and oversized requests without partial sources', async t => {
+  const { root, post, request } = await setup(t);
+  const token = 'ghp_abcdefghijklmnopqrstuv';
+  await writeFile(path.join(root, 'private.py'), `password = ${token}\n`);
+  for (const paths of [
+    ['a.py', '../outside.py'], ['a.py', '.env'], ['a.py', 'private.py'],
+    ['a.py', `login-${token}.py`], ['a.py', 'a.py'], Array(5).fill('a.py'),
+  ]) {
+    const response = await post(request(72, 'tools/call', { name: 'read_source_bundle', arguments: { paths } }));
+    assert.equal(response.data.result.isError, true);
+    const returned = JSON.stringify(response.data.result);
+    assert.ok(!returned.includes('def verify'));
+    assert.ok(!returned.includes(token));
+  }
+});

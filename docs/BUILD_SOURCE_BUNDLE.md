@@ -59,3 +59,14 @@ does not loop just as much after source-bundle retrieval.
 The proposed tool reduces **network/model interactions**, not total source
 bytes or model inference work. Treat the initial results as a candidate, not
 proven autonomous Task B success.
+
+
+## Integration branch qualification
+
+`feat/secureforge-integration` combines the tested PR #4 baseline through `553ca29` and PR #5 helper commit `91fc560`. This integration registers read-only `read_source_bundle` in MCP and explicitly enables it in the Build agent. Staging still requires the existing TrueForge approvals. Editor application and verification retain their separate local decisions. The iteration limit remains 30.
+
+Independent helper tests pass 7/7. The combined suite passes 86 tests, including MCP round-trip, whole-bundle failure and credential cases. The real runtime/SDK inference fixture now retrieves source through `read_source_bundle`, asserts tool counts and hashes, stages an unapplied proposal, and reaches editor review. The normal Build-command regression and Task C packaged-editor check also pass. A single authenticated MCP call returns the three pinned Flask reference sources within the 96 KiB content budget. See `outputs/b2-flask-bundle-check.json`.
+
+Build instructions now favor one discovery pass, complete-source bundles, reuse of current source snapshots and a concrete proposal once evidence is sufficient. This is guidance whose effect on Muse exploration still needs measurement. Iteration-limit errors now preserve a specific failure code, session ID and terminal status. Diagnostics retain bounded per-tool counts and source path/hash evidence while omitting source bodies, arguments, credentials and raw provider errors.
+
+The real Muse runtime is outside the current local model catalog. Its reported prior session is absent locally. The user explicitly deferred production-model setup and real A/B qualification. Deterministic transport checks and the reference-path bundle check do not qualify autonomous Task B. This branch remains a reviewable integration baseline.

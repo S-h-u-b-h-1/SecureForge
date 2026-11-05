@@ -4,8 +4,12 @@ import { Workspace } from './workspace.mjs';
 import { ProposalStore } from './proposals.mjs';
 import { BatchProposalStore } from './build/batches.mjs';
 import { discoverRelevantFiles } from './build/repository-discovery.mjs';
+import { readSourceBundle } from './build/source-bundle.mjs';
 
 const TOOLS = [
+  { name: 'read_source_bundle', description: 'Read 1..4 complete existing source files, at most 96 KiB combined. Read-only, all-or-nothing credential screening, exact source hashes. Choose paths after discovery.',
+    inputSchema: { type: 'object', properties: { paths: { type: 'array', minItems: 1, maxItems: 4, uniqueItems: true, items: { type: 'string', minLength: 1, maxLength: 1024 } } }, required: ['paths'], additionalProperties: false },
+    annotations: { readOnlyHint: true } },
   { name: 'discover_repository', description: 'Rank bounded source/test candidates and lexical import relationships. Untrusted relevance hints require focused reads.',
     inputSchema: { type: 'object', properties: { task: { type: 'string', minLength: 3, maxLength: 400 } }, required: ['task'], additionalProperties: false },
     annotations: { readOnlyHint: true } },
@@ -43,7 +47,7 @@ const TOOLS = [
     annotations: { readOnlyHint: true } },
 ];
 
-export async function createMcpServer({ root, port = 8792, host = '127.0.0.1', accessToken, onProposal = () => {}, onRunCommand, signal }) {
+export async function createMcpServer({ root, port = 8792, host = '127.0.0.1', accessToken, onProposal = () => {}, onRunCommand, signal, onTool = () => {} }) {
   if (host !== '127.0.0.1' && host !== '::1') throw new Error('MCP bridge must bind to loopback');
   const workspace = await new Workspace(root).init();
   const proposals = new ProposalStore(workspace);
@@ -59,6 +63,7 @@ export async function createMcpServer({ root, port = 8792, host = '127.0.0.1', a
     annotations: { readOnlyHint: false, destructiveHint: true },
   });
   const commands = {
+    read_source_bundle: p => readSourceBundle({ workspace, paths: p.paths, signal }),
     discover_repository: p => discoverRelevantFiles({ workspace, task: p.task, signal }),
     read_file: (p) => workspace.readFile(p.path, { startLine: p.startLine, maxLines: p.maxLines }),
     search_workspace: (p) => workspace.searchWorkspace(p.query, { maxResults: p.maxResults }),
@@ -127,8 +132,11 @@ export async function createMcpServer({ root, port = 8792, host = '127.0.0.1', a
             if (params === null || typeof params !== 'object' || Array.isArray(params)) throw new Error('Invalid arguments');
             try {
               signal?.throwIfAborted();
+              onTool({ name, status: 'started' });
               const data = await commands[name](params);
               signal?.throwIfAborted();
+              const sources = name === 'read_source_bundle' ? data.files : name === 'read_file' ? [data] : [];
+              onTool({ name, status: 'completed', sources: sources.map(source => ({ path: source.path, sha256: source.sha256 })) });
               return { content: [{ type: 'text', text: JSON.stringify(data) }] };
             } catch (err) {
               return { isError: true, content: [{ type: 'text', text: err.message }] };

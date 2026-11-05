@@ -1,11 +1,11 @@
 {
-  "createdAt": "2026-11-04T21:53:20.177Z",
-  "sourceBaseRef": "ec2fefeeb1c77be9d0a36295dab1c949e84310b8",
+  "createdAt": "2026-11-05T03:41:34.770Z",
+  "sourceBaseRef": "1e7a48ef99328f0f91c115222081ad3683ecf159",
   "sourceIdentity": "Source hashes identify the verified follow-up implementation relative to sourceBaseRef.",
   "node": "v24.5.0",
   "platform": "darwin",
   "unitTests": {
-    "passed": 75,
+    "passed": 86,
     "failed": 0
   },
   "packagedEditor": {
@@ -25,9 +25,9 @@
       "Owned security finding, editor-reviewed fix, saved regression proof and Patch Passport agree",
       "Task C uses the exact Task A prompt, shows a clear failure, remains responsive and preserves pinned Flask sources",
       "Normal Build command delivers a real runtime proposal into review using fixture editor surfaces",
-      "Real TrueForge session 01m6m8s84khfvqnem9as0zt889 delivers a proposal into the editor (deterministic inference fixture)"
+      "Real TrueForge session 01m6mwmraw6ktsfzxxazhwv9w6 delivers a proposal into the editor (deterministic inference fixture)"
     ],
-    "inference": "deterministic local fixture, not a production model"
+    "inference": "deterministic fixture, not production-model qualification"
   },
   "normalBuildRegression": "Actual SDK/runtime proposal reaches review through the normal command handler with fixture VS Code surfaces.",
   "taskC": {
@@ -38,26 +38,29 @@
   },
   "installation": {
     "path": "/Users/Apple/.vscode/extensions/secureforge.secureforge-review-0.1.0",
-    "bundleSha256": "36733e6b383c14865d2b1b3fe40ad10c1706716ca190f9b304f7315230463a16",
+    "bundleSha256": "5c642689fceb6614bf2b5a2e6790ec8d1ffb00d0c4c6b12598b6d00860e727da",
     "matchesTestedPackage": true
   },
   "modelSetup": {
     "configuredModelCount": 0,
-    "productionModelTasks": "blocked: no model configured in TrueForge"
+    "expectedReportedModel": "meta-muse/muse-spark-1-3",
+    "productionModelTasks": "explicitly deferred by user"
   },
   "auditVulnerabilities": 0,
   "sha256": {
-    "outputs/SecureForge-0.1.0.vsix": "906ed9324e174ee1fc9e6edc38c26cc5b5b46abdb97e3a2a553b5fd9479a93ab",
+    "outputs/SecureForge-0.1.0.vsix": "afd98d20cc98e22a02709dfeb7c2d7f01f5ca12b5986c50fec07aa398495748f",
     "src/workspace.mjs": "b0485d63b867c9784912233ea8316e5deb530855565687ee997573ab03967cf8",
-    "src/mcp-server.mjs": "3200bb2dc8dab26f78e92cd040cd77bb421b3c700b574d26ec453e1029f1cb6a",
+    "src/mcp-server.mjs": "936ff647e18f4158764e5ee18b374322325fd8bdfd9b242305096fa7050a5fed",
     "src/context.mjs": "aead4292aeffa362862f7c3fadd9056949637111b1698de9f90b5f1e3d4b8c8b",
-    "src/live-run.mjs": "fd82c6fd74acd19271b5bdc59392402be0ff7051441d44c086a374ffbae01e5e",
+    "src/live-run.mjs": "0d5f4f113f8dd85826c50294b970074d8323a0e855d9ad8123315c3beb479b9f",
     "extension/review-ui.mjs": "032f0cd7244cec3715d67c262bde64b0a2842b89b7072bfe20d562f59e02869f",
     "extension/workflows.mjs": "3f1f7b40f5a724d8992a9799281bbb12ac0bc25e84b1dde3d63aa8e98a999b6d",
-    "extension/agent-panel.mjs": "e728af3772d546a8a726503e943ef0dd6d55db37a220725a3504ac249ec7229f"
+    "extension/agent-panel.mjs": "e728af3772d546a8a726503e943ef0dd6d55db37a220725a3504ac249ec7229f",
+    "src/build/source-bundle.mjs": "cb8252ce6f37977ed4b7f501e7a47581f111b5865b2c0390710fd6e935e8d6d1",
+    "src/agent.mjs": "7e462bfc43dfb28385c4f35eccb5ddf6a7d1fc88542b1b39d14a1206acf28340"
   },
   "remaining": [
-    "Production-model official A/B runs",
+    "Production-model A/B and real-generation qualification deferred by user",
     "Real-generation inline editing and cancellation",
     "Official A/B/C recording",
     "Final team metadata and video timestamps",
@@ -65,5 +68,37 @@
     "Advanced TrueForge context-engineering demonstration",
     "Automatic fallback and retry/backoff",
     "Deferred audit directory, descendant cancellation and MCP schema checks"
-  ]
+  ],
+  "integration": {
+    "branch": "feat/secureforge-integration",
+    "securityBaseline": "553ca29",
+    "sourceBundleHelper": "91fc560",
+    "readOnlyMcpTool": "read_source_bundle",
+    "iterationLimit": 30,
+    "independentHelperTests": 7,
+    "pr5Ci": {
+      "ubuntu": "success",
+      "macos": "success"
+    },
+    "runtimeDiagnostics": {
+      "sessionId": "01m6mwmraw6ktsfzxxazhwv9w6",
+      "status": "done",
+      "terminalStatus": "done",
+      "toolCounts": {
+        "read_source_bundle": 1,
+        "propose_edit": 1
+      },
+      "sources": [
+        {
+          "path": "sample.py",
+          "sha256": "2d5c1fba8d72aff9d72e672244ee7f63e9594da42005b73169122d1210851c73"
+        }
+      ]
+    },
+    "flaskBundle": {
+      "files": 3,
+      "totalBytes": 74253,
+      "mcpCalls": 1
+    }
+  }
 }

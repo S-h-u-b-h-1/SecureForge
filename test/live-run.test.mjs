@@ -13,7 +13,7 @@ async function fixture(t) {
   return root;
 }
 
-function clientFor(runTools) {
+function clientFor(runTools, terminalState = { status: 'done' }) {
   let manifest;
   const counters = { turns: 0, cancellations: 0, deletions: 0 };
   const client = {
@@ -28,7 +28,7 @@ function clientFor(runTools) {
         async *withMetadata() {
           counters.turns++;
           await runTools(manifest, options);
-          yield { data: { type: 'turn.done', state: { status: 'done' } } };
+          yield { data: { type: 'turn.done', state: terminalState } };
         },
       }),
     },
@@ -102,4 +102,32 @@ test('credential-bearing task mentions and inline paths never reach TrueForge', 
   }
   assert.equal(contacted, false);
   assert.equal(await readFile(path.join(root, 'sample.py'), 'utf8'), 'old\n');
+});
+
+test('iteration exhaustion retains terminal status and session without exposing raw provider text', async t => {
+  const root = await fixture(t);
+  const { client } = clientFor(async () => {}, { status: 'error', message: 'You have reached iteration limit of 30 private-provider-detail' });
+  const run = new LiveRun({ client, root });
+  await assert.rejects(run.run({ model: 'test/model', task: 'Make a bounded edit' }), error => {
+    assert.equal(error.code, 'iteration_limit');
+    assert.match(error.message, /iteration limit 30/);
+    assert.match(error.message, /session-test/);
+    assert.ok(!error.message.includes('private-provider-detail'));
+    assert.equal(error.diagnostics.terminalStatus, 'error');
+    assert.equal(error.diagnostics.sessionId, 'session-test');
+    return true;
+  });
+  assert.equal(await readFile(path.join(root, 'sample.py'), 'utf8'), 'old\n');
+});
+
+test('unknown failure codes cannot select prototype properties in diagnostics', async t => {
+  const root = await fixture(t);
+  const { client } = clientFor(async () => { throw Object.assign(new Error('private provider data'), { code: 'constructor' }); });
+  const run = new LiveRun({ client, root });
+  await assert.rejects(run.run({ model: 'test/model', task: 'Inspect source' }), error => {
+    assert.equal(error.code, 'runtime_or_model_error');
+    assert.ok(!error.message.includes('private provider data'));
+    assert.equal(error.diagnostics.sessionId, 'session-test');
+    return true;
+  });
 });

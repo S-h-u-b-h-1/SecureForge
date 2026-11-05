@@ -173,6 +173,9 @@ exports.run = async function run() {
         assert.match(panel.webview.html, /Review proposed changes/);
         panel.dispose();
       } });
+      if (process.env.SECUREFORGE_EDITOR_BUNDLE_REPORT) {
+        await fs.writeFile(process.env.SECUREFORGE_EDITOR_BUNDLE_REPORT, JSON.stringify({ mode: 'deterministic inference fixture, real SDK/runtime/MCP', ...wire }, null, 2));
+      }
       results.push('Normal Build command delivers a real runtime proposal into review using fixture editor surfaces');
       results.push(`Real TrueForge session ${wire.sessionId} delivers a proposal into the editor (deterministic inference fixture)`);
     }

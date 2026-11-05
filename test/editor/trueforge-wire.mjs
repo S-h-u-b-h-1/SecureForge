@@ -27,9 +27,9 @@ export async function verifyTrueForgeWire({ onPayload = async () => {}, onConfig
     if (requests === 1) {
       tool = { name: 'list_tools', arguments: JSON.stringify({ mcp_server: connector }) };
     } else if (requests === 2) {
-      tool = { name: 'get_tool_info', arguments: JSON.stringify({ mcp_server: connector, tool_name: 'read_file' }) };
+      tool = { name: 'get_tool_info', arguments: JSON.stringify({ mcp_server: connector, tool_name: 'read_source_bundle' }) };
     } else if (requests === 3) {
-      tool = { name: 'call_tool', arguments: JSON.stringify({ mcp_server: connector, tool_name: 'read_file', input: { path: 'sample.py' } }) };
+      tool = { name: 'call_tool', arguments: JSON.stringify({ mcp_server: connector, tool_name: 'read_source_bundle', input: { paths: ['sample.py'] } }) };
     } else if (requests === 4) {
       tool = { name: 'get_tool_info', arguments: JSON.stringify({ mcp_server: connector, tool_name: 'propose_edit' }) };
     } else if (requests === 5) {
@@ -67,13 +67,16 @@ export async function verifyTrueForgeWire({ onPayload = async () => {}, onConfig
     const run = new LiveRun({ client, root, approveTool: async () => true, onEvent: event => events.push(event.type) });
     const payload = await run.run({ model: `${provider}/fixture`, task: 'Run the deterministic proposal handoff fixture' });
     assert.equal(payload.proposals.length, 1);
+    assert.equal(payload.diagnostics.toolCounts.read_source_bundle, 1);
+    assert.ok(payload.diagnostics.sources.some(source => source.path === 'sample.py' && source.sha256 === sha256(original)));
+    assert.equal(payload.diagnostics.terminalStatus, 'done');
     assert.equal(payload.proposals[0].proposedContent, 'FIRST\nkeep\nLAST\n');
     assert.equal(await readFile(path.join(root, 'sample.py'), 'utf8'), original);
     assert.ok(events.includes('tool.approval_required'));
     await onPayload(payload, root);
     requests = 0;
     await onConfigured({ root, model: `${provider}/fixture` });
-    return { sessionId: payload.sessionId, provider: 'deterministic local fixture', events, proposals: payload.proposals.length };
+    return { sessionId: payload.sessionId, provider: 'deterministic local fixture', events, proposals: payload.proposals.length, diagnostics: payload.diagnostics };
   } finally {
     if (registered) await client.settings.modelProviders.delete(provider);
     server.closeAllConnections();

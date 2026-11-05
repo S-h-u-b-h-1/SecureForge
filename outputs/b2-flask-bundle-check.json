@@ -1,0 +1,29 @@
+{
+  "mode": "model-independent pinned Flask MCP bundle smoke check",
+  "flaskCommit": "22d924701a6ae2e4cd01e9a15bbaf3946094af65",
+  "tool": "read_source_bundle",
+  "mcpCalls": 1,
+  "totalBytes": 74253,
+  "limitBytes": 98304,
+  "files": [
+    {
+      "path": "src/flask/cli.py",
+      "sha256": "3df87bdbe07196fa07d101c20ce7351ef5c6ecaab95deb5fdf3ccdcf690d4879",
+      "bytes": 37184
+    },
+    {
+      "path": "tests/test_cli.py",
+      "sha256": "bc9b456bcd5c8698f4a809ca9c5a595b8be47ac5f8f057442d6c78498b70e3f8",
+      "bytes": 20368
+    },
+    {
+      "path": "docs/cli.rst",
+      "sha256": "e8e5e9b220a5159e9c9c8b413de499aa5a51cd0ca487681e2352bbdf6f9b0cda",
+      "bytes": 16701
+    }
+  ],
+  "limitations": [
+    "Reference paths are deliberately specified for this transport/budget check.",
+    "This does not establish autonomous real-model Task B discovery or code generation."
+  ]
+}
