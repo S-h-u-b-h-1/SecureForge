@@ -190,9 +190,6 @@ exports.run = async function run() {
       await checkpoint('Normal Build command delivers a real runtime proposal into review using fixture editor surfaces');
       await checkpoint(`Real TrueForge session ${wire.sessionId} delivers a proposal into the editor (deterministic inference fixture)`);
     }
-    if (process.env.SECUREFORGE_EDITOR_REPORT) {
-      await fs.writeFile(process.env.SECUREFORGE_EDITOR_REPORT, JSON.stringify({ passed: results }, null, 2));
-    }
     console.log('SecureForge editor checks passed:', results);
   } catch (error) {
     if (process.env.SECUREFORGE_EDITOR_REPORT) {
@@ -209,5 +206,11 @@ exports.run = async function run() {
     }
     await vscode.commands.executeCommand('workbench.action.closeAllEditors');
     await fs.rm(root, { recursive: true, force: true });
+  }
+  // Checkpoint files are marked incomplete. Publish a terminal success receipt
+  // only after editor buffers, workspace handles and test fixtures are cleaned.
+  if (process.env.SECUREFORGE_EDITOR_REPORT) {
+    await fs.writeFile(process.env.SECUREFORGE_EDITOR_REPORT,
+      JSON.stringify({ passed: results, complete: true }, null, 2));
   }
 };
