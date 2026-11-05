@@ -193,3 +193,42 @@ test('pytest verification fails visibly for a broken project virtual environment
     executable: 'python3', args: ['-m', 'pytest', 'test_sample.py', '-q'],
   }), /virtual|interpreter|Workspace \.venv/i);
 });
+
+test('approved pytest pins PYTHONPATH to the selected workspace src, never the ambient environment', async t => {
+  const { workspace } = await fixture(t);
+  await mkdir(path.join(workspace.root, '.venv', 'bin'), { recursive: true });
+  await mkdir(path.join(workspace.root, 'src'));
+  await mkdir(path.join(workspace.root, 'tests'));
+  const fakePython = path.join(workspace.root, '.venv', 'bin', 'python');
+  await writeFile(fakePython,
+    '#!' + process.execPath + '\nconsole.log("PYTHONPATH=" + String(process.env.PYTHONPATH));\n', { mode: 0o755 });
+  await writeFile(path.join(workspace.root, 'tests', 'test_local.py'), 'def test_local(): pass\n');
+  const old = process.env.PYTHONPATH;
+  process.env.PYTHONPATH = '/untrusted/ambient/pythonpath';
+  t.after(() => { if (old === undefined) delete process.env.PYTHONPATH; else process.env.PYTHONPATH = old; });
+  const request = { executable: 'python3', args: ['-m', 'pytest', 'tests/test_local.py', '-q'] };
+  let approved = false;
+  const receipt = await runApprovedCommand({ workspace, request, approve: async command => {
+    approved = true;
+    assert.equal(command.pythonSourcePath, path.join(workspace.root, 'src'));
+    assert.equal(command.executable, fakePython);
+    return true;
+  } });
+  assert.equal(approved, true);
+  assert.equal(receipt.executed, true);
+  assert.equal(receipt.status, 'passed');
+  assert.match(receipt.output, new RegExp('PYTHONPATH=' + path.join(workspace.root, 'src').replace(/[.*+?^$\{\}()|[\]\\]/g, '\\$&')));
+  assert.ok(!receipt.output.includes('/untrusted/ambient/pythonpath'));
+});
+
+test('pytest refuses symlinked src directories and never trusts an ambient PYTHONPATH', async t => {
+  const { workspace } = await fixture(t);
+  await mkdir(path.join(workspace.root, '.venv', 'bin'), { recursive: true });
+  await symlink(process.execPath, path.join(workspace.root, '.venv', 'bin', 'python'));
+  await mkdir(path.join(workspace.root, 'outside'));
+  await symlink(path.join(workspace.root, 'outside'), path.join(workspace.root, 'src'));
+  await writeFile(path.join(workspace.root, 'test_local.py'), 'def test_local(): pass\n');
+  await assert.rejects(prepareCommand(workspace, {
+    executable: 'python3', args: ['-m', 'pytest', 'test_local.py', '-q'],
+  }), /Python source directory must be a real directory/);
+});
