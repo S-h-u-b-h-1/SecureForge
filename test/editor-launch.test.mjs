@@ -22,6 +22,14 @@ test('VS Code editor-host launcher does not block on the window-closing --wait f
   assert.match(source, /configuredTimeout/, 'Stalled editor tests must have an explicit watchdog');
 });
 
+test('extension host marks its passing report complete only after cleanup', async () => {
+  const source = await readFile(new URL('editor/run.cjs', import.meta.url), 'utf8');
+  const cleanup = source.lastIndexOf('await fs.rm(root, { recursive: true, force: true })');
+  const success = source.lastIndexOf('complete: true');
+  assert.ok(cleanup >= 0 && success > cleanup,
+    'A partial checkpoint cannot be treated as a successful completed editor-host run');
+});
+
 test('launcher waits for a delayed real test report after a mock VS Code CLI exits', async t => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'sf-launcher-mock-'));
   t.after(() => rm(root, { recursive: true, force: true }));
