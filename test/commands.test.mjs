@@ -217,7 +217,7 @@ test('approved pytest pins PYTHONPATH to the selected workspace src, never the a
   assert.equal(approved, true);
   assert.equal(receipt.executed, true);
   assert.equal(receipt.status, 'passed');
-  assert.match(receipt.output, new RegExp('PYTHONPATH=' + path.join(workspace.root, 'src').replace(/[.*+?^$\{\}()|[\]\\]/g, '\\$&')));
+  assert.ok(receipt.output.includes('PYTHONPATH=' + path.join(workspace.root, 'src')));
   assert.ok(!receipt.output.includes('/untrusted/ambient/pythonpath'));
 });
 
