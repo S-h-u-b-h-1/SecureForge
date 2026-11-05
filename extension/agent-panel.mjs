@@ -1,9 +1,9 @@
 import { randomBytes } from 'node:crypto';
 
 export function registerAgentPanel(vscode, context, actions) {
-  context.subscriptions.push(vscode.commands.registerCommand('secureforge.openAgentPanel', () => {
-    const panel = vscode.window.createWebviewPanel('secureforge.agent', 'SecureForge Agent', vscode.ViewColumn.One,
-      { enableScripts: true, localResourceRoots: [], retainContextWhenHidden: true });
+  function attach(view) {
+    const panel = view;
+    panel.webview.options = { enableScripts: true, localResourceRoots: [] };
     const nonce = randomBytes(16).toString('hex');
     let running = false;
     let disposed = false;
@@ -28,23 +28,22 @@ export function registerAgentPanel(vscode, context, actions) {
         if (!disposed) panel.webview.postMessage({ type: 'status', message: finalStatus, running: false });
       }
     });
-    context.subscriptions.push(panel);
     const workspaceLabel = (vscode.workspace?.workspaceFolders?.length === 1 ? vscode.workspace.workspaceFolders[0].uri.fsPath : 'Choose your target project when you run Build');
     panel.webview.html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'nonce-${nonce}'; style-src 'nonce-${nonce}'">
 <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>SecureForge</title>
 <style nonce="${nonce}">
-*{box-sizing:border-box}body{font:14px/1.55 var(--vscode-font-family);max-width:900px;margin:0 auto;padding:28px 26px;color:var(--vscode-foreground);background:var(--vscode-editor-background)}
-h1{font-size:28px;margin:0;font-weight:700;letter-spacing:-.6px}h2{font-size:17px;margin:0 0 8px}p{margin:5px 0 12px}.muted{color:var(--vscode-descriptionForeground)}
-.hero{display:flex;align-items:center;gap:15px;margin-bottom:26px}.logo{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;font-weight:800;font-size:22px;background:var(--vscode-button-background);color:var(--vscode-button-foreground)}
-.card{border:1px solid var(--vscode-panel-border);border-radius:12px;padding:20px;margin:16px 0;background:var(--vscode-sideBar-background)}
-label{font-size:15px;font-weight:650;display:block;margin-bottom:8px}textarea{display:block;width:100%;min-height:142px;resize:vertical;font:inherit;line-height:1.5;padding:14px;border-radius:8px;color:var(--vscode-input-foreground);background:var(--vscode-input-background);border:1px solid var(--vscode-input-border)}
+*{box-sizing:border-box}body{font:14px/1.55 var(--vscode-font-family);width:100%;max-width:none;margin:0;padding:16px 12px;color:var(--vscode-foreground);background:var(--vscode-editor-background)}
+h1{font-size:22px;margin:0;font-weight:700;letter-spacing:-.6px}h2{font-size:17px;margin:0 0 8px}p{margin:5px 0 12px}.muted{color:var(--vscode-descriptionForeground)}
+.hero{display:flex;align-items:center;gap:15px;margin-bottom:14px}.logo{width:36px;height:36px;border-radius:12px;display:grid;place-items:center;font-weight:800;font-size:19px;background:var(--vscode-button-background);color:var(--vscode-button-foreground)}
+.card{border:1px solid var(--vscode-panel-border);border-radius:12px;padding:14px;margin:12px 0;background:var(--vscode-sideBar-background)}
+label{font-size:15px;font-weight:650;display:block;margin-bottom:8px}textarea{display:block;width:100%;min-height:128px;resize:vertical;font:inherit;line-height:1.5;padding:14px;border-radius:8px;color:var(--vscode-input-foreground);background:var(--vscode-input-background);border:1px solid var(--vscode-input-border)}
 textarea:focus-visible,button:focus-visible{outline:2px solid var(--vscode-focusBorder);outline-offset:2px}
 button{font:inherit;font-weight:600;border:1px solid var(--vscode-button-border,transparent);border-radius:7px;padding:10px 15px;cursor:pointer;background:var(--vscode-button-background);color:var(--vscode-button-foreground)}
 button.secondary{background:var(--vscode-button-secondaryBackground);color:var(--vscode-button-secondaryForeground)}button:disabled{opacity:.5;cursor:not-allowed}
 .toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:14px}.toolbar button{margin:0}
 .workspace{border-left:3px solid var(--vscode-focusBorder);padding-left:12px;margin-bottom:18px;font-size:14px}
-.steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:16px 0}.step{padding:11px 12px;border:1px solid var(--vscode-panel-border);border-radius:8px;color:var(--vscode-descriptionForeground);font-weight:600}.step.active{border-color:var(--vscode-focusBorder);color:var(--vscode-foreground)}.step.complete:before{content:"✓ ";color:var(--vscode-testing-iconPassed,#4caf50)}
+.steps{display:grid;grid-template-columns:1fr;gap:8px;margin:16px 0}.step{padding:11px 12px;border:1px solid var(--vscode-panel-border);border-radius:8px;color:var(--vscode-descriptionForeground);font-weight:600}.step.active{border-color:var(--vscode-focusBorder);color:var(--vscode-foreground)}.step.complete:before{content:"✓ ";color:var(--vscode-testing-iconPassed,#4caf50)}
 .status{padding:12px 14px;border-radius:8px;background:var(--vscode-textCodeBlock-background);min-height:45px;overflow-wrap:anywhere}
 details{margin-top:14px}summary{cursor:pointer;font-weight:600}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:var(--vscode-textCodeBlock-background);padding:12px;max-height:280px;overflow:auto;font-size:12px}
 .tip{font-size:13px;color:var(--vscode-descriptionForeground);margin-top:12px}
@@ -115,6 +114,14 @@ window.addEventListener('message', event => {
  }
 });
 </script></body></html>`;
-    return panel;
-  }));
+  }
+  context.subscriptions.push(vscode.window.registerWebviewViewProvider(
+    'secureforge.agentSidebar',
+    { resolveWebviewView: attach },
+    { webviewOptions: { retainContextWhenHidden: true } },
+  ));
+  context.subscriptions.push(vscode.commands.registerCommand(
+    'secureforge.openAgentPanel',
+    () => vscode.commands.executeCommand('secureforge.agentSidebar.focus'),
+  ));
 }

@@ -18,6 +18,10 @@ test('standalone verification cancellation uses its own controller without an ac
     ProgressLocation: { Notification: 1 },
     window: {
       createOutputChannel: () => output,
+      registerWebviewViewProvider: (_id, _provider, options) => {
+        assert.equal(options.webviewOptions.retainContextWhenHidden, true);
+        return { dispose() {} };
+      },
       withProgress: async (_options, callback) => callback({}, {
         onCancellationRequested: handler => { cancel = handler; return { dispose() {} }; },
       }),
@@ -42,6 +46,10 @@ test('command failures reach the activity subscribers and visible notification',
     workspace: { isTrusted: false },
     window: {
       createOutputChannel: () => ({ appendLine() {}, dispose() {} }),
+      registerWebviewViewProvider: (_id, _provider, options) => {
+        assert.equal(options.webviewOptions.retainContextWhenHidden, true);
+        return { dispose() {} };
+      },
       showErrorMessage: message => notifications.push(message),
     },
   };

@@ -6,6 +6,9 @@ import { registerAgentPanel } from '../extension/agent-panel.mjs';
 test('agent panel emits valid script, bounds tasks and surfaces run failures', async () => {
   let open;
   let receive;
+  let provider;
+  let options;
+  const commands = [];
   const messages = [];
   const panel = {
     onDidDispose() {},
@@ -15,8 +18,12 @@ test('agent panel emits valid script, bounds tasks and surfaces run failures', a
     },
   };
   const vscode = {
-    commands: { registerCommand: (_name, handler) => { open = handler; return {}; } },
-    window: { createWebviewPanel: () => panel }, ViewColumn: { One: 1 },
+    commands: {
+      registerCommand: (_name, handler) => { open = handler; return {}; },
+      executeCommand: async name => { commands.push(name); },
+    },
+    window: { registerWebviewViewProvider: (_id, item, opts) => { provider = item; options = opts; return {}; } },
+    workspace: { workspaceFolders: [{ uri: { fsPath: '/tmp/flask' } }] },
   };
   let runs = 0;
   let cancels = 0;
@@ -25,7 +32,12 @@ test('agent panel emits valid script, bounds tasks and surfaces run failures', a
     run: async () => { runs++; throw new Error('Model unavailable'); },
     cancel: async () => { cancels++; },
   });
-  open();
+  await open();
+  assert.deepEqual(commands, ['secureforge.agentSidebar.focus']);
+  assert.equal(options.webviewOptions.retainContextWhenHidden, true);
+  provider.resolveWebviewView(panel);
+  assert.equal(panel.webview.options.enableScripts, true);
+  assert.match(panel.webview.html, /\/tmp\/flask/);
   const script = panel.webview.html.match(/<script nonce="[^"]+">([\s\S]*?)<\/script>/)[1];
   assert.doesNotThrow(() => new Script(script));
   assert.match(panel.webview.html, /Working folder/);
