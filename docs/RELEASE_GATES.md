@@ -14,7 +14,7 @@ These pull requests form an intentional dependency stack:
 5. [#12](https://github.com/S-h-u-b-h-1/SecureForge/pull/12) — wrong-repository fail-fast and recent-projects handoff; initially based on #11.
 6. Release editor/CI qualification — this branch, initially based on #12.
 
-**Do not merge the stack all at once.** After each preceding PR merges, retarget the next PR to `main`; inspect its changed files/diff against `main`; require fresh passing checks before merging. Squash merging each PR should preserve the distinct change sets.
+**Do not merge the stack all at once.** After each preceding PR merges, retarget the next PR to `main`; inspect its changed files/diff against `main`; require fresh passing checks before merging. **Use merge commits to preserve ancestry for this stack.** Squashing a parent PR changes its commit identity and can make downstream PRs show previously reviewed changes again; if squash is required, first rebase each downstream branch carefully onto updated `main` and re-qualify it. Never force-push a shared branch without checking the affected PRs.
 
 ## Required automated checks
 
