@@ -29,89 +29,102 @@ export function registerAgentPanel(vscode, context, actions) {
       }
     });
     const workspaceLabel = (vscode.workspace?.workspaceFolders?.length === 1 ? vscode.workspace.workspaceFolders[0].uri.fsPath : 'Choose your target project when you run Build');
-    panel.webview.html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'nonce-${nonce}'; style-src 'nonce-${nonce}'">
-<meta name="viewport" content="width=device-width, initial-scale=1.0"><title>SecureForge</title>
+    panel.webview.html = `<!doctype html><html lang="en"><head><meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}'">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SecureForge</title>
 <style nonce="${nonce}">
-*{box-sizing:border-box}body{font:14px/1.55 var(--vscode-font-family);width:100%;max-width:none;margin:0;padding:16px 12px;color:var(--vscode-foreground);background:var(--vscode-editor-background)}
-h1{font-size:22px;margin:0;font-weight:700;letter-spacing:-.6px}h2{font-size:17px;margin:0 0 8px}p{margin:5px 0 12px}.muted{color:var(--vscode-descriptionForeground)}
-.hero{display:flex;align-items:center;gap:15px;margin-bottom:14px}.logo{width:36px;height:36px;border-radius:12px;display:grid;place-items:center;font-weight:800;font-size:19px;background:var(--vscode-button-background);color:var(--vscode-button-foreground)}
-.card{border:1px solid var(--vscode-panel-border);border-radius:12px;padding:14px;margin:12px 0;background:var(--vscode-sideBar-background)}
-label{font-size:15px;font-weight:650;display:block;margin-bottom:8px}textarea{display:block;width:100%;min-height:128px;resize:vertical;font:inherit;line-height:1.5;padding:14px;border-radius:8px;color:var(--vscode-input-foreground);background:var(--vscode-input-background);border:1px solid var(--vscode-input-border)}
-textarea:focus-visible,button:focus-visible{outline:2px solid var(--vscode-focusBorder);outline-offset:2px}
-button{font:inherit;font-weight:600;border:1px solid var(--vscode-button-border,transparent);border-radius:7px;padding:10px 15px;cursor:pointer;background:var(--vscode-button-background);color:var(--vscode-button-foreground)}
-button.secondary{background:var(--vscode-button-secondaryBackground);color:var(--vscode-button-secondaryForeground)}button:disabled{opacity:.5;cursor:not-allowed}
-.toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:14px}.toolbar button{margin:0}
-.workspace{border-left:3px solid var(--vscode-focusBorder);padding-left:12px;margin-bottom:18px;font-size:14px}
-.steps{display:grid;grid-template-columns:1fr;gap:8px;margin:16px 0}.step{padding:11px 12px;border:1px solid var(--vscode-panel-border);border-radius:8px;color:var(--vscode-descriptionForeground);font-weight:600}.step.active{border-color:var(--vscode-focusBorder);color:var(--vscode-foreground)}.step.complete:before{content:"✓ ";color:var(--vscode-testing-iconPassed,#4caf50)}
-.status{padding:12px 14px;border-radius:8px;background:var(--vscode-textCodeBlock-background);min-height:45px;overflow-wrap:anywhere}
-details{margin-top:14px}summary{cursor:pointer;font-weight:600}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:var(--vscode-textCodeBlock-background);padding:12px;max-height:280px;overflow:auto;font-size:12px}
-.tip{font-size:13px;color:var(--vscode-descriptionForeground);margin-top:12px}
-@media(max-width:540px){body{padding:14px}.steps{grid-template-columns:1fr}.card{padding:14px}}
+*{box-sizing:border-box}html,body{height:100%;margin:0}
+body{display:flex;flex-direction:column;overflow:hidden;background:var(--vscode-sideBar-background);color:var(--vscode-foreground);font:13px/1.5 var(--vscode-font-family)}
+button{border:0;background:transparent;color:inherit;cursor:pointer;font:inherit}
+button:focus-visible,textarea:focus-visible,summary:focus-visible{outline:2px solid var(--vscode-focusBorder);outline-offset:2px}
+button:disabled{opacity:.45;cursor:default}
+header{height:43px;flex-shrink:0;padding:0 12px 0 13px;display:flex;align-items:center;gap:9px;border-bottom:1px solid var(--vscode-panel-border)}
+header strong{font-size:13px;font-weight:650}
+header svg{width:21px;height:21px}
+#new{margin-left:auto;width:30px;height:30px;border-radius:7px;display:grid;place-items:center}
+#new:hover,.iconbtn:hover{background:var(--vscode-toolbar-hoverBackground)}
+#new svg{width:17px;height:17px}
+#thread{min-height:0;flex:1;overflow-y:auto;padding:16px 14px;scrollbar-width:thin}
+#welcome{min-height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:10px;padding:0 8px 54px}
+#welcome svg{width:80px;height:80px}
+#welcome h1{font-size:23px;font-weight:650;letter-spacing:-.5px;margin:0}
+#welcome p{font-size:13px;color:var(--vscode-descriptionForeground);margin:0;max-width:270px}
+.message{margin:11px 0;padding:11px 12px;white-space:pre-wrap;overflow-wrap:anywhere;border-radius:11px;border:1px solid var(--vscode-panel-border);font-size:13px}
+.message.user{margin-left:24px;background:var(--vscode-textBlockQuote-background)}
+.message.agent{margin-right:14px;background:var(--vscode-editor-background)}
+.message .sender{font-size:11px;font-weight:600;margin-bottom:4px;color:var(--vscode-descriptionForeground)}
+#dock{flex-shrink:0;padding:0 11px 13px;background:var(--vscode-sideBar-background)}
+#status{font-size:11px;color:var(--vscode-descriptionForeground);min-height:16px;margin:0 3px 7px;overflow-wrap:anywhere}
+.composer{border:1px solid var(--vscode-input-border,var(--vscode-panel-border));border-radius:12px;background:var(--vscode-input-background);padding:9px 10px 8px}
+textarea{display:block;border:0!important;outline:none!important;resize:vertical;min-height:43px;max-height:150px;width:100%;background:transparent;color:var(--vscode-input-foreground);font:13px/1.5 var(--vscode-font-family);padding:2px 0}
+textarea::placeholder{color:var(--vscode-input-placeholderForeground)}
+.toolbar{display:flex;align-items:center;gap:3px;min-width:0;margin-top:6px}
+.iconbtn{display:grid;place-items:center;width:30px;height:30px;border-radius:7px;flex-shrink:0}
+.iconbtn svg{width:16px;height:16px;stroke:currentColor}
+.spacer{flex:1}
+.folder{display:flex;align-items:center;gap:5px;min-width:0;max-width:42%;color:var(--vscode-descriptionForeground);font-size:11px;white-space:nowrap}
+.folder svg{width:15px;height:15px;flex-shrink:0}
+.folder span{overflow:hidden;text-overflow:ellipsis}
+.send{background:var(--vscode-button-background);color:var(--vscode-button-foreground);width:31px;height:31px;border-radius:8px;display:grid;place-items:center;flex-shrink:0}
+.send:hover{background:var(--vscode-button-hoverBackground)}
+.send svg{width:17px;height:17px}
+#cancel{color:var(--vscode-errorForeground);font-size:11px;width:auto;padding:0 7px}
+#technical{margin:9px 0 0;padding:10px 4px 0;border-top:1px solid var(--vscode-panel-border);max-height:180px;overflow:auto}
+#technical summary{cursor:pointer;font-size:11px;color:var(--vscode-descriptionForeground)}
+#technical pre{max-height:125px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;font-size:11px}
+[hidden]{display:none!important}
+@media(max-width:300px){header{padding-left:10px}#thread{padding:12px}#dock{padding:0 7px 9px}.folder{max-width:30%}}
 </style></head><body>
-<div class="hero"><div class="logo" aria-hidden="true">S</div><div><h1>SecureForge</h1><p class="muted">Describe a change. Review every edit before it reaches your files.</p></div></div>
-<section class="card" aria-label="Build a change">
-<div class="workspace"><strong>Working folder</strong><div id="workspaceName">${workspaceLabel.replace(/[&<>"']/g, '')}</div><span class="muted">Check this matches the project you intend to edit.</span></div>
-<label for="task">What would you like to change?</label>
-<textarea id="task" maxlength="20000" placeholder="Example: Fix environment variable parsing and add regression tests."></textarea>
-<div class="toolbar"><button id="run">Find and propose changes</button><button id="cancel" class="secondary" disabled>Stop</button><button id="file" class="secondary">+ File context</button><button id="symbol" class="secondary">+ Symbol</button></div>
-<p class="tip">Your files are not automatically changed. You decide which proposals to accept in the review window.</p>
+<header>
+<svg viewBox="0 0 64 64" fill="none" aria-hidden="true"><path d="M32 5 53 14v20c0 12-8 20-21 25C19 54 11 46 11 34V14L32 5Z" stroke="#73B9FA" stroke-width="4" stroke-linejoin="round"/><path d="m26 24-8 8 8 8m12-16 8 8-8 8m-11-23-6 30" stroke="#73B9FA" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+<strong>SecureForge</strong>
+<button id="new" title="New conversation" aria-label="New conversation"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 5v14M5 12h14"/></svg></button>
+</header>
+<main id="thread" role="log" aria-label="SecureForge conversation" aria-live="polite">
+<section id="welcome">
+<svg viewBox="0 0 96 96" role="img" aria-label="SecureForge shield logo" fill="none"><defs><linearGradient id="brand" x1="15" y1="20" x2="80" y2="82" gradientUnits="userSpaceOnUse"><stop stop-color="#85D5FE"/><stop offset="1" stop-color="#6B8CF8"/></linearGradient></defs><path d="M48 8 77 21v26c0 18-12 29-29 39C31 76 19 65 19 47V21L48 8Z" stroke="url(#brand)" stroke-width="4.8" stroke-linejoin="round"/><path d="m39 35-12 13 12 13m18-26 12 13-12 13m-9-31-7 35" stroke="url(#brand)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+<h1>SecureForge</h1>
+<p>Repository-aware coding assistant</p>
 </section>
-<section class="card" aria-label="Progress"><h2>Where am I?</h2>
-<div class="steps" aria-label="Build stages"><div class="step active" id="step1">1. Describe</div><div class="step" id="step2">2. Investigate</div><div class="step" id="step3">3. Review changes</div></div>
-<div id="status" class="status" role="status" aria-live="polite">Ready. Enter a task and click “Find and propose changes”.</div>
-<p class="tip" id="next">After the agent proposes a patch, SecureForge opens a separate Review Changes window. Approve or reject each change there; then save and run tests.</p>
-<details><summary>Files the agent looked at</summary><pre id="context">No context collected yet.</pre></details>
-<details><summary>Technical activity (for troubleshooting)</summary><pre id="activity" aria-live="off">No activity yet.</pre></details>
-</section>
+</main>
+<footer id="dock">
+<div id="status" role="status" aria-live="polite">Ready · All edits require approval</div>
+<div class="composer"><textarea id="task" rows="2" maxlength="20000" aria-label="Ask SecureForge" placeholder="Ask SecureForge…"></textarea>
+<div class="toolbar">
+<button class="iconbtn" id="file" title="Attach a file" aria-label="Attach file"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12.5 13.5 7a3.5 3.5 0 0 1 5 5L10 20.5a5.5 5.5 0 0 1-8-8l9-9"/></svg></button>
+<button class="iconbtn" id="symbol" title="Add symbol context" aria-label="Attach symbol"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-6 9 6-9 6-9-6Zm0 4 9 6 9-6M3 17l9 5 9-5"/></svg></button>
+<span class="spacer"></span>
+<span class="folder" title="${workspaceLabel.replace(/[&<>"']/g, '')}" aria-label="Current workspace"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h6l2 2h10v11H3z"/></svg><span>${workspaceLabel.split(/[\\/]/).filter(Boolean).at(-1) || 'Workspace'}</span></span>
+<button class="iconbtn" id="cancel" title="Stop run" aria-label="Stop run" hidden>Stop</button>
+<button class="send" id="run" title="Send task" aria-label="Send task"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 13 0m-6-6 6 6-6 6"/></svg></button>
+</div></div>
+<details id="technical"><summary>Activity and retrieved files</summary><div id="context"></div><pre id="activity"></pre></details>
+</footer>
 <script nonce="${nonce}">
-const vscode = acquireVsCodeApi();
-const task = document.getElementById('task');
-const runButton = document.getElementById('run');
-const cancelButton = document.getElementById('cancel');
-const status = document.getElementById('status');
-const activity = document.getElementById('activity');
-const workspaceName = document.getElementById('workspaceName');
-const steps = [1,2,3].map(i => document.getElementById('step'+i));
-let running = false;
-let sawProposal = false;
-function stage(n) { steps.forEach((el,i)=>{el.classList.toggle('active',i===n-1);el.classList.toggle('complete',i<n-1);}); }
-
-runButton.onclick = () => {
-  if (!task.value.trim() || running) { if(!task.value.trim()) status.textContent='Describe the change first.'; return; }
-  activity.textContent='';sawProposal=false;stage(2);
-  status.textContent='Preparing your project context…';
-  vscode.postMessage({type:'run',task:task.value});
-};
-cancelButton.onclick = () => vscode.postMessage({type:'cancel'});
-document.getElementById('file').onclick = () => vscode.postMessage({type:'attachFile'});
-document.getElementById('symbol').onclick = () => vscode.postMessage({type:'attachSymbol'});
-window.addEventListener('message', event => {
- const message = event.data;
- if (!message || typeof message !== 'object') return;
- if (message.type === 'status') {
-   running = Boolean(message.running);
-   runButton.disabled = running; cancelButton.disabled = !running;
-   document.getElementById('file').disabled = running;
-   document.getElementById('symbol').disabled = running;
-   if (running) { stage(2); status.textContent='Investigating your project and preparing safe proposals…'; }
-   else {
-     stage(sawProposal ? 3 : 1);
-     status.textContent = sawProposal ? 'Proposal submitted for review. Look for the separate Review Changes window.' : message.message;
-   }
+const vscode=acquireVsCodeApi();
+const task=document.getElementById('task'),thread=document.getElementById('thread'),welcome=document.getElementById('welcome'),run=document.getElementById('run'),cancel=document.getElementById('cancel'),status=document.getElementById('status');
+let busy=false,review=false,hasReply=false;
+function message(role,value){if(welcome.isConnected)welcome.remove();const box=document.createElement('div');box.className='message '+role;const head=document.createElement('div');head.className='sender';head.textContent=role==='user'?'You':'SecureForge';const body=document.createElement('div');body.textContent=String(value||'').slice(0,4000);box.append(head,body);thread.append(box);thread.scrollTop=thread.scrollHeight;}
+function submit(){const text=task.value.trim();if(!text||busy)return;review=false;hasReply=false;message('user',text);task.value='';status.textContent='Reading your project…';vscode.postMessage({type:'run',task:text});}
+run.onclick=submit;
+task.onkeydown=event=>{if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();submit();}};
+cancel.onclick=()=>vscode.postMessage({type:'cancel'});
+document.getElementById('file').onclick=()=>vscode.postMessage({type:'attachFile'});
+document.getElementById('symbol').onclick=()=>vscode.postMessage({type:'attachSymbol'});
+document.getElementById('new').onclick=()=>{if(busy)return;thread.replaceChildren(welcome);task.value='';status.textContent='Ready · All edits require approval';review=false;task.focus();};
+window.addEventListener('message',event=>{const data=event.data;if(!data||typeof data!=='object')return;
+ if(data.type==='status'){
+   busy=Boolean(data.running);run.disabled=busy;document.getElementById('file').disabled=busy;document.getElementById('symbol').disabled=busy;cancel.hidden=!busy;
+   if(busy){status.textContent='Working on your code…';}
+   else{if(review)status.textContent='Review changes in the editor';else if(!hasReply){status.textContent=data.message;message('agent',data.message);hasReply=true;}}
  }
- if (message.type === 'error') {status.textContent=message.message;stage(1);}
- if (message.type === 'context') document.getElementById('context').textContent=message.summary;
- if (message.type === 'attachment') task.value += ' ' + message.mention;
- if (message.type === 'reviewReady') { sawProposal = true; stage(3); status.textContent='Review Changes opened in another editor pane. Approve or reject each change there.'; }
- if (message.type === 'activity') {
-   const line=String(message.text || '');
-   activity.textContent=(activity.textContent+line+'\\n').slice(-64000);
-   activity.scrollTop=activity.scrollHeight;
-
-   if (running && /discover_repository: started|read_source_bundle: started/.test(line)) status.textContent='Finding the right source files…';
-   if (running && /propose_(patch_batch|batch|edit): started/.test(line)) status.textContent='Preparing a reviewable patch…';
- }
+ if(data.type==='reviewReady'){review=true;message('agent','Changes are ready. Review the proposed edits in the editor before applying them.');status.textContent='Review changes in the editor';}
+ if(data.type==='noProposal'){hasReply=true;message('agent','No patch was staged. Your files are unchanged.');status.textContent='No changes proposed';}
+ if(data.type==='error'){hasReply=true;message('agent',data.message);status.textContent=data.message;}
+ if(data.type==='attachment'){task.value+=(task.value?' ':'')+data.mention;task.focus();}
+ if(data.type==='context')document.getElementById('context').textContent=data.summary;
+ if(data.type==='activity'){const line=String(data.text||'');const log=document.getElementById('activity');log.textContent=(log.textContent+line+'\\n').slice(-32000);if(busy&&/discover_repository: started/.test(line))status.textContent='Finding relevant files…';if(busy&&/propose_(patch_batch|batch|edit): started/.test(line))status.textContent='Preparing changes…';}
 });
 </script></body></html>`;
   }
