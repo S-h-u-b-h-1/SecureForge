@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { access } from 'node:fs/promises';
+import { access, lstat } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -15,6 +15,25 @@ async function executablePath(name) {
     } catch { /* Try the next executable directory. */ }
   }
   throw new Error(`Executable not found: ${name}`);
+}
+
+
+async function pytestExecutable(workspace) {
+  // When Flask or another Python project has its own virtual environment,
+  // use its interpreter instead of silently falling back to system Python.
+  const venv = path.join(workspace.root, '.venv');
+  let metadata;
+  try { metadata = await lstat(venv); }
+  catch (error) {
+    if (error.code === 'ENOENT') return executablePath('python3');
+    throw error;
+  }
+  if (!metadata.isDirectory()) throw new Error('Workspace .venv must be a real directory');
+  const interpreter = process.platform === 'win32'
+    ? path.join(venv, 'Scripts', 'python.exe') : path.join(venv, 'bin', 'python');
+  try { await access(interpreter, constants.X_OK); }
+  catch { throw new Error('Workspace .venv exists but its Python interpreter is unavailable'); }
+  return interpreter;
 }
 
 export async function prepareCommand(workspace, request) {
@@ -56,7 +75,8 @@ export async function prepareCommand(workspace, request) {
     targets.push({ path: source.relative, sha256: source.hash });
   }
   return Object.freeze({
-    executable: await executablePath(request.executable),
+    executable: request.executable === 'python3'
+      ? await pytestExecutable(workspace) : await executablePath(request.executable),
     args: Object.freeze(args), cwd: workspace.root,
     sources: Object.freeze(sources.map(source => Object.freeze(source))),
     targets: Object.freeze(targets.map(source => Object.freeze(source))),
