@@ -107,7 +107,7 @@ window.addEventListener('message', event => {
  if (message.type === 'reviewReady') { sawProposal = true; stage(3); status.textContent='Review Changes opened in another editor pane. Approve or reject each change there.'; }
  if (message.type === 'activity') {
    const line=String(message.text || '');
-   activity.textContent=(activity.textContent+line+'\n').slice(-64000);
+   activity.textContent=(activity.textContent+line+'\\n').slice(-64000);
    activity.scrollTop=activity.scrollHeight;
 
    if (running && /discover_repository: started|read_source_bundle: started/.test(line)) status.textContent='Finding the right source files…';
