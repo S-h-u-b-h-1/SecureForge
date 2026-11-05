@@ -75,7 +75,7 @@ test('sidebar defaults to the right, and minimal composer dispatches tasks safel
   }, { subscriptions: [] }, { subscribe: () => ({ dispose() {} }), run() {}, cancel() {} });
   provider.resolveWebviewView(panel);
   const html = panel.webview.html;
-  const script = html.match(/<script nonce="[^"]+">([\\s\\S]*?)<\\/script>/)[1];
+  const script = html.match(/<script nonce="[^"]+">([\s\S]*?)<\/script>/)[1];
 
   const elements = new Map();
   function element(id) {
