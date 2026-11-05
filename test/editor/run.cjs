@@ -7,6 +7,17 @@ const vscode = require('vscode');
 
 exports.run = async function run() {
   const results = [];
+  // Emit incremental evidence: a stuck editor host should never look like an
+  // empty run. The launcher can inspect this partial report without VS Code.
+  async function checkpoint(label) {
+    results.push(label);
+    console.log(`SecureForge editor check passed: ${label}`);
+    if (process.env.SECUREFORGE_EDITOR_REPORT) {
+      await fs.writeFile(process.env.SECUREFORGE_EDITOR_REPORT,
+        JSON.stringify({ passed: results, lastCheckpoint: label, incomplete: true }, null, 2));
+    }
+  }
+  console.log('SecureForge editor acceptance started');
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'secureforge-editor-'));
   const { Workspace, sha256 } = await import('../../src/workspace.mjs');
   const { ProposalStore } = await import('../../src/proposals.mjs');
@@ -31,7 +42,7 @@ exports.run = async function run() {
     // a separate editor panel, which is no longer part of the design.
     assert.ok(commands.includes('secureforge.agentSidebar.focus'), 'Sidebar view focus command is contributed');
     await vscode.commands.executeCommand('secureforge.openAgentPanel');
-    results.push('Extension activation, sidebar registration and focus command');
+    await checkpoint('Extension activation, sidebar registration and focus command');
 
     await fs.writeFile(filename, original);
     const store = new ProposalStore(workspace);
@@ -49,27 +60,27 @@ exports.run = async function run() {
     assert.equal(singleReceipt.status, 'applied');
     assert.equal(document.getText(), 'FIRST\nunchanged\nlast\n');
     assert.equal(await fs.readFile(filename, 'utf8'), original);
-    results.push('Mixed hunk decisions apply only the accepted edit in the editor');
+    await checkpoint('Mixed hunk decisions apply only the accepted edit in the editor');
 
     await assert.rejects(applyReview(inputs), /Stale/);
-    results.push('Repeated application is rejected');
+    await checkpoint('Repeated application is rejected');
     await undoReviewGroup({ vscode, workspace, entries: singleEntries, receipt: singleReceipt });
     assert.equal(document.getText(), original);
-    results.push('Guarded review Undo restores the original content');
+    await checkpoint('Guarded review Undo restores the original content');
     await document.save();
 
     await assert.rejects(applyReview(inputs), /Stale/);
-    results.push('Changed document version is rejected even after Undo');
+    await checkpoint('Changed document version is rejected even after Undo');
     const freshInputs = { ...inputs, baseVersion: document.version };
     freshInputs.decisions = Object.fromEntries(review.hunks.map(hunk => [hunk.id, 'reject']));
     assert.equal((await applyReview(freshInputs)).status, 'rejected');
     assert.equal(document.getText(), original);
-    results.push('Rejecting all hunks preserves content');
+    await checkpoint('Rejecting all hunks preserves content');
 
     await fs.writeFile(filename, 'external disk edit\n');
     await assert.rejects(applyReview(freshInputs), /Stale/);
     assert.equal(await fs.readFile(filename, 'utf8'), 'external disk edit\n');
-    results.push('External disk changes are preserved');
+    await checkpoint('External disk changes are preserved');
 
     const unicodeOriginal = '😀 café\r\nkeep\r\nlast';
     const unicodeProposed = '😀 नमस्ते\r\nkeep\r\nLAST';
@@ -89,7 +100,7 @@ exports.run = async function run() {
     assert.equal(unicodeDocument.getText(), unicodeProposed);
     await undoReviewGroup({ vscode, workspace, entries: unicodeEntries, receipt: unicodeReceipt });
     assert.equal(unicodeDocument.getText(), unicodeOriginal);
-    results.push('Unicode, CRLF and missing final newline survive editor apply and Undo');
+    await checkpoint('Unicode, CRLF and missing final newline survive editor apply and Undo');
 
     await fs.writeFile(path.join(workspace.root, 'first.py'), original);
     await fs.writeFile(path.join(workspace.root, 'second.py'), original);
@@ -111,7 +122,7 @@ exports.run = async function run() {
     assert.equal(entries[1].document.getText(), proposed);
     await undoReviewGroup({ ...groupInput, receipt: groupReceipt });
     assert.equal(entries[1].document.getText(), original);
-    results.push('One WorkspaceEdit applies a batch and one guarded Undo reverses both files');
+    await checkpoint('One WorkspaceEdit applies a batch and one guarded Undo reverses both files');
     for (const entry of entries) {
       await entry.document.save();
       entry.baseVersion = entry.document.version;
@@ -119,12 +130,12 @@ exports.run = async function run() {
     await fs.writeFile(path.join(workspace.root, 'second.py'), 'external edit\n');
     await assert.rejects(applyReviewGroup(groupInput), /Stale/);
     assert.equal(entries[0].document.getText(), original);
-    results.push('A stale member blocks the entire multi-file apply');
+    await checkpoint('A stale member blocks the entire multi-file apply');
     const controller = new AbortController();
     controller.abort();
     await assert.rejects(applyReviewGroup({ ...groupInput, signal: controller.signal }));
     assert.equal(entries[0].document.getText(), original);
-    results.push('Cancellation before batch apply preserves all documents');
+    await checkpoint('Cancellation before batch apply preserves all documents');
     const { createOwnedLab, assessFixProof } = await import('../../src/proof.mjs');
     const { reviewSecurity, prepareOwnedFixtureFix } = await import('../../src/security.mjs');
     const { runApprovedCommand } = await import('../../src/commands.mjs');
@@ -155,11 +166,11 @@ exports.run = async function run() {
       assert.equal(passport.verification[1].status, 'passed');
       assert.equal(passport.proofs[0].status, 'verified_on_owned_fixture');
       assert.ok(!JSON.stringify(passport).includes('originalContent'));
-      results.push('Owned security finding, editor-reviewed fix, saved regression proof and Patch Passport agree');
+      await checkpoint('Owned security finding, editor-reviewed fix, saved regression proof and Patch Passport agree');
     } finally { await labWorkspace.close(); }
     if (process.env.SECUREFORGE_EDITOR_FAILURE_REPORT) {
       await require('./failure-check.cjs').verifyEditorFailure(vscode, api);
-      results.push('Task C uses the exact Task A prompt, shows a clear failure, remains responsive and preserves pinned Flask sources');
+      await checkpoint('Task C uses the exact Task A prompt, shows a clear failure, remains responsive and preserves pinned Flask sources');
     }
     if (process.env.SECUREFORGE_EDITOR_WIRE === '1') {
       const { verifyTrueForgeWire } = await import('./trueforge-wire.mjs');
@@ -176,8 +187,8 @@ exports.run = async function run() {
       if (process.env.SECUREFORGE_EDITOR_BUNDLE_REPORT) {
         await fs.writeFile(process.env.SECUREFORGE_EDITOR_BUNDLE_REPORT, JSON.stringify({ mode: 'deterministic inference fixture, real SDK/runtime/MCP', ...wire }, null, 2));
       }
-      results.push('Normal Build command delivers a real runtime proposal into review using fixture editor surfaces');
-      results.push(`Real TrueForge session ${wire.sessionId} delivers a proposal into the editor (deterministic inference fixture)`);
+      await checkpoint('Normal Build command delivers a real runtime proposal into review using fixture editor surfaces');
+      await checkpoint(`Real TrueForge session ${wire.sessionId} delivers a proposal into the editor (deterministic inference fixture)`);
     }
     if (process.env.SECUREFORGE_EDITOR_REPORT) {
       await fs.writeFile(process.env.SECUREFORGE_EDITOR_REPORT, JSON.stringify({ passed: results }, null, 2));
