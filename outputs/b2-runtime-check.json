@@ -1,32 +1,19 @@
 {
   "mode": "deterministic inference fixture, real SDK/runtime/MCP",
-  "sessionId": "01m6n06s7jnb9hxyy9b62wtahk",
+  "sessionId": "01m6nf7dxxe930qce1z1hqmpym",
   "provider": "deterministic local fixture",
+  "compactBatch": false,
+  "completeBundleReceived": true,
   "events": [
     "secureforge.session",
     "turn.created",
-    "model.message",
-    "model.message.delta",
-    "model.message.delta",
-    "model.message.delta",
     "mcp.initialize",
-    "tool.response",
-    "model.message",
-    "model.message.delta",
-    "model.message.delta",
-    "model.message.delta",
-    "tool.response",
     "model.message",
     "model.message.delta",
     "model.message.delta",
     "model.message.delta",
     "secureforge.tool",
     "secureforge.tool",
-    "tool.response",
-    "model.message",
-    "model.message.delta",
-    "model.message.delta",
-    "model.message.delta",
     "tool.response",
     "model.message",
     "model.message.delta",
@@ -35,9 +22,9 @@
     "tool.approval_required",
     "turn.done",
     "turn.created",
-    "secureforge.tool",
-    "secureforge.tool",
     "mcp.initialize",
+    "secureforge.tool",
+    "secureforge.tool",
     "tool.response",
     "model.message",
     "model.message.delta",
@@ -47,7 +34,7 @@
   ],
   "proposals": 1,
   "diagnostics": {
-    "sessionId": "01m6n06s7jnb9hxyy9b62wtahk",
+    "sessionId": "01m6nf7dxxe930qce1z1hqmpym",
     "status": "done",
     "terminalStatus": "done",
     "toolCounts": {
@@ -58,6 +45,10 @@
       {
         "path": "sample.py",
         "sha256": "2d5c1fba8d72aff9d72e672244ee7f63e9594da42005b73169122d1210851c73"
+      },
+      {
+        "path": "large.py",
+        "sha256": "9319043fa2032479580cc79afe6ad6d9be1e7438ede64255baeff7770acaaf53"
       }
     ]
   }

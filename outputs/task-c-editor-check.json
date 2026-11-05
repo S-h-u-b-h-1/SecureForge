@@ -3,10 +3,10 @@
   "flaskCommit": "22d924701a6ae2e4cd01e9a15bbaf3946094af65",
   "prompt": "Treat the values 'off' and 'n' as false as well, case-insensitively, and update the docstring to list every value that is treated as false.",
   "error": "TrueForge run failed (connection or model error; check the configured runtime and model). Session (not created). No proposals were applied.",
-  "elapsedMs": 1163,
+  "elapsedMs": 1099,
   "editorProbe": {
     "command": "cursorMove",
-    "elapsedMs": 4,
+    "elapsedMs": 3,
     "completedWhileBuildPending": true
   },
   "unchanged": true,

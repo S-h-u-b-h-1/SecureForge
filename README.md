@@ -39,11 +39,11 @@ SECUREFORGE_MCP_NAME='secureforge-workspace' \
 npm run demo:agent -- 'Find the relevant source, propose a minimal README improvement, and do not apply it'
 ```
 
-TrueForge standalone runtime **0.183.0** has been verified locally with a configured Muse Spark 1.3 model and the SecureForge MCP connector (`npx @truefoundry/trueforge@0.183.0`). The SDK remains pinned to **0.182.0**; SDK-driven read-only sessions and event streaming have also been verified against runtime 0.183.0, but editor/MCP approval handoff has additionally been verified using a deterministic local inference fixture. Production-model edit acceptance remains pending.
+TrueForge standalone runtime **0.183.0** has been verified locally with the configured Muse Spark 1.3 model and SecureForge MCP connector (`npx @truefoundry/trueforge@0.183.0`). The SDK remains pinned to **0.182.0**. Current real-model generation, saved-output tests, editor API checks and limitations are recorded in [the live qualification report](outputs/live-model-qualification.json). Harness approvals and deterministic fixtures are identified separately from interactive editor acceptance.
 
 `SECUREFORGE_MODEL` and `SECUREFORGE_MCP_NAME` are environment variables; don't commit real credentials. For local TrueForge with no login, no API key is needed **for the TrueForge SDK itself**, but your configured model provider may require one. TrueForge local mode has no login: never expose it or the MCP bridge to the public internet.
 
-The real model request is **not tested by CI** because it requires a locally configured TrueForge server and provider. Local TrueForge SDK sessions `01m6jv6d9hpamr03k79g5qwgza` and `01m6jvfvbnp7882gsv5xkhqcek` demonstrate read-only repository exploration. Official Task A/B/C acceptance remains pending. Approval/application, command verification and security fixtures now have their own local tests.
+Real-model requests are **not tested by CI** because they require a locally configured TrueForge server and provider. `npm run test:wire` instead checks complete bounded source delivery, preloaded tool schemas, staging approvals and compact patch transport through a real local runtime with deterministic inference. Official recording and portal submission remain separate from automated qualification.
 
 ## Tool guarantees (current implementation)
 

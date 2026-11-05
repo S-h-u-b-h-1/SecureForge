@@ -67,7 +67,7 @@ npm run test:wire
 npm run test:editor:wire
 ```
 
-The real-runtime wire checks use deterministic inference responses and actual SDK sessions, deferred tool discovery, MCP reads, TrueForge approval turns and editor proposal handoff. They support reproducible integration verification without provider charges. Production-model behavior and the official Flask Tasks A/B/C remain separate release checks.
+The real-runtime wire checks use deterministic inference responses and actual SDK sessions, preloaded tool schemas, MCP reads, TrueForge approval turns and editor proposal handoff. They verify complete bounded source delivery and both full-file and compact patch staging without provider charges. Production-model behavior and the official Flask Tasks A/B/C remain separate release checks.
 
 ## Bounded Python request tracing
 
