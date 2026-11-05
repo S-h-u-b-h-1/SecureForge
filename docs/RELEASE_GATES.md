@@ -49,7 +49,7 @@ Use the existing pinned Flask checkout (`22d924701a6ae2e4cd01e9a15bbaf3946094af6
 - Open the correct Flask checkout in VS Code. Confirm the sidebar displays the Flask working folder.
 - Ask SecureForge to treat `FLASK_DEBUG` and `FLASK_SKIP_DOTENV` values `off` and `n` as false-like (case-insensitively), adding regression tests while retaining defaults.
 - Confirm the live model uses discovery, a complete source bundle, and hashed, staged proposals. The **Review** window must display only relevant files/hunks; do not accept edits silently.
-- After human review, apply selected hunks, save intentionally, and run `PYTHONPATH="$PWD/src" .venv/bin/python -m pytest tests/test_helpers.py tests/test_cli.py -q`. Then verify `git diff --check`, the exact Task A assertions, and `git diff`.
+- After human review, apply selected hunks and save intentionally. Exercise the sidebar's **Run tests (save files first)** action, selecting **both** `tests/test_helpers.py` and `tests/test_cli.py`. The extension must show the exact local command for approval, use `.venv` Python, return a real passing receipt, and report the result in chat. Independently verify `PYTHONPATH="$PWD/src" .venv/bin/python -m pytest tests/test_helpers.py tests/test_cli.py -q`, `git diff --check`, the exact Task A assertions, and `git diff`.
 - A run ending with `noProposal`, `ITERATION_LIMIT`, cancelled, or only narrative text is **not** a qualifying model-driven patch success.
 
 Optional deterministic TrueForge bridge qualification (local runtime required):
