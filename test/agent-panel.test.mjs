@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Script } from 'node:vm';
+import { Script, runInNewContext } from 'node:vm';
+import { readFile } from 'node:fs/promises';
 import { registerAgentPanel } from '../extension/agent-panel.mjs';
 
 test('agent panel emits valid script, bounds tasks and surfaces run failures', async () => {
@@ -40,11 +41,16 @@ test('agent panel emits valid script, bounds tasks and surfaces run failures', a
   assert.match(panel.webview.html, /\/tmp\/flask/);
   const script = panel.webview.html.match(/<script nonce="[^"]+">([\s\S]*?)<\/script>/)[1];
   assert.doesNotThrow(() => new Script(script));
-  assert.match(panel.webview.html, /Ask SecureForge to work on your code/);
-  assert.match(panel.webview.html, /Technical details/);
-  assert.match(panel.webview.html, /Build with confidence/);
+  assert.match(panel.webview.html, /Ask SecureForge/);
+  assert.match(panel.webview.html, /Repository-aware coding assistant/);
   assert.match(panel.webview.html, /SecureForge shield logo/);
+  assert.match(panel.webview.html, /id="dock"/);
+  assert.match(panel.webview.html, /id="file"/);
+  assert.match(panel.webview.html, /id="symbol"/);
+  assert.match(panel.webview.html, /id="run"/);
+  assert.match(panel.webview.html, /id="technical"/);
   assert.match(panel.webview.html, /reviewReady/);
+  assert.doesNotMatch(panel.webview.html, /Build with confidence|Find and propose changes/);
   await receive({ type: 'run', task: 'x'.repeat(20001) });
   assert.equal(runs, 0);
   await receive({ type: 'run', task: 'Update docstring' });
@@ -52,4 +58,55 @@ test('agent panel emits valid script, bounds tasks and surfaces run failures', a
   assert.match(messages.at(-1).message, /Model unavailable/);
   await receive({ type: 'cancel' });
   assert.equal(cancels, 1);
+});
+
+test('sidebar defaults to the right, and minimal composer dispatches tasks safely', async () => {
+  const manifest = JSON.parse(await readFile(new URL('../extension/package.json', import.meta.url), 'utf8'));
+  assert.equal(manifest.contributes.viewsContainers.secondarySidebar[0].id, 'secureforge');
+  assert.equal(manifest.contributes.views.secureforge[0].id, 'secureforge.agentSidebar');
+  assert.equal(manifest.contributes.viewsContainers.activitybar, undefined);
+
+  let provider;
+  const panel = { onDidDispose() {}, webview: { postMessage() {}, onDidReceiveMessage() {} } };
+  registerAgentPanel({
+    commands: { registerCommand: () => ({ dispose() {} }) },
+    window: { registerWebviewViewProvider: (_, value) => { provider = value; return { dispose() {} }; } },
+    workspace: { workspaceFolders: [{ uri: { fsPath: '/tmp/flask' } }] },
+  }, { subscriptions: [] }, { subscribe: () => ({ dispose() {} }), run() {}, cancel() {} });
+  provider.resolveWebviewView(panel);
+  const html = panel.webview.html;
+  const script = html.match(/<script nonce="[^"]+">([\\s\\S]*?)<\\/script>/)[1];
+
+  const elements = new Map();
+  function element(id) {
+    if (!elements.has(id)) elements.set(id, {
+      id, textContent: '', value: '', hidden: false, disabled: false, isConnected: true, children: [], scrollHeight: 0,
+      append(...nodes) { this.children.push(...nodes); },
+      replaceChildren(...nodes) { this.children = nodes; for (const node of nodes) node.isConnected = true; },
+      remove() { this.isConnected = false; },
+      focus() {},
+    });
+    return elements.get(id);
+  }
+  const posted = [];
+  const listeners = {};
+  runInNewContext(script, {
+    acquireVsCodeApi: () => ({ postMessage: value => posted.push(value) }),
+    document: { getElementById: element, createElement: () => element('new-' + elements.size) },
+    window: { addEventListener: (kind, fn) => { listeners[kind] = fn; } },
+  });
+  element('task').value = 'Fix the parser';
+  element('run').onclick();
+  assert.equal(posted.length, 1);
+  assert.equal(posted[0].type, 'run');
+  assert.equal(posted[0].task, 'Fix the parser');
+  assert.equal(element('task').value, '');
+
+  listeners.message({ data: { type: 'status', message: 'Running', running: true } });
+  assert.equal(element('run').disabled, true);
+  assert.equal(element('cancel').hidden, false);
+  listeners.message({ data: { type: 'reviewReady', fileCount: 2 } });
+  listeners.message({ data: { type: 'status', message: 'Done', running: false } });
+  assert.equal(element('run').disabled, false);
+  assert.match(element('status').textContent, /Review changes/);
 });
