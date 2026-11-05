@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildAgentSpec, runAgentTurn } from '../src/agent.mjs';
+import { buildAgentSpec, runAgentTurn, resolveTrueForgeModel } from '../src/agent.mjs';
 
 test('agent spec uses TrueForge runtime with only explicitly allowed workspace tools', () => {
   const spec = buildAgentSpec({ model: 'configured-provider/test-model', mcpServerName: 'secureforge-workspace' });
@@ -46,4 +46,44 @@ test('TrueForge event streaming is passed through without provider access', asyn
 test('unexpected incomplete turn is not mistaken for success', async () => {
   const client = { sessions: { create: async () => ({ data: { id: 's' } }), createTurnStream: async () => ({ withMetadata: async function* () { yield { data: { type: 'model.message.delta' } }; } }) } };
   await assert.rejects(runAgentTurn({ client, model: 'test/b', task: 'Work' }), /without turn.done/);
+});
+
+test('configured local model is reused without discovery or another prompt', async () => {
+  const model = await resolveTrueForgeModel({
+    configured: 'meta-muse/muse-spark-1-3', baseUrl: 'http://127.0.0.1:8790',
+    fetchImpl: () => { throw new Error('Should not contact TrueForge'); },
+    enterModel: () => { throw new Error('Should not prompt'); },
+  });
+  assert.equal(model, 'meta-muse/muse-spark-1-3');
+});
+
+test('a single model from the local TrueForge catalog is selected automatically', async () => {
+  const model = await resolveTrueForgeModel({
+    baseUrl: 'http://127.0.0.1:8790',
+    fetchImpl: async (url, options) => {
+      assert.equal(url, 'http://127.0.0.1:8790/api/v1/models');
+      assert.equal(options.redirect, 'error');
+      return { ok: true, json: async () => ({ data: [{ name: 'meta-muse/muse-spark-1-3' }] }) };
+    },
+    enterModel: () => { throw new Error('Unnecessary prompt'); },
+  });
+  assert.equal(model, 'meta-muse/muse-spark-1-3');
+});
+
+test('multiple models require selection and unavailable catalogs allow manual setup', async () => {
+  const chosen = await resolveTrueForgeModel({
+    baseUrl: 'http://127.0.0.1:8790',
+    fetchImpl: async () => ({ ok: true, json: async () => ({
+      data: [{ name: 'model/a' }, { name: 'model/b' }, { name: '../../invalid name' }],
+    }) }),
+    chooseModel: async choices => { assert.deepEqual(choices, ['model/a', 'model/b']); return 'model/b'; },
+    enterModel: () => { throw new Error('User already chose'); },
+  });
+  assert.equal(chosen, 'model/b');
+  const fallback = await resolveTrueForgeModel({
+    baseUrl: 'http://127.0.0.1:8790',
+    fetchImpl: async () => { throw new Error('Offline'); },
+    enterModel: async () => 'manual/provider',
+  });
+  assert.equal(fallback, 'manual/provider');
 });
