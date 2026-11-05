@@ -104,6 +104,11 @@ export class LiveRun {
           signal.throwIfAborted();
           if (event.type === 'tool.approval_required') approvals.push(event);
           if (event.type === 'turn.done') final = event.state;
+          // Ignore interim model narration from before the most recent tool result.
+          // The final answer comes after that result, not before it.
+          if (event.type === 'tool.response' || event.type === 'tool.approval_required') {
+            visibleReply = '';
+          }
           // Only collect explicit, user-visible model text. Never include tool results,
           // hidden reasoning or untrusted repository snippets as an assistant answer.
           if (event.type === 'model.message.delta' && typeof event.content === 'string' &&
