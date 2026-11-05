@@ -91,6 +91,11 @@ export function registerWorkflows(vscode, context) {
         }); } finally { subscription.dispose(); }
       });
     } finally { await sourceWorkspace.close(); }
+    if (taskContext.workspaceMismatch) {
+      broadcast({ type: 'workspaceMismatch', code: taskContext.workspaceMismatch.code,
+        message: taskContext.workspaceMismatch.message });
+      return { status: 'workspace_mismatch' };
+    }
     const baseUrl = localTrueForgeUrl(settings.get('trueforgeUrl', 'http://localhost:8790'));
     const model = await resolveTrueForgeModel({
       configured: settings.get('model', ''),
