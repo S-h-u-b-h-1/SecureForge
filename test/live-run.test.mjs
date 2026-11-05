@@ -13,7 +13,7 @@ async function fixture(t) {
   return root;
 }
 
-function clientFor(runTools, terminalState = { status: 'done' }) {
+function clientFor(runTools, terminalState = { status: 'done' }, visibleReply = '') {
   let manifest;
   const counters = { turns: 0, cancellations: 0, deletions: 0 };
   const client = {
@@ -28,6 +28,8 @@ function clientFor(runTools, terminalState = { status: 'done' }) {
         async *withMetadata() {
           counters.turns++;
           await runTools(manifest, options);
+          yield { data: { type: 'tool.response', content: 'tool output must never appear in answer' } };
+          if (visibleReply) yield { data: { type: 'model.message.delta', content: visibleReply } };
           yield { data: { type: 'turn.done', state: terminalState } };
         },
       }),
@@ -130,4 +132,25 @@ test('unknown failure codes cannot select prototype properties in diagnostics', 
     assert.equal(error.diagnostics.sessionId, 'session-test');
     return true;
   });
+});
+
+test('completed runs return only bounded, redacted user-visible model replies', async t => {
+  const root = await fixture(t);
+  const { client } = clientFor(async () => {}, { status: 'done' },
+    'Could not stage a patch; found missing context. password=hidden-value-for-test');
+  const run = new LiveRun({ client, root });
+  const result = await run.run({ model: 'test/model', task: 'Inspect without editing' });
+  assert.equal(result.proposals.length, 0);
+  assert.match(result.reply, /Could not stage a patch/);
+  assert.doesNotMatch(result.reply, /hidden-value-for-test|tool output must never/);
+  assert.equal(await readFile(path.join(root, 'sample.py'), 'utf8'), 'old\n');
+});
+
+test('model answer shown in the sidebar is bounded', async t => {
+  const root = await fixture(t);
+  const { client } = clientFor(async () => {}, { status: 'done' }, 'A'.repeat(12000));
+  const run = new LiveRun({ client, root });
+  const result = await run.run({ model: 'test/model', task: 'Explain the code' });
+  assert.ok(result.reply.length <= 3000);
+  assert.ok(result.reply.startsWith('A'));
 });
