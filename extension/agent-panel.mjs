@@ -12,6 +12,10 @@ export function registerAgentPanel(vscode, context, actions) {
     panel.webview.onDidReceiveMessage(async message => {
       if (disposed || !message || typeof message !== 'object') return;
       if (message.type === 'cancel') { await actions.cancel(); return; }
+      if (message.type === 'openRecent') {
+        await vscode.commands.executeCommand('workbench.action.openRecent');
+        return;
+      }
       if (message.type === 'openFolder') {
         const folders = await vscode.window.showOpenDialog({
           canSelectFiles: false, canSelectFolders: true, canSelectMany: false,
@@ -139,11 +143,15 @@ window.addEventListener('message',event=>{const data=event.data;if(!data||typeof
  if(data.type==='workspaceMismatch'){
    hasReply=true;
    const box=message('agent',String(data.message||'This task belongs to another project.').slice(0,1200));
-   const action=document.createElement('button');
-   action.className='change-folder';
-   action.textContent='Open project folder';
-   action.onclick=()=>vscode.postMessage({type:'openFolder'});
-   box.append(action);
+   const recent=document.createElement('button');
+   recent.className='change-folder';
+   recent.textContent='Recent projects';
+   recent.onclick=()=>vscode.postMessage({type:'openRecent'});
+   const browse=document.createElement('button');
+   browse.className='change-folder';
+   browse.textContent='Browse folders';
+   browse.onclick=()=>vscode.postMessage({type:'openFolder'});
+   box.append(recent,browse);
    status.textContent='Wrong workspace · No model call';
  }
  if(data.type==='noProposal'){hasReply=true;const note=typeof data.message==='string'&&data.message.trim()?data.message.trim().slice(0,3000):'The run completed without proposing changes. Your files are unchanged.';message('agent',note);status.textContent='No changes proposed';}
