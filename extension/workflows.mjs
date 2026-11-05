@@ -128,6 +128,7 @@ export function registerWorkflows(vscode, context) {
         finally { subscription.dispose(); }
       });
       if (!payload.proposals.length) {
+        broadcast({ type: 'noProposal' });
         vscode.window.showInformationMessage(`TrueForge session ${payload.sessionId} finished without an edit proposal.`);
         return;
       }
