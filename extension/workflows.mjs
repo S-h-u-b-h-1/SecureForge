@@ -1,5 +1,5 @@
 import { Workspace, redactSecrets } from '../src/workspace.mjs';
-import { createTrueForgeClient } from '../src/agent.mjs';
+import { createTrueForgeClient, resolveTrueForgeModel } from '../src/agent.mjs';
 import { LiveRun, localTrueForgeUrl } from '../src/live-run.mjs';
 import { runApprovedCommand } from '../src/commands.mjs';
 import { openReviewPayload } from './review-ui.mjs';
@@ -92,8 +92,13 @@ export function registerWorkflows(vscode, context) {
       });
     } finally { await sourceWorkspace.close(); }
     const baseUrl = localTrueForgeUrl(settings.get('trueforgeUrl', 'http://localhost:8790'));
-    const model = settings.get('model', '').trim() || await vscode.window.showInputBox({
-      title: 'TrueForge model', prompt: 'Enter the configured model FQN from TrueForge Settings → Models',
+    const model = await resolveTrueForgeModel({
+      configured: settings.get('model', ''),
+      baseUrl,
+      chooseModel: names => vscode.window.showQuickPick(names, { title: 'Choose a local TrueForge model' }),
+      enterModel: () => vscode.window.showInputBox({
+        title: 'TrueForge model', prompt: 'Enter a configured model FQN from TrueForge Settings → Models',
+      }),
     });
     if (!model?.trim()) return { status: 'cancelled' };
     buildController.signal.throwIfAborted();
