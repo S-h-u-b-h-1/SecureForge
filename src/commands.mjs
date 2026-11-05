@@ -35,7 +35,7 @@ export async function prepareCommand(workspace, request) {
     args.splice(1, 0, '--test-reporter=tap');
   } else if (request.executable === 'python3' && args[0] === '-m' && args[1] === 'pytest') {
     files = args.slice(2).filter(arg => !['-q', '-x', '--disable-warnings'].includes(arg));
-    if (!files.length || files.some(file => !/(?:^|\/)test_[\w.-]+\.py$/.test(file))) {
+    if (!files.length || files.some(file => file.startsWith('-') || !/(?:^|\/)test_[\w.-]+\.py$/.test(file))) {
       throw new Error('Pytest verification requires explicit test files and supported flags');
     }
   } else {
@@ -93,6 +93,8 @@ export async function runApprovedCommand({ workspace, request, approve, signal }
     let truncated = false;
     let reason;
     let killTimer;
+    let closed;
+    let escalationDone = false;
     function terminate(status) {
       if (reason) return;
       reason = status;
@@ -101,7 +103,14 @@ export async function runApprovedCommand({ workspace, request, approve, signal }
         catch { /* The process may already have exited. */ }
       };
       kill('SIGTERM');
-      killTimer = setTimeout(() => kill('SIGKILL'), 500);
+      killTimer = setTimeout(() => {
+        kill('SIGKILL');
+        // Descendants can retain pipe handles after the leader exits.
+        child.stdout?.destroy();
+        child.stderr?.destroy();
+        escalationDone = true;
+        finish();
+      }, 500);
     }
     function capture(chunk) {
       const remaining = Math.max(0, 64 * 1024 - byteCount);
@@ -118,6 +127,12 @@ export async function runApprovedCommand({ workspace, request, approve, signal }
     let spawnError;
     child.on('error', error => { spawnError = error.code || 'SPAWN_ERROR'; });
     child.on('close', (exitCode, exitSignal) => {
+      closed = { exitCode, exitSignal };
+      finish();
+    });
+    function finish() {
+      if (!closed || (reason && !escalationDone)) return;
+      const { exitCode, exitSignal } = closed;
       clearTimeout(timeout);
       clearTimeout(killTimer);
       signal?.removeEventListener('abort', abort);
@@ -131,6 +146,6 @@ export async function runApprovedCommand({ workspace, request, approve, signal }
         output,
         truncated: truncated || encoded.length > 64 * 1024, ...(spawnError ? { error: spawnError } : {}),
       });
-    });
+    }
   });
 }

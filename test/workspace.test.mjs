@@ -211,3 +211,25 @@ test('literal searches cannot distinguish hidden credential prefixes', async t =
   }
   assert.ok((await workspace.searchWorkspace('visible')).matches.some(match => match.path === 'src/oracle.py'));
 });
+
+test('workspace listing caps directory-entry work and queued directories', async t => {
+  const { root, workspace } = await fixture(t);
+  await mkdir(path.join(root, 'empty'));
+  await assert.rejects(workspace.listFiles({ maxEntries: 1 }), /entry limit/);
+  await assert.rejects(workspace.listFiles({ maxDirectories: 1 }), /directory limit/);
+  await assert.rejects(workspace.listFiles({ maxEntries: 20001 }), /maxEntries/);
+  await assert.rejects(workspace.listFiles({ maxDirectories: 1001 }), /maxDirectories/);
+  assert.ok((await workspace.listFiles()).includes('src/auth.py'));
+});
+
+test('workspace listing and search fail closed on cancellation', async t => {
+  const { workspace } = await fixture(t);
+  const controller = new AbortController();
+  controller.abort();
+  await assert.rejects(workspace.listFiles({ signal: controller.signal }), error => error.name === 'AbortError');
+  await assert.rejects(workspace.searchWorkspace('login', { signal: controller.signal }), error => error.name === 'AbortError');
+  const active = new AbortController();
+  const pending = workspace.listFiles({ signal: active.signal });
+  active.abort();
+  await assert.rejects(pending, error => error.name === 'AbortError');
+});

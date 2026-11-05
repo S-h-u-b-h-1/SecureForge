@@ -74,3 +74,12 @@ The real-runtime wire checks use deterministic inference responses and actual SD
 `SF-FLOW-001` links simple Python request-input assignments to `cursor.execute`, `db.execute`, `os.system`, or a subprocess call with `shell=True`. It records redacted source/propagation/sink lines and the source hash. Reassignment and function boundaries clear tracked values. Traces stop after 50 lines and eight assignments. Findings remain low-confidence candidates.
 
 This lexical pass does not parse Python strings or prove branch feasibility, sanitization, authorization, aliases, or interprocedural reachability. Parameterized SQL values and subprocess argument lists with `shell=False` have negative controls in the test suite. Controlled exploitability proof remains limited to the owned traversal fixture.
+
+
+## Traversal, cancellation and protocol follow-up
+
+Workspace enumeration is bounded by entries and discovered directories, in addition to accepted-file count. The iterator reads entries incrementally and observes cancellation. Budget exhaustion produces a fixed error with the numeric limit.
+
+Verification waits for the SIGTERM/SIGKILL cancellation sequence to finish even if its leader exits early. The same-group descendant fixture covers cancellation and timeout. Detached processes and arbitrary repository-code effects require OS containment, beyond this process-group lifecycle control.
+
+Tool arguments are validated against the exact advertised bridge schemas before execution. Regression tests cover every required tool input, malformed values, unexpected fields, range limits, Unicode length, enums and invalid JSON-RPC identifiers. Validation error messages omit supplied values.

@@ -100,7 +100,7 @@ export function inspectSecuritySource({ path, raw, hash }) {
 }
 
 export async function reviewSecurity(workspace, { paths, signal, maxFiles = 250 } = {}) {
-  const files = paths ?? await workspace.listFiles({ maxFiles });
+  const files = paths ?? await workspace.listFiles({ maxFiles, signal });
   if (!Array.isArray(files) || files.length > 250) throw new Error('Review requires at most 250 file paths');
   const findings = [];
   const sources = [];

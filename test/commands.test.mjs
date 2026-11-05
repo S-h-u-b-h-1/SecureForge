@@ -1,6 +1,7 @@
 import test from 'node:test';
+import { execFileSync } from 'node:child_process';
 import assert from 'node:assert/strict';
-import { mkdtemp, writeFile, rm, mkdir, symlink } from 'node:fs/promises';
+import { mkdtemp, writeFile, rm, mkdir, symlink, readFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { Workspace } from '../src/workspace.mjs';
@@ -110,4 +111,59 @@ test('verification preserves the selected executable symlink path for virtual en
     const command = await prepareCommand(options.workspace, options.request);
     assert.equal(command.executable, path.join(directory, 'node'));
   } finally { process.env.PATH = originalPath; }
+});
+
+test('cancellation and timeout finish escalation after the command leader closes', { timeout: 20000 }, async t => {
+  const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+  const stopped = pid => {
+    try {
+      process.kill(pid, 0);
+      return execFileSync('ps', ['-p', String(pid), '-o', 'stat='], { encoding: 'utf8' }).trim().startsWith('Z');
+    } catch (error) { return error.code === 'ESRCH' || error.status === 1; }
+  };
+  for (const mode of ['cancelled', 'timed_out']) {
+    const stdio = mode === 'timed_out' ? 'inherit' : 'ignore';
+    const options = await fixture(t, `import { spawn } from 'node:child_process';
+spawn(process.execPath, ['worker.mjs', 'child.pid'], { stdio: ${JSON.stringify(stdio)} });
+setInterval(() => {}, 1000);
+`);
+    await writeFile(path.join(options.workspace.root, 'worker.mjs'), `import { writeFileSync } from 'node:fs';
+process.on('SIGTERM', () => {});
+writeFileSync(process.argv[2], String(process.pid));
+setInterval(() => {}, 1000);
+`);
+    const controller = new AbortController();
+    let pid;
+    let terminated = false;
+    t.after(() => {
+      controller.abort();
+      if (pid && !terminated) { try { process.kill(pid, 'SIGKILL'); } catch {} }
+    });
+    const request = { ...options.request, timeoutMs: 5000 };
+    const receipt = runApprovedCommand({ ...options, request, approve: async () => true, signal: controller.signal });
+    const readyDeadline = Date.now() + 4000;
+    while (!pid && Date.now() < readyDeadline) {
+      try {
+        const value = Number(await readFile(path.join(options.workspace.root, 'child.pid'), 'utf8'));
+        if (Number.isInteger(value) && value > 1) pid = value;
+      } catch (error) { if (error.code !== 'ENOENT') throw error; }
+      if (!pid) await delay(20);
+    }
+    assert.ok(pid, 'Owned descendant installs its SIGTERM handler');
+    if (mode === 'cancelled') controller.abort();
+    assert.equal((await receipt).status, mode);
+    const stopDeadline = Date.now() + 2000;
+    while (!stopped(pid) && Date.now() < stopDeadline) await delay(20);
+    terminated = stopped(pid);
+    assert.equal(terminated, true, `${mode} must terminate the owned descendant`);
+  }
+});
+
+test('pytest rejects option-shaped paths even when a matching repository file exists', async t => {
+  const { workspace } = await fixture(t);
+  await mkdir(path.join(workspace.root, '--confcutdir=tests'));
+  await writeFile(path.join(workspace.root, '--confcutdir=tests', 'test_fixture.py'), 'assert True\n');
+  await assert.rejects(prepareCommand(workspace, {
+    executable: 'python3', args: ['-m', 'pytest', '--confcutdir=tests/test_fixture.py'],
+  }), /Pytest verification requires explicit test files/);
 });

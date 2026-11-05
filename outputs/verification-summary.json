@@ -1,11 +1,11 @@
 {
-  "createdAt": "2026-11-05T03:41:34.770Z",
-  "sourceBaseRef": "1e7a48ef99328f0f91c115222081ad3683ecf159",
+  "createdAt": "2026-11-05T04:43:08.493Z",
+  "sourceBaseRef": "56d806efc8da9ce554c7d3973999a7aa4dc6d20f",
   "sourceIdentity": "Source hashes identify the verified follow-up implementation relative to sourceBaseRef.",
   "node": "v24.5.0",
   "platform": "darwin",
   "unitTests": {
-    "passed": 86,
+    "passed": 94,
     "failed": 0
   },
   "packagedEditor": {
@@ -25,7 +25,7 @@
       "Owned security finding, editor-reviewed fix, saved regression proof and Patch Passport agree",
       "Task C uses the exact Task A prompt, shows a clear failure, remains responsive and preserves pinned Flask sources",
       "Normal Build command delivers a real runtime proposal into review using fixture editor surfaces",
-      "Real TrueForge session 01m6mwmraw6ktsfzxxazhwv9w6 delivers a proposal into the editor (deterministic inference fixture)"
+      "Real TrueForge session 01m6n06s7jnb9hxyy9b62wtahk delivers a proposal into the editor (deterministic inference fixture)"
     ],
     "inference": "deterministic fixture, not production-model qualification"
   },
@@ -38,7 +38,7 @@
   },
   "installation": {
     "path": "/Users/Apple/.vscode/extensions/secureforge.secureforge-review-0.1.0",
-    "bundleSha256": "5c642689fceb6614bf2b5a2e6790ec8d1ffb00d0c4c6b12598b6d00860e727da",
+    "bundleSha256": "67bcbd03a664208bb6787acc4297174759afd2a70315b1090c39f106b843723f",
     "matchesTestedPackage": true
   },
   "modelSetup": {
@@ -48,26 +48,25 @@
   },
   "auditVulnerabilities": 0,
   "sha256": {
-    "outputs/SecureForge-0.1.0.vsix": "afd98d20cc98e22a02709dfeb7c2d7f01f5ca12b5986c50fec07aa398495748f",
-    "src/workspace.mjs": "b0485d63b867c9784912233ea8316e5deb530855565687ee997573ab03967cf8",
-    "src/mcp-server.mjs": "936ff647e18f4158764e5ee18b374322325fd8bdfd9b242305096fa7050a5fed",
-    "src/context.mjs": "aead4292aeffa362862f7c3fadd9056949637111b1698de9f90b5f1e3d4b8c8b",
+    "outputs/SecureForge-0.1.0.vsix": "b387e463b686010ccf595094ebeb8eaf4776531c420f876507a2bed78e53a2f5",
+    "src/workspace.mjs": "67c3fb05881a9bd6467c1c370122c803eb9d7b401e1765a21f45d4936651f676",
+    "src/mcp-server.mjs": "2a1bb17897dba163c3b5e9c4f826359b7a9761fd2a76654c08fe9c99264c084f",
+    "src/context.mjs": "908cb132ea5f696c4bae4017fa432cd6a6bf3e7a84c36866e21cbf299fe647e8",
     "src/live-run.mjs": "0d5f4f113f8dd85826c50294b970074d8323a0e855d9ad8123315c3beb479b9f",
     "extension/review-ui.mjs": "032f0cd7244cec3715d67c262bde64b0a2842b89b7072bfe20d562f59e02869f",
     "extension/workflows.mjs": "3f1f7b40f5a724d8992a9799281bbb12ac0bc25e84b1dde3d63aa8e98a999b6d",
     "extension/agent-panel.mjs": "e728af3772d546a8a726503e943ef0dd6d55db37a220725a3504ac249ec7229f",
     "src/build/source-bundle.mjs": "cb8252ce6f37977ed4b7f501e7a47581f111b5865b2c0390710fd6e935e8d6d1",
-    "src/agent.mjs": "7e462bfc43dfb28385c4f35eccb5ddf6a7d1fc88542b1b39d14a1206acf28340"
+    "src/agent.mjs": "7e462bfc43dfb28385c4f35eccb5ddf6a7d1fc88542b1b39d14a1206acf28340",
+    "src/commands.mjs": "9a1f8ec06ab2a6fa6297eda4dc61b96ce9f0d9fc7c9e60da60dbd333299bc667",
+    "src/tool-schema.mjs": "920907b6a7d3666becb889e0c02f4113ca589982efd66e548ea3a7aff49c8198",
+    "src/build/repository-discovery.mjs": "5bc5a78bdc50697bdfe5a3cde0fc6012b922e6d3bf6a35ad3cec2be3f0873ee1",
+    "src/security.mjs": "e4f3fa2bc54c6697606f41d890822dc10c0d03bf620b440e1c0cae7debf37592"
   },
   "remaining": [
-    "Production-model A/B and real-generation qualification deferred by user",
-    "Real-generation inline editing and cancellation",
-    "Official A/B/C recording",
-    "Final team metadata and video timestamps",
-    "Final competition submission",
-    "Advanced TrueForge context-engineering demonstration",
-    "Automatic fallback and retry/backoff",
-    "Deferred audit directory, descendant cancellation and MCP schema checks"
+    "Production-model A/B explicitly deferred by user",
+    "Real-output Save/Undo, verification and live-generation cancellation qualification",
+    "Owner review and main merge"
   ],
   "integration": {
     "branch": "feat/secureforge-integration",
@@ -100,5 +99,30 @@
       "totalBytes": 74253,
       "mcpCalls": 1
     }
-  }
+  },
+  "completedTechnicalFollowup": {
+    "directoryScan": {
+      "status": "regressions passed",
+      "maxEntries": 20000,
+      "maxDirectories": 1000,
+      "streaming": true,
+      "cancellation": true
+    },
+    "processCleanup": {
+      "status": "cancellation and timeout descendant regressions passed",
+      "escalationGraceMs": 500,
+      "pipeClosure": true,
+      "scope": "same POSIX process group"
+    },
+    "mcpSchemas": {
+      "status": "schema and malformed-envelope regressions passed",
+      "validator": "advertised fixed-schema subset",
+      "redactedErrors": true
+    },
+    "pytestArguments": "option-shaped test paths rejected"
+  },
+  "futureScoreEnhancements": [
+    "Automatic fallback/retry",
+    "Advanced TrueForge context-engineering demonstration"
+  ]
 }

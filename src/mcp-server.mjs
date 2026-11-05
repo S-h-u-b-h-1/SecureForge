@@ -5,6 +5,7 @@ import { ProposalStore } from './proposals.mjs';
 import { BatchProposalStore } from './build/batches.mjs';
 import { discoverRelevantFiles } from './build/repository-discovery.mjs';
 import { readSourceBundle } from './build/source-bundle.mjs';
+import { validateToolArguments } from './tool-schema.mjs';
 
 const TOOLS = [
   { name: 'read_source_bundle', description: 'Read 1..4 complete existing source files, at most 96 KiB combined. Read-only, all-or-nothing credential screening, exact source hashes. Choose paths after discovery.',
@@ -14,16 +15,16 @@ const TOOLS = [
     inputSchema: { type: 'object', properties: { task: { type: 'string', minLength: 3, maxLength: 400 } }, required: ['task'], additionalProperties: false },
     annotations: { readOnlyHint: true } },
   { name: 'read_file', description: 'Read bounded numbered lines from a permitted workspace file. Returns SHA-256 for version-aware proposals.',
-    inputSchema: { type: 'object', properties: { path: { type: 'string' }, startLine: { type: 'integer' }, maxLines: { type: 'integer' } }, required: ['path'], additionalProperties: false },
+    inputSchema: { type: 'object', properties: { path: { type: 'string' }, startLine: { type: 'integer', minimum: 1 }, maxLines: { type: 'integer', minimum: 1, maximum: 180 } }, required: ['path'], additionalProperties: false },
     annotations: { readOnlyHint: true } },
   { name: 'search_workspace', description: 'Find literal text matches across permitted repository files. Never executes repository code.',
-    inputSchema: { type: 'object', properties: { query: { type: 'string' }, maxResults: { type: 'integer' } }, required: ['query'], additionalProperties: false },
+    inputSchema: { type: 'object', properties: { query: { type: 'string', minLength: 2, maxLength: 120 }, maxResults: { type: 'integer', minimum: 1, maximum: 50 } }, required: ['query'], additionalProperties: false },
     annotations: { readOnlyHint: true } },
   { name: 'lookup_symbol', description: 'Lexical candidate lookup for a symbol; results are not verified AST definitions.',
-    inputSchema: { type: 'object', properties: { symbol: { type: 'string' } }, required: ['symbol'], additionalProperties: false },
+    inputSchema: { type: 'object', properties: { symbol: { type: 'string', minLength: 2, maxLength: 100, pattern: '^[A-Za-z_$][\\w$]{1,99}$' } }, required: ['symbol'], additionalProperties: false },
     annotations: { readOnlyHint: true } },
   { name: 'propose_edit', description: 'Create an UNAPPLIED in-memory full-file edit proposal. Does not write any source file. Requires a SHA-256 from read_file.',
-    inputSchema: { type: 'object', properties: { path: { type: 'string' }, expectedSha256: { type: 'string' }, proposedContent: { type: 'string' }, rationale: { type: 'string' } }, required: ['path', 'expectedSha256', 'proposedContent'], additionalProperties: false },
+    inputSchema: { type: 'object', properties: { path: { type: 'string' }, expectedSha256: { type: 'string', pattern: '^[0-9a-f]{64}$' }, proposedContent: { type: 'string' }, rationale: { type: 'string', maxLength: 2000 } }, required: ['path', 'expectedSha256', 'proposedContent'], additionalProperties: false },
     annotations: { readOnlyHint: false, destructiveHint: false } },
   { name: 'get_proposal', description: 'Retrieve a pending in-memory edit proposal for user review (not approval).',
     inputSchema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'], additionalProperties: false },
@@ -34,9 +35,9 @@ const TOOLS = [
   { name: 'propose_batch', description: 'Stage 2..8 coordinated UNAPPLIED file edit proposals atomically. Requires each original SHA-256. No source file writes.',
     inputSchema: { type: 'object', properties: {
       edits: { type: 'array', minItems: 2, maxItems: 8, items: { type: 'object', properties: {
-        path: { type: 'string' }, expectedSha256: { type: 'string' }, proposedContent: { type: 'string' }, rationale: { type: 'string' },
+        path: { type: 'string' }, expectedSha256: { type: 'string', pattern: '^[0-9a-f]{64}$' }, proposedContent: { type: 'string' }, rationale: { type: 'string', maxLength: 2000 },
       }, required: ['path', 'expectedSha256', 'proposedContent'], additionalProperties: false } },
-      rationale: { type: 'string' },
+      rationale: { type: 'string', maxLength: 2000 },
     }, required: ['edits'], additionalProperties: false },
     annotations: { readOnlyHint: false, destructiveHint: false } },
   { name: 'get_batch', description: 'Return a pending batch with the existing v1 proposal IDs; no file contents or approval decisions.',
@@ -57,7 +58,7 @@ export async function createMcpServer({ root, port = 8792, host = '127.0.0.1', a
     name: 'run_command', description: 'Request a bounded verification command. A local user must separately approve the exact executable, arguments and working directory. Tests execute repository code.',
     inputSchema: { type: 'object', properties: {
       executable: { type: 'string', enum: ['node', 'python3'] },
-      args: { type: 'array', items: { type: 'string' }, maxItems: 25 },
+      args: { type: 'array', items: { type: 'string', maxLength: 500 }, minItems: 2, maxItems: 25 },
       timeoutMs: { type: 'integer', minimum: 100, maximum: 120000 },
     }, required: ['executable', 'args'], additionalProperties: false },
     annotations: { readOnlyHint: false, destructiveHint: true },
@@ -66,8 +67,8 @@ export async function createMcpServer({ root, port = 8792, host = '127.0.0.1', a
     read_source_bundle: p => readSourceBundle({ workspace, paths: p.paths, signal }),
     discover_repository: p => discoverRelevantFiles({ workspace, task: p.task, signal }),
     read_file: (p) => workspace.readFile(p.path, { startLine: p.startLine, maxLines: p.maxLines }),
-    search_workspace: (p) => workspace.searchWorkspace(p.query, { maxResults: p.maxResults }),
-    lookup_symbol: (p) => workspace.lookupSymbol(p.symbol),
+    search_workspace: (p) => workspace.searchWorkspace(p.query, { maxResults: p.maxResults, signal }),
+    lookup_symbol: (p) => workspace.lookupSymbol(p.symbol, { signal }),
     propose_edit: async (p) => {
       const result = await proposals.proposeEdit(p);
       onProposal({ kind: 'proposal', id: result.id });
@@ -116,8 +117,9 @@ export async function createMcpServer({ root, port = 8792, host = '127.0.0.1', a
       // boundaries. Decode once after the bounded body has been assembled.
       const body = new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks, byteCount));
       const message = JSON.parse(body);
-      if (message.jsonrpc !== '2.0' || !message.method || typeof message.method !== 'string') {
-        return send(400, { jsonrpc: '2.0', id: message?.id ?? null, error: { code: -32600, message: 'Invalid Request' } });
+      if (message === null || typeof message !== 'object' || Array.isArray(message) || message.jsonrpc !== '2.0' || !message.method || typeof message.method !== 'string' ||
+          (Object.hasOwn(message, 'id') && message.id !== null && typeof message.id !== 'string' && !(typeof message.id === 'number' && Number.isFinite(message.id)))) {
+        return send(400, { jsonrpc: '2.0', id: null, error: { code: -32600, message: 'Invalid Request' } });
       }
       if (!Object.hasOwn(message, 'id')) { res.writeHead(202); return res.end(); }
       const result = async () => {
@@ -128,9 +130,9 @@ export async function createMcpServer({ root, port = 8792, host = '127.0.0.1', a
           case 'tools/call': {
             const name = message.params?.name;
             if (!Object.hasOwn(commands, name)) throw new Error('Unknown tool');
-            const params = message.params?.arguments ?? {};
-            if (params === null || typeof params !== 'object' || Array.isArray(params)) throw new Error('Invalid arguments');
+            const params = message.params?.arguments === undefined ? {} : message.params.arguments;
             try {
+              validateToolArguments(tools.find(tool => tool.name === name).inputSchema, params);
               signal?.throwIfAborted();
               onTool({ name, status: 'started' });
               const data = await commands[name](params);

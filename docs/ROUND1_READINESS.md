@@ -80,11 +80,11 @@ Automatic fallback, retry/backoff and a demonstrated TrueForge context-engineeri
 
 The quick source audit added shared credential-path exclusion, matching search results against already-redacted text, MCP cancellation gates before dispatch and result delivery, and descriptor-bound proposal import with a 4 MiB actual-read cap. Five regression tests were added. Independent source reviewers accepted the fixes.
 
-The audit itself was source-only. Subsequent user-requested development verification passes 86 automated tests and 15 editor/runtime checks, including the five audit regressions. Runtime handoff uses a deterministic inference fixture. A normal Build-command regression also checks delivery into review using fixture editor surfaces. The rebuilt VSIX and installation hash are recorded in `outputs/verification-summary.json`. Pre-fix audit leads retain their original needs-validation classification, since development checks validate the fixed source.
+The audit itself was source-only. Subsequent user-requested development verification passes 94 automated tests and 15 editor/runtime checks, including the five audit regressions. Runtime handoff uses a deterministic inference fixture. A normal Build-command regression also checks delivery into review using fixture editor surfaces. The rebuilt VSIX and installation hash are recorded in `outputs/verification-summary.json`. Pre-fix audit leads retain their original needs-validation classification, since development checks validate the fixed source.
 
 Task C now has a real packaged-editor check on the clean pinned Flask checkout. It submits the exact Task A prompt against an unreachable local TrueForge endpoint, observes the clear error, completes an editor cursor command while Build is pending, and verifies unchanged source hashes, clean Git status and saved buffers. Evidence is in `outputs/task-c-editor-check.json`. This automated check is separate from the official A/B/C recording.
 
-The real-model catalog remains empty. Production-model A/B, real-generation inline editing and cancellation remain blocked by model availability. The quick audit still defers directory-traversal work budgets, command-descendant cancellation lifecycle and MCP schema/dispatcher agreement.
+The real-model catalog remains empty. Production-model A/B, real-generation inline editing and cancellation remain blocked by model availability. The technical follow-up closes directory-traversal work budgets, command-descendant cancellation lifecycle and MCP schema/dispatcher agreement with bounded implementations and regression tests.
 
 
 ## Combined Build / Defend / Prove baseline
@@ -92,3 +92,14 @@ The real-model catalog remains empty. Production-model A/B, real-generation inli
 The isolated `feat/secureforge-integration` worktree integrates the B2 complete-source reader from PR #5. The MCP tool is read-only, accepts 1-4 canonical existing paths and rejects partial, over-budget or credential-bearing bundles. The agent explicitly enables it and retains a 30-iteration limit. Iteration exhaustion now reports the session and terminal status with bounded tool counts and source hashes. See `docs/BUILD_SOURCE_BUNDLE.md` for the integration evidence and remaining real-model gate.
 
 PR #5's previously cancelled macOS job was rerun successfully. Both of its CI jobs now pass. Real Muse A/B and real-generation inline/cancellation checks were explicitly deferred by the user. Final video and submission remain pending that qualification.
+
+
+## Deferred technical checks completed
+
+Directory enumeration uses a streaming directory iterator with at most 20,000 visited entries and 1,000 discovered directories per scan. Optional lower internal budgets support focused callers. Listing/search propagate cancellation and fail with a clear budget error instead of returning a misleading complete result.
+
+Command cancellation and timeout retain process-group SIGKILL escalation after 500 ms even when the leader closes first. The receipt resolves after the close and escalation phases. Owned fixtures verify descendants that ignore SIGTERM for both cancellation and timeout. Cleanup applies to the same POSIX process group. Approved repository tests retain local-user authority.
+
+MCP dispatch now validates the bridge's advertised object/array/string/integer schema subset, required fields, extra fields, ranges, patterns, enums and uniqueness before invoking a handler. Errors omit argument values and unexpected field names. JSON-RPC identifier validation rejects malformed envelopes. Shared reader and proposal checks remain the final resource and version controls.
+
+The latest combined suite has 94 passing automated tests. Packaged editor/runtime checks and installed-bundle identity are recorded in `outputs/verification-summary.json`. Real-model qualification remains deferred by the user.

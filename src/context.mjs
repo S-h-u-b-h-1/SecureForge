@@ -20,7 +20,7 @@ export async function assembleContext(workspace, task, { budgetBytes = 24000, si
   if (selectedPath && redactSecrets(selectedPath) === selectedPath && !mentions.files.includes(selectedPath)) mentions.files.unshift(selectedPath);
   const terms = [...new Set(redactSecrets(task).replace(/@(?:file|symbol):(?:"[^"]+"|\S+)/g, '').toLowerCase().match(/[a-z_][a-z0-9_]{2,}/g) ?? [])]
     .filter(term => !STOP_WORDS.has(term)).slice(0, 24);
-  const listed = await workspace.listFiles({ maxFiles: 2500 });
+  const listed = await workspace.listFiles({ maxFiles: 2500, signal });
   const files = [...new Set([...mentions.files, ...listed])];
   const candidates = [];
   const skipped = [];

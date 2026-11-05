@@ -1,6 +1,6 @@
 {
   "mode": "deterministic inference fixture, real SDK/runtime/MCP",
-  "sessionId": "01m6mwmraw6ktsfzxxazhwv9w6",
+  "sessionId": "01m6n06s7jnb9hxyy9b62wtahk",
   "provider": "deterministic local fixture",
   "events": [
     "secureforge.session",
@@ -47,7 +47,7 @@
   ],
   "proposals": 1,
   "diagnostics": {
-    "sessionId": "01m6mwmraw6ktsfzxxazhwv9w6",
+    "sessionId": "01m6n06s7jnb9hxyy9b62wtahk",
     "status": "done",
     "terminalStatus": "done",
     "toolCounts": {

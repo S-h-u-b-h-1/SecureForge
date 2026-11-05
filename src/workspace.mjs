@@ -1,4 +1,4 @@
-import { lstat, readdir, realpath, open } from 'node:fs/promises';
+import { lstat, opendir, realpath, open } from 'node:fs/promises';
 import { constants as fsConstants } from 'node:fs';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
@@ -14,6 +14,8 @@ const RESTRICTED_NAMES = /^(?:\.env(?:\..*)?|\.npmrc|\.pypirc|\.netrc|id_(?:rsa|
 const RESTRICTED_SUFFIX = /\.(?:pem|key|p12|pfx|sqlite|sqlite3|db|keystore)$/i;
 const MAX_FILE_BYTES = 256 * 1024;
 const MAX_READ_LINES = 180;
+const MAX_SCAN_ENTRIES = 20000;
+const MAX_SCAN_DIRECTORIES = 1000;
 const READ_CHUNK_BYTES = 64 * 1024;
 // macOS 11+ open(2): refuse symlinks in ANY path component, atomically.
 // This constant is in Apple's fcntl.h; Node does not currently expose it.
@@ -189,31 +191,48 @@ export class Workspace {
     return this.#readRaw(relPath);
   }
 
-  async listFiles({ maxFiles = 2500 } = {}) {
+  async listFiles({ maxFiles = 2500, maxEntries = MAX_SCAN_ENTRIES, maxDirectories = MAX_SCAN_DIRECTORIES, signal } = {}) {
     this.#requireRoot();
     if (!Number.isInteger(maxFiles) || maxFiles < 1 || maxFiles > 5000) throw new Error('Invalid maxFiles');
+    if (!Number.isInteger(maxEntries) || maxEntries < 1 || maxEntries > MAX_SCAN_ENTRIES) throw new Error('Invalid maxEntries');
+    if (!Number.isInteger(maxDirectories) || maxDirectories < 1 || maxDirectories > MAX_SCAN_DIRECTORIES) throw new Error('Invalid maxDirectories');
+    signal?.throwIfAborted();
     const queue = [''];
     const results = [];
+    let scannedEntries = 0;
+    let directories = 0;
     while (queue.length && results.length < maxFiles) {
+      signal?.throwIfAborted();
       const base = queue.shift();
-      const entries = await readdir(path.join(this.root, base), { withFileTypes: true });
+      directories++;
+      const directory = await opendir(path.join(this.root, base), { bufferSize: 32 });
+      const entries = [];
+      for await (const entry of directory) {
+        signal?.throwIfAborted();
+        if (++scannedEntries > maxEntries) throw new Error(`Workspace scan entry limit reached (${maxEntries})`);
+        entries.push(entry);
+      }
       entries.sort((a, b) => a.name.localeCompare(b.name));
       for (const entry of entries) {
         if (entry.isSymbolicLink()) continue;
         const rel = base ? `${base}/${entry.name}` : entry.name;
         if (RESTRICTED_NAMES.test(entry.name) || RESTRICTED_SUFFIX.test(entry.name) || redactSecrets(rel) !== rel) continue;
         if (entry.isDirectory()) {
-          if (!SKIP_DIRS.has(entry.name)) queue.push(rel);
+          if (!SKIP_DIRS.has(entry.name)) {
+            if (directories + queue.length >= maxDirectories) throw new Error(`Workspace scan directory limit reached (${maxDirectories})`);
+            queue.push(rel);
+          }
         } else if (entry.isFile() && CODE_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) {
           results.push(rel);
           if (results.length >= maxFiles) break;
         }
       }
     }
+    signal?.throwIfAborted();
     return results;
   }
 
-  async searchWorkspace(query, { maxResults = 20, maxFiles = 500 } = {}) {
+  async searchWorkspace(query, { maxResults = 20, maxFiles = 500, signal } = {}) {
     if (typeof query !== 'string' || query.trim().length < 2 || query.length > 120) {
       throw new Error('Search query must contain 2..120 characters');
     }
@@ -221,9 +240,10 @@ export class Workspace {
       throw new Error('maxResults must be 1..50');
     }
     const term = query.toLowerCase();
-    const all = await this.listFiles({ maxFiles });
+    const all = await this.listFiles({ maxFiles, signal });
     const matches = [];
     for (const file of all) {
+      signal?.throwIfAborted();
       try {
         const { raw, hash } = await this.#readRaw(file);
         // Match only disclosure-safe text so hidden values cannot become a search oracle.
@@ -239,6 +259,7 @@ export class Workspace {
       }
       if (matches.length >= maxResults) break;
     }
+    signal?.throwIfAborted();
     return { query, searchedFiles: all.length, matches, capped: matches.length === maxResults };
   }
 

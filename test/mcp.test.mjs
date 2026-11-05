@@ -159,3 +159,28 @@ test('MCP source bundles reject denied paths, credentials and oversized requests
     assert.ok(!returned.includes(token));
   }
 });
+
+test('MCP enforces advertised argument schemas before dispatch', async t => {
+  const { post, request } = await setup(t);
+  const listed = await post(request(80, 'tools/list'));
+  for (const tool of listed.data.result.tools) {
+    const response = await post(request(81, 'tools/call', { name: tool.name, arguments: {} }));
+    assert.equal(response.data.result.isError, true, tool.name);
+    assert.match(response.data.result.content[0].text, /Invalid tool arguments/);
+  }
+  for (const args of [{ path: 'a.py', maxLines: 181 }, { path: 'a.py', maxLines: '2' }, { path: 'a.py', extra: true }, null]) {
+    const response = await post(request(82, 'tools/call', { name: 'read_file', arguments: args }));
+    assert.equal(response.data.result.isError, true);
+    assert.match(response.data.result.content[0].text, /Invalid tool arguments/);
+  }
+  const valid = await post(request(83, 'tools/call', { name: 'lookup_symbol', arguments: { symbol: 'verify' } }));
+  assert.equal(valid.data.result.isError, undefined);
+});
+
+test('MCP rejects invalid JSON-RPC identifiers before executing tools', async t => {
+  const { post } = await setup(t);
+  const response = await post({ jsonrpc: '2.0', id: { invalid: true }, method: 'tools/list' });
+  assert.equal(response.status, 400);
+  assert.equal(response.data.error.code, -32600);
+  assert.equal(response.data.id, null);
+});
