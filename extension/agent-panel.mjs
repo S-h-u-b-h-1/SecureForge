@@ -52,7 +52,7 @@ details{margin-top:14px}summary{cursor:pointer;font-weight:600}pre{white-space:p
 </style></head><body>
 <div class="hero"><div class="logo" aria-hidden="true">S</div><div><h1>SecureForge</h1><p class="muted">Describe a change. Review every edit before it reaches your files.</p></div></div>
 <section class="card" aria-label="Build a change">
-<div class="workspace"><strong>Working folder</strong><div id="workspaceName"></div><span class="muted">Check this matches the project you intend to edit.</span></div>
+<div class="workspace"><strong>Working folder</strong><div id="workspaceName">${workspaceLabel.replace(/[&<>"']/g, '')}</div><span class="muted">Check this matches the project you intend to edit.</span></div>
 <label for="task">What would you like to change?</label>
 <textarea id="task" maxlength="20000" placeholder="Example: Fix environment variable parsing and add regression tests."></textarea>
 <div class="toolbar"><button id="run">Find and propose changes</button><button id="cancel" class="secondary" disabled>Stop</button><button id="file" class="secondary">+ File context</button><button id="symbol" class="secondary">+ Symbol</button></div>
@@ -77,7 +77,7 @@ const steps = [1,2,3].map(i => document.getElementById('step'+i));
 let running = false;
 let sawProposal = false;
 function stage(n) { steps.forEach((el,i)=>{el.classList.toggle('active',i===n-1);el.classList.toggle('complete',i<n-1);}); }
-workspaceName.textContent = '${workspaceLabel.replace(/[&<>"']/g, '')}';
+
 runButton.onclick = () => {
   if (!task.value.trim() || running) { if(!task.value.trim()) status.textContent='Describe the change first.'; return; }
   activity.textContent='';sawProposal=false;stage(2);
