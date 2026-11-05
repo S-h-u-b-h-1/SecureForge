@@ -40,10 +40,10 @@ test('agent panel emits valid script, bounds tasks and surfaces run failures', a
   assert.match(panel.webview.html, /\/tmp\/flask/);
   const script = panel.webview.html.match(/<script nonce="[^"]+">([\s\S]*?)<\/script>/)[1];
   assert.doesNotThrow(() => new Script(script));
-  assert.match(panel.webview.html, /Working folder/);
-  assert.match(panel.webview.html, /Find and propose changes/);
-  assert.match(panel.webview.html, /Review Changes window/);
-  assert.match(panel.webview.html, /Technical activity \(for troubleshooting\)/);
+  assert.match(panel.webview.html, /Ask SecureForge to work on your code/);
+  assert.match(panel.webview.html, /Technical details/);
+  assert.match(panel.webview.html, /Build with confidence/);
+  assert.match(panel.webview.html, /SecureForge shield logo/);
   assert.match(panel.webview.html, /reviewReady/);
   await receive({ type: 'run', task: 'x'.repeat(20001) });
   assert.equal(runs, 0);
