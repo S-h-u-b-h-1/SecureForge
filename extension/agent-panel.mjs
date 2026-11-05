@@ -117,7 +117,7 @@ window.addEventListener('message',event=>{const data=event.data;if(!data||typeof
  if(data.type==='status'){
    busy=Boolean(data.running);run.disabled=busy;document.getElementById('file').disabled=busy;document.getElementById('symbol').disabled=busy;cancel.hidden=!busy;
    if(busy){status.textContent='Working on your code…';}
-   else{status.textContent=review?'Review changes in the editor':data.message;if(!review&&!hasReply){message('agent',data.message);hasReply=true;}}
+   else{if(review)status.textContent='Review changes in the editor';else if(!hasReply){status.textContent=data.message;message('agent',data.message);hasReply=true;}}
  }
  if(data.type==='reviewReady'){review=true;message('agent','Changes are ready. Review the proposed edits in the editor before applying them.');status.textContent='Review changes in the editor';}
  if(data.type==='noProposal'){hasReply=true;message('agent','No patch was staged. Your files are unchanged.');status.textContent='No changes proposed';}
