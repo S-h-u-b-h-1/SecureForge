@@ -24,6 +24,7 @@ await build({
   banner: { js: "import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);" },
 });
 for (const file of ['LICENSE', 'README.md']) await cp(path.join(root, file), path.join(staging, file));
+await cp(path.join(root, 'extension/media'), path.join(staging, 'media'), { recursive: true });
 await cp(path.join(root, 'docs'), path.join(staging, 'docs'), { recursive: true });
 await cp(path.join(root, 'fixtures'), path.join(staging, 'fixtures'), { recursive: true });
 const output = path.join(root, 'outputs', `SecureForge-${manifest.version}.vsix`);
