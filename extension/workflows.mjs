@@ -236,7 +236,7 @@ export function registerWorkflows(vscode, context) {
   }
 
   const handlers = {
-    'secureforge.runBuild': guardedBuild,
+    'secureforge.runBuild': task => typeof task === 'string' ? guardedBuild(task) : vscode.commands.executeCommand('secureforge.openAgentPanel'),
     'secureforge.inlineEdit': () => guardedBuild(undefined, true),
     'secureforge.previewContext': previewContext,
     'secureforge.attachFile': attachFile,
