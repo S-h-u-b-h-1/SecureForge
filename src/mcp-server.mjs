@@ -3,6 +3,7 @@ import http from 'node:http';
 import { Workspace } from './workspace.mjs';
 import { ProposalStore } from './proposals.mjs';
 import { BatchProposalStore } from './build/batches.mjs';
+import { proposePatchBatch } from './build/patch-batch.mjs';
 import { discoverRelevantFiles } from './build/repository-discovery.mjs';
 import { readSourceBundle } from './build/source-bundle.mjs';
 import { validateToolArguments } from './tool-schema.mjs';
@@ -37,6 +38,17 @@ const TOOLS = [
       edits: { type: 'array', minItems: 2, maxItems: 8, items: { type: 'object', properties: {
         path: { type: 'string' }, expectedSha256: { type: 'string', pattern: '^[0-9a-f]{64}$' }, proposedContent: { type: 'string' }, rationale: { type: 'string', maxLength: 2000 },
       }, required: ['path', 'expectedSha256', 'proposedContent'], additionalProperties: false } },
+      rationale: { type: 'string', maxLength: 2000 },
+    }, required: ['edits'], additionalProperties: false },
+    annotations: { readOnlyHint: false, destructiveHint: false } },
+  { name: 'propose_patch_batch', description: 'Stage 2..8 coordinated UNAPPLIED proposals using compact exact-text replacements. Read complete sources first. Each oldText must match exactly once in the original file. Preserves all other bytes, including line endings. No disk writes; review and execution approvals remain separate.',
+    inputSchema: { type: 'object', properties: {
+      edits: { type: 'array', minItems: 2, maxItems: 8, items: { type: 'object', properties: {
+        path: { type: 'string' }, expectedSha256: { type: 'string', pattern: '^[0-9a-f]{64}$' },
+        replacements: { type: 'array', minItems: 1, maxItems: 12, items: { type: 'object', properties: {
+          oldText: { type: 'string', minLength: 1, maxLength: 65536 }, newText: { type: 'string', maxLength: 65536 },
+        }, required: ['oldText', 'newText'], additionalProperties: false } },
+      }, required: ['path', 'expectedSha256', 'replacements'], additionalProperties: false } },
       rationale: { type: 'string', maxLength: 2000 },
     }, required: ['edits'], additionalProperties: false },
     annotations: { readOnlyHint: false, destructiveHint: false } },
@@ -78,6 +90,11 @@ export async function createMcpServer({ root, port = 8792, host = '127.0.0.1', a
     check_proposal: (p) => proposals.checkProposal(p.id),
     propose_batch: async (p) => {
       const result = await batches.proposeBatch(p);
+      onProposal({ kind: 'batch', id: result.id });
+      return result;
+    },
+    propose_patch_batch: async (p) => {
+      const result = await proposePatchBatch({ workspace, batches, ...p, signal });
       onProposal({ kind: 'batch', id: result.id });
       return result;
     },

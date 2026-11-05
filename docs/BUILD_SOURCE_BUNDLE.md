@@ -69,4 +69,10 @@ Independent helper tests pass 7/7. The combined suite passes its automated check
 
 Build instructions now favor one discovery pass, complete-source bundles, reuse of current source snapshots and a concrete proposal once evidence is sufficient. This is guidance whose effect on Muse exploration still needs measurement. Iteration-limit errors now preserve a specific failure code, session ID and terminal status. Diagnostics retain bounded per-tool counts and source path/hash evidence while omitting source bodies, arguments, credentials and raw provider errors.
 
-The real Muse runtime is outside the current local model catalog. Its reported prior session is absent locally. The user explicitly deferred production-model setup and real A/B qualification. Deterministic transport checks and the reference-path bundle check do not qualify autonomous Task B. This branch remains a reviewable integration baseline.
+The original integration baseline deferred real-model setup. That historical status is superseded by the local Muse qualification evidence in `outputs/live-model-qualification.json` when present. Deterministic transport checks and the reference-path bundle check alone do not qualify autonomous Task B.
+
+### Runtime response handling
+
+A real Muse attempt exposed another limit outside the MCP reader: TrueForge 0.183.0's default large-tool-response handling replaces a result above 24,000 characters with a size-limit message when no sandbox can recover the offloaded source. Thus a successful MCP bundle read alone does not prove that the model received its contents.
+
+The agent now disables that response-offloading capability while keeping SecureForge's own source byte limits. It preloads the explicitly enabled workspace tool schemas and disables runtime sandbox, web search, automatic subagents, generative UI and question tools. The 30-iteration limit and proposal staging approvals remain enabled. The wire regression checks that the actual inference request receives a complete 30+ KB bundle and that unapproved execution/delegation tools are absent. It also exercises compact patch-batch staging through actual SDK/runtime approval turns. This regression uses deterministic inference and is separate from real-model qualification.

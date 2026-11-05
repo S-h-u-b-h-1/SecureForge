@@ -10,6 +10,14 @@ This document describes the independent Build track. The existing single-file pr
 
 ## Transaction boundaries
 
+### Compact exact-text transport
+
+`propose_patch_batch` accepts 2–8 existing files with `path`, `expectedSha256` and 1–12 `replacements`. Each replacement has a nonempty `oldText` that must occur exactly once in the original source, plus `newText`. Anchors are literal text, not regex patterns. Replacements refer to the original snapshot, cannot overlap, and preserve every byte outside their ranges, including CRLF and a missing final newline. Use a unique existing context line as the anchor when inserting text.
+
+The serialized patch request is capped at 64 KiB. Expansion uses only `Workspace.rawForProposal`; it rejects stale hashes, noncanonical/duplicate paths, symlinks, restricted sources and recognized credential-bearing source or proposed content. Detection remains best effort, not complete DLP. Cancellation before staging produces no batch. Expanded proposals retain the existing 256 KiB total content limit.
+
+This is a transport alternative, not a new application path. Expanded full-file edits pass through the existing `BatchProposalStore`, including its rereads, rollback and final freshness checks. The result contains the same v1 proposal IDs consumed by hunk review. TrueForge staging approval, local hunk decisions, Save and command approval remain separate gates. Snapshots are not atomic across files.
+
 Batch creation first validates all inputs and duplicate paths, then stages edits through the existing ProposalStore.proposeEdit. A failure in any edit discards previously staged proposals in the same attempt and does not create a batch ID. After staging, it rechecks all hashes. The batch exists only in process memory. No source files are modified.
 
 A successful check_batch is a point-in-time observation, not a lock. The future approval layer must recheck on-disk hashes and editor versions immediately before applying an accepted hunk. Batch creation does not establish an atomic filesystem-wide snapshot under concurrent writers.

@@ -2,7 +2,7 @@
 
 ## Evidence boundaries
 
-SecureForge has local automated editor and TrueForge integration evidence. Runtime tests use a deterministic inference fixture. The production-model catalog returned an empty list on 4 November 2026. Production-model Tasks A and B, the official editor recording, and portal submission remain pending. The reference Flask changes were manually specified for rehearsal.
+SecureForge has local automated editor and TrueForge integration evidence. The historical empty model catalog and deferral notes below describe the earlier integration baseline. The configured Muse provider is now live; current real-model outcomes, failed candidates, saved-output test results and remaining interactive gates are recorded in `outputs/live-model-qualification.json`. Deterministic inference checks and manually specified Flask rehearsal changes remain separately identified. Video/PDF work is outside the current implementation request.
 
 The repository is public. Team name, Team ID and both members' college or employer still need confirmation. The PDF is a readiness draft with those fields visibly pending.
 

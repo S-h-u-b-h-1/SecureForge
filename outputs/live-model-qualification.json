@@ -1,0 +1,257 @@
+{
+  "createdAt": "2026-11-05T09:05:04.555Z",
+  "sourceBaseRef": "96c56c23f098d7805687b574f0e88277fb6ef146",
+  "branch": "feat/live-muse-qualification",
+  "runtime": {
+    "version": "0.183.0",
+    "sdk": "0.182.0",
+    "origin": "http://127.0.0.1:8790",
+    "model": "meta-muse/muse-spark-1-3",
+    "providerCredentials": "Stored only in local TrueForge; excluded from evidence"
+  },
+  "flaskCommit": "22d924701a6ae2e4cd01e9a15bbaf3946094af65",
+  "smoke": {
+    "sessionId": "01m6n7npagq0gh0exrf7evdfbp",
+    "status": "done",
+    "elapsedMs": 5077,
+    "output": "SECUREFORGE_READY",
+    "message": ""
+  },
+  "evidenceBoundary": "Real Muse generation through the actual SDK/MCP runtime; proposal staging, hunk decisions and verification approval supplied explicitly by a qualification harness. Apply, Save and Undo use actual desktop VS Code APIs. This does not assert interactive normal Build/Inline UI acceptance.",
+  "tasks": {
+    "A": {
+      "taskPrompt": "Treat the values 'off' and 'n' as false as well, case-insensitively, and update the docstring to list every value that is treated as false.",
+      "verificationFeedback": null,
+      "sessionId": "01m6n88sey00wrzvjf3x9qqb4q",
+      "generationStatus": "done",
+      "generationMs": 175746,
+      "approvals": {
+        "staging": 1,
+        "actor": "qualification harness; no human click asserted"
+      },
+      "diagnostics": {
+        "sessionId": "01m6n88sey00wrzvjf3x9qqb4q",
+        "status": "done",
+        "terminalStatus": "done",
+        "toolCounts": {
+          "discover_repository": 1,
+          "read_source_bundle": 1,
+          "read_file": 2,
+          "propose_edit": 1,
+          "check_proposal": 1
+        },
+        "sources": [
+          {
+            "path": "src/flask/helpers.py",
+            "sha256": "ac96607bbfc9dbcf09d5442fe7e90d7f8a046b0df7d8f3fc3535b44112016d71"
+          }
+        ]
+      },
+      "files": [
+        {
+          "path": "src/flask/helpers.py",
+          "originalSha256": "ac96607bbfc9dbcf09d5442fe7e90d7f8a046b0df7d8f3fc3535b44112016d71",
+          "proposedSha256": "476ca3545a7029f78b6bb205b8d7193dbe38d877954b3f9d69c45423637f8f48"
+        }
+      ],
+      "editor": {
+        "mode": "Real Muse output and actual desktop VS Code APIs; harness-generated accept/command approvals; no interactive webview clicks",
+        "status": "passed",
+        "checks": [
+          "Actual VS Code WorkspaceEdit applies accepted model hunks; disk stays original until Save; Save matches exact proposed hash",
+          "Harness-approved verification passes on saved AI output using checkout-specific Flask installation",
+          "Patch Passport links real TrueForge session and successful execution receipt",
+          "Guarded Undo restores every original buffer and Save restores exact original disk bytes"
+        ]
+      },
+      "verification": {
+        "status": "passed",
+        "executed": true,
+        "exitCode": 0,
+        "args": [
+          "-m",
+          "pytest",
+          "tests/test_secureforge_task_a.py",
+          "-q"
+        ],
+        "summary": "20 passed in 0.04s"
+      },
+      "passport": "outputs/live-model/task-a-passport.json",
+      "proposalArtifactSha256": "0e939f7fbae13ba1beb43813b67a98f029558ed4f222c113469f87a34de5e26e"
+    },
+    "B": {
+      "taskPrompt": "Add a new built-in CLI command flask config that prints the loaded application's configuration as JSON, masking the values of any key containing SECRET, PASSWORD, TOKEN or KEY as \"***\". It must appear in flask --help, be covered by a test, and be documented alongside the other built-in commands.",
+      "verificationFeedback": "A previous candidate for this exact task failed actual tests on the pinned Flask checkout: TypeError: Object of type timedelta is not JSON serializable. Both its generated config-command test and an independent JSON/masking test failed; the remaining 60 tests passed. The candidate has been undone and the checkout is back to its original tracked files. Implement the original task with this verified failure in mind. Configuration must remain unchanged. All source, test and documentation paths must still be discovered by you. Stage the final coordinated proposal for review; do not write files or claim tests ran.",
+      "sessionId": "01m6nes1yz25enpj4mczv66mjg",
+      "generationStatus": "done",
+      "generationMs": 253977,
+      "approvals": {
+        "staging": 1,
+        "actor": "qualification harness; no human click asserted"
+      },
+      "diagnostics": {
+        "sessionId": "01m6nes1yz25enpj4mczv66mjg",
+        "status": "done",
+        "terminalStatus": "done",
+        "toolCounts": {
+          "discover_repository": 1,
+          "read_source_bundle": 4,
+          "search_workspace": 6,
+          "read_file": 7,
+          "propose_patch_batch": 1
+        },
+        "sources": [
+          {
+            "path": "src/flask/cli.py",
+            "sha256": "3df87bdbe07196fa07d101c20ce7351ef5c6ecaab95deb5fdf3ccdcf690d4879"
+          },
+          {
+            "path": "docs/cli.rst",
+            "sha256": "e8e5e9b220a5159e9c9c8b413de499aa5a51cd0ca487681e2352bbdf6f9b0cda"
+          },
+          {
+            "path": "tests/test_cli.py",
+            "sha256": "bc9b456bcd5c8698f4a809ca9c5a595b8be47ac5f8f057442d6c78498b70e3f8"
+          },
+          {
+            "path": "src/flask/json/provider.py",
+            "sha256": "e62984cd8e478d5d87a1456b41b24ba970b330da595df0f46355ea74b5765c10"
+          },
+          {
+            "path": "src/flask/sansio/app.py",
+            "sha256": "c211944500e43748e6852e021ceec343de861a5652d2411390a9009284639785"
+          },
+          {
+            "path": "src/flask/app.py",
+            "sha256": "93bb56f0b1d14a57548baccab0528aec0c5afd62f8ceed5edb03cdb6122cbbba"
+          },
+          {
+            "path": "docs/api.rst",
+            "sha256": "08650a7a23f8b2f0ca46f52f66c79ae578fe105b33a6ee541c20bc6aa70e52c9"
+          }
+        ]
+      },
+      "files": [
+        {
+          "path": "src/flask/cli.py",
+          "originalSha256": "3df87bdbe07196fa07d101c20ce7351ef5c6ecaab95deb5fdf3ccdcf690d4879",
+          "proposedSha256": "446fd2a353f0d74cec1cf640193e6ee9cf73420a1d1a4cdd3183d2ebd3faa7d3"
+        },
+        {
+          "path": "tests/test_cli.py",
+          "originalSha256": "bc9b456bcd5c8698f4a809ca9c5a595b8be47ac5f8f057442d6c78498b70e3f8",
+          "proposedSha256": "35e08885ec6b6fd4ac012eacf8206fa0b18bfdb3d3c872274cd4d28403102d71"
+        },
+        {
+          "path": "docs/cli.rst",
+          "originalSha256": "e8e5e9b220a5159e9c9c8b413de499aa5a51cd0ca487681e2352bbdf6f9b0cda",
+          "proposedSha256": "2b48fcc02d3f62a816abbb07e781e8bde61ce869db1b53f81af91c394cbe1768"
+        },
+        {
+          "path": "docs/api.rst",
+          "originalSha256": "08650a7a23f8b2f0ca46f52f66c79ae578fe105b33a6ee541c20bc6aa70e52c9",
+          "proposedSha256": "9d7e5e5ae2588f4ffcecd65b38ff8c6dc2495139a08cac3dfba76c8c8c8b4b0e"
+        }
+      ],
+      "editor": {
+        "mode": "Real Muse output and actual desktop VS Code APIs; harness-generated accept/command approvals; no interactive webview clicks",
+        "status": "passed",
+        "checks": [
+          "Actual VS Code WorkspaceEdit applies accepted model hunks; disk stays original until Save; Save matches exact proposed hash",
+          "Harness-approved verification passes on saved AI output using checkout-specific Flask installation",
+          "Patch Passport links real TrueForge session and successful execution receipt",
+          "Guarded Undo restores every original buffer and Save restores exact original disk bytes"
+        ]
+      },
+      "verification": {
+        "status": "passed",
+        "executed": true,
+        "exitCode": 0,
+        "args": [
+          "-m",
+          "pytest",
+          "tests/test_cli.py",
+          "tests/test_secureforge_task_b.py",
+          "-q"
+        ],
+        "summary": "62 passed in 0.19s"
+      },
+      "passport": "outputs/live-model/task-b-passport.json",
+      "proposalArtifactSha256": "dc08fad8c14a44dfd69f5215b6b4e21bea6d2735d9e629bd3ca167b603bd1044"
+    }
+  },
+  "failedCandidates": [
+    {
+      "task": "A",
+      "sessionId": "01m6n7vybazj4b5agmnjwtcwn4",
+      "outcome": "Cancelled after proving default runtime response handling blocked complete source delivery; no proposals applied"
+    },
+    {
+      "task": "B",
+      "sessionId": "01m6n7z58esmf0fngp6ra85crp",
+      "outcome": "Cancelled after the same runtime source-response limit; no proposals applied"
+    },
+    {
+      "task": "B",
+      "sessionId": "01m6n88tb5k7pkwq3txxarebdw",
+      "outcome": "Iteration limit 30; complete bundle delivered but repeated reads exhausted the turn"
+    },
+    {
+      "task": "B",
+      "sessionId": "01m6n8nydbw0e3pt0rk4zqraxw",
+      "outcome": "Harness cancelled at 600 seconds after full-file transport/argument failures; no proposals applied"
+    },
+    {
+      "task": "B",
+      "sessionId": "01m6neatcrvywsn9c8wjkkgpr8",
+      "outcome": "Three-file candidate staged and applied in editor harness; 60 tests passed and 2 failed because default timedelta configuration was not JSON serializable. Undo restored original bytes. Measured error fed to final retry."
+    }
+  ],
+  "cancellation": {
+    "observedRealModelDelta": true,
+    "mode": "Real TrueForge session; harness cancellation after first real model stream delta",
+    "status": "passed",
+    "diagnostics": {
+      "sessionId": "01m6nf5bj5fzk74t42sh972sdn",
+      "status": "cancelled",
+      "terminalStatus": null,
+      "toolCounts": {},
+      "sources": []
+    },
+    "beforeSha256": "ac96607bbfc9dbcf09d5442fe7e90d7f8a046b0df7d8f3fc3535b44112016d71",
+    "afterSha256": "ac96607bbfc9dbcf09d5442fe7e90d7f8a046b0df7d8f3fc3535b44112016d71",
+    "staged": 0,
+    "events": [
+      "secureforge.session",
+      "turn.created",
+      "mcp.initialize",
+      "model.message",
+      "model.message.delta",
+      "secureforge.cancelled"
+    ]
+  },
+  "implementation": {
+    "completeBundleDelivery": "Runtime offloading disabled; existing 96 KiB reader budget retained",
+    "toolSchemas": "Explicit allowlist preloaded",
+    "iterationLimit": 30,
+    "runtimeCapabilitiesDisabled": [
+      "dynamic_sub_agents",
+      "sandbox",
+      "web_search",
+      "generative_ui",
+      "ask_user_questions"
+    ],
+    "compactTransport": "propose_patch_batch: exact unique nonoverlapping replacements, 64 KiB input, 2..8 files, 1..12 replacements/file, existing full v1 proposals and 256 KiB total expansion limit",
+    "approvalBoundary": "Staging, applying hunks, Save and command execution remain separate; no automatic product approvals"
+  },
+  "unitTests": {
+    "passed": 100,
+    "failed": 0
+  },
+  "limitations": [
+    "Task B passed only after measured failure feedback; this is not a first-attempt success claim.",
+    "Native VS Code accessibility automation timed out even with an isolated accessibility-enabled test launch. Real-model interactive approval/review button clicks remain unqualified.",
+    "Secret detection is best effort, not complete DLP; file snapshots are not atomic across files.",
+    "Video/PDF and portal submission are excluded from this work. This branch is not merged into main."
+  ]
+}
