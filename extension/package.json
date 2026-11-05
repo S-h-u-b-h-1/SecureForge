@@ -12,7 +12,7 @@
     "commands": [
       { "command": "secureforge.reviewProposal", "title": "SecureForge: Review Proposal JSON" },
       { "command": "secureforge.reviewDemo", "title": "SecureForge: Open Two-Hunk Review Demo" },
-      { "command": "secureforge.runBuild", "title": "SecureForge: Build with TrueForge" },
+      { "command": "secureforge.runBuild", "title": "SecureForge: Build (Guided)" },
       { "command": "secureforge.cancelRun", "title": "SecureForge: Cancel Agent Run" },
       { "command": "secureforge.runVerification", "title": "SecureForge: Run Approved Verification" },
       { "command": "secureforge.securityReview", "title": "SecureForge: Security Review" },
@@ -23,7 +23,7 @@
       { "command": "secureforge.previewContext", "title": "SecureForge: Preview Task Context" },
       { "command": "secureforge.attachFile", "title": "SecureForge: Attach File Context" },
       { "command": "secureforge.attachSymbol", "title": "SecureForge: Attach Symbol Context" },
-      { "command": "secureforge.openAgentPanel", "title": "SecureForge: Open Agent Panel" }
+      { "command": "secureforge.openAgentPanel", "title": "SecureForge: Start Here" }
     ],
     "configuration": {
       "title": "SecureForge",

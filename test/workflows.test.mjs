@@ -33,8 +33,12 @@ test('standalone verification cancellation uses its own controller without an ac
 test('command failures reach the activity subscribers and visible notification', async () => {
   const handlers = new Map();
   const notifications = [];
+  const navigation = [];
   const vscode = {
-    commands: { registerCommand: (name, handler) => { handlers.set(name, handler); return { dispose() {} }; } },
+    commands: {
+      registerCommand: (name, handler) => { handlers.set(name, handler); return { dispose() {} }; },
+      executeCommand: async name => { navigation.push(name); },
+    },
     workspace: { isTrusted: false },
     window: {
       createOutputChannel: () => ({ appendLine() {}, dispose() {} }),
@@ -47,5 +51,7 @@ test('command failures reach the activity subscribers and visible notification',
   await handlers.get('secureforge.runBuild')('Update the docstring');
   assert.match(notifications[0], /trusted local workspace/);
   assert.deepEqual(events, [{ type: 'error', message: 'A trusted local workspace is required' }]);
+  await handlers.get('secureforge.runBuild')();
+  assert.deepEqual(navigation, ['secureforge.openAgentPanel']);
   subscription.dispose();
 });

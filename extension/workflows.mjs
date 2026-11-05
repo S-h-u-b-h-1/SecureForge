@@ -136,6 +136,7 @@ export function registerWorkflows(vscode, context) {
         await openReviewPayload(vscode, context, workspace, payload, record => {
           recordReview({ ...record, sessionId: payload.sessionId });
         });
+        broadcast({ type: 'reviewReady', fileCount: payload.proposals.length });
       } catch (error) { await workspace.close(); throw error; }
     } finally {
       activeRun = undefined;
@@ -235,7 +236,7 @@ export function registerWorkflows(vscode, context) {
   }
 
   const handlers = {
-    'secureforge.runBuild': guardedBuild,
+    'secureforge.runBuild': task => typeof task === 'string' ? guardedBuild(task) : vscode.commands.executeCommand('secureforge.openAgentPanel'),
     'secureforge.inlineEdit': () => guardedBuild(undefined, true),
     'secureforge.previewContext': previewContext,
     'secureforge.attachFile': attachFile,
