@@ -138,9 +138,9 @@ test('read and search redact multiline credential values before slicing lines', 
   assert.equal(read.lines[0].line, 2);
   assert.ok(!read.lines[0].text.includes('superprivate'));
   const search = await workspace.searchWorkspace('superprivate');
-  assert.ok(search.matches.length > 0);
-  assert.ok(search.matches.every((x) => !x.snippet.includes('superprivate')));
-  assert.ok(search.matches.some((x) => x.snippet.includes('[REDACTED]')));
+  assert.equal(search.matches.length, 0);
+  const masked = await workspace.searchWorkspace('[REDACTED]');
+  assert.ok(masked.matches.some(x => x.snippet.includes('[REDACTED]')));
 });
 
 test('an empty credential must not swallow the next credential key', async (t) => {
@@ -153,8 +153,9 @@ test('an empty credential must not swallow the next credential key', async (t) =
   const read = await workspace.readFile('src/adjacent.yaml');
   assert.deepEqual(read.lines.slice(0, 2).map((x) => x.text), ['password:', 'api_key: [REDACTED]']);
   const search = await workspace.searchWorkspace('superprivate');
-  assert.ok(search.matches.some((x) => x.path === 'src/adjacent.yaml'));
-  assert.ok(search.matches.every((x) => !x.snippet.includes('superprivate')));
+  assert.equal(search.matches.length, 0);
+  const publicKey = await workspace.searchWorkspace('api_key');
+  assert.ok(publicKey.matches.some(x => x.path === 'src/adjacent.yaml'));
 });
 
 test('quoted JSON and YAML credential keys are redacted in read/search and block proposals', async (t) => {
@@ -167,8 +168,9 @@ test('quoted JSON and YAML credential keys are redacted in read/search and block
   assert.equal(read.redacted, true);
   assert.ok(read.lines.every((x) => !x.text.includes('superprivate') && !x.text.includes('anothersecret')));
   const search = await workspace.searchWorkspace('superprivate');
-  assert.ok(search.matches.some((x) => x.path === 'src/config.json'));
-  assert.ok(search.matches.every((x) => !x.snippet.includes('superprivate')));
+  assert.equal(search.matches.length, 0);
+  const publicKey = await workspace.searchWorkspace('password');
+  assert.ok(publicKey.matches.some(x => x.path === 'src/config.json'));
   const store = new ProposalStore(workspace);
   await assert.rejects(store.proposeEdit({ path: 'src/config.json', expectedSha256: read.sha256, proposedContent: '{}' }), /redacted credentials/);
 });
@@ -181,4 +183,53 @@ test('workspace search skips invalid UTF-8 rather than failing entirely', async 
   assert.ok(matches.matches.some((x) => x.path === 'src/auth.py'));
   const symbols = await workspace.lookupSymbol('login');
   assert.ok(symbols.matches.some((x) => x.path === 'src/auth.py'));
+});
+
+
+test('shared workspace interfaces exclude credential-bearing files and directories', async t => {
+  const { root, workspace } = await fixture(t);
+  const token = 'ghp_abcdefghijklmnopqrstuv';
+  const secretFile = `src/login-${token}.js`;
+  const secretDirectory = `src/${token}`;
+  await writeFile(path.join(root, secretFile), 'export function login() {}\n');
+  await mkdir(path.join(root, secretDirectory));
+  await writeFile(path.join(root, secretDirectory, 'login.js'), 'export function login() {}\n');
+  assert.ok(!(await workspace.listFiles()).some(file => file.includes(token)));
+  for (const file of [secretFile, `${secretDirectory}/login.js`]) {
+    await assert.rejects(workspace.readFile(file), /Restricted/);
+    await assert.rejects(workspace.rawForProposal(file), /Restricted/);
+  }
+  assert.equal(JSON.stringify(await workspace.searchWorkspace('login')).includes(token), false);
+  assert.equal(JSON.stringify(await workspace.lookupSymbol('login')).includes(token), false);
+});
+
+test('literal searches cannot distinguish hidden credential prefixes', async t => {
+  const { root, workspace } = await fixture(t);
+  await writeFile(path.join(root, 'src', 'oracle.py'), 'password = "ab"\npublic_value = "visible"\n');
+  for (const needle of ['password = "a', 'password = "z', 'superprivate']) {
+    assert.deepEqual((await workspace.searchWorkspace(needle)).matches, []);
+  }
+  assert.ok((await workspace.searchWorkspace('visible')).matches.some(match => match.path === 'src/oracle.py'));
+});
+
+test('workspace listing caps directory-entry work and queued directories', async t => {
+  const { root, workspace } = await fixture(t);
+  await mkdir(path.join(root, 'empty'));
+  await assert.rejects(workspace.listFiles({ maxEntries: 1 }), /entry limit/);
+  await assert.rejects(workspace.listFiles({ maxDirectories: 1 }), /directory limit/);
+  await assert.rejects(workspace.listFiles({ maxEntries: 20001 }), /maxEntries/);
+  await assert.rejects(workspace.listFiles({ maxDirectories: 1001 }), /maxDirectories/);
+  assert.ok((await workspace.listFiles()).includes('src/auth.py'));
+});
+
+test('workspace listing and search fail closed on cancellation', async t => {
+  const { workspace } = await fixture(t);
+  const controller = new AbortController();
+  controller.abort();
+  await assert.rejects(workspace.listFiles({ signal: controller.signal }), error => error.name === 'AbortError');
+  await assert.rejects(workspace.searchWorkspace('login', { signal: controller.signal }), error => error.name === 'AbortError');
+  const active = new AbortController();
+  const pending = workspace.listFiles({ signal: active.signal });
+  active.abort();
+  await assert.rejects(pending, error => error.name === 'AbortError');
 });

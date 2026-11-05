@@ -1,0 +1,96 @@
+--- a/src/flask/helpers.py
++++ b/src/flask/helpers.py
+@@ -27,10 +27,11 @@
+ 
+ def get_debug_flag() -> bool:
+     """Get whether debug mode should be enabled for the app, indicated by the
+-    :envvar:`FLASK_DEBUG` environment variable. The default is ``False``.
++    :envvar:`FLASK_DEBUG` environment variable. Unset, empty, ``0``,
++    ``false``, ``no``, ``off`` and ``n`` are false, case-insensitively.
+     """
+     val = os.environ.get("FLASK_DEBUG")
+-    return bool(val and val.lower() not in {"0", "false", "no"})
++    return bool(val and val.lower() not in {"0", "false", "no", "off", "n"})
+ 
+ 
+ def get_load_dotenv(default: bool = True) -> bool:
+--- a/src/flask/cli.py
++++ b/src/flask/cli.py
+@@ -4,6 +4,7 @@
+ import collections.abc as cabc
+ import importlib.metadata
+ import inspect
++import json
+ import os
+ import platform
+ import re
+@@ -594,6 +595,7 @@
+             self.add_command(run_command)
+             self.add_command(shell_command)
+             self.add_command(routes_command)
++            self.add_command(config_command)
+ 
+         self._loaded_plugin_commands = False
+ 
+@@ -1115,6 +1117,24 @@
+         click.echo(template.format(*row))
+ 
+ 
++
++@click.command("config", short_help="Show application configuration as masked JSON.")
++@with_appcontext
++def config_command() -> None:
++    """Print the loaded application's configuration with sensitive keys masked."""
++    def mask(value):
++        if isinstance(value, dict):
++            return {
++                key: "***" if any(word in str(key).upper() for word in ("SECRET", "PASSWORD", "TOKEN", "KEY")) else mask(item)
++                for key, item in value.items()
++            }
++        if isinstance(value, (list, tuple)):
++            return [mask(item) for item in value]
++        return value
++
++    click.echo(json.dumps(mask(dict(current_app.config)), default=str, sort_keys=True))
++
++
+ cli = FlaskGroup(
+     name="flask",
+     help="""\
+--- a/tests/test_cli.py
++++ b/tests/test_cli.py
+@@ -700,3 +700,19 @@
+ def test_run_exclude_patterns():
+     ctx = run_command.make_context("run", ["--exclude-patterns", __file__])
+     assert ctx.params["exclude_patterns"] == [__file__]
++
++
++def test_config_command_masks_sensitive_values():
++    import json
++    app = Flask(__name__)
++    app.config.update(SECRET_KEY="example", PASSWORD="example", API_TOKEN="example", PUBLIC="visible", NESTED={"api_key": "example"})
++    cli = FlaskGroup(create_app=lambda: app)
++    result = CliRunner().invoke(cli, ["config"])
++    assert result.exit_code == 0
++    values = json.loads(result.output)
++    assert values["SECRET_KEY"] == "***"
++    assert values["PASSWORD"] == "***"
++    assert values["API_TOKEN"] == "***"
++    assert values["PUBLIC"] == "visible"
++    assert values["NESTED"]["api_key"] == "***"
++    assert "config" in CliRunner().invoke(cli, ["--help"]).output
+--- a/docs/cli.rst
++++ b/docs/cli.rst
+@@ -554,3 +554,12 @@
+ 
+ Now that you have a configuration for ``flask run``, you can copy that configuration and
+ change the *Parameters* argument to run a different CLI command.
++
++
++View Configuration
++------------------
++
++The built-in ``flask config`` command prints the loaded application's configuration
++as JSON. Keys containing SECRET, PASSWORD, TOKEN or KEY are masked as ``***``.
++Masking applies to nested dictionaries too. Configure the app with ``--app`` as
++with the other built-in commands. Review configuration output before sharing it.

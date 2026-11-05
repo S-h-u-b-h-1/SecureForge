@@ -1,0 +1,58 @@
+{
+  "mode": "model-independent reference rehearsal",
+  "flaskCommit": "22d924701a6ae2e4cd01e9a15bbaf3946094af65",
+  "taskA": {
+    "instruction": "Treat the values 'off' and 'n' as false as well, case-insensitively, and update the docstring to list every value that is treated as false.",
+    "result": "False"
+  },
+  "taskB": {
+    "instruction": "Add a new built-in CLI command flask config that prints the loaded application's configuration as JSON, masking the values of any key containing SECRET, PASSWORD, TOKEN or KEY as \"***\". It must appear in flask --help, be covered by a test, and be documented alongside the other built-in commands.",
+    "changedFiles": [
+      "src/flask/cli.py",
+      "tests/test_cli.py",
+      "docs/cli.rst"
+    ],
+    "pytest": "...........................................................              [100%]\n59 passed in 0.15s\n",
+    "maskedJson": {
+      "API_TOKEN": "***",
+      "APPLICATION_ROOT": "/",
+      "DEBUG": false,
+      "EXPLAIN_TEMPLATE_LOADING": false,
+      "MAX_CONTENT_LENGTH": null,
+      "MAX_COOKIE_SIZE": 4093,
+      "MAX_FORM_MEMORY_SIZE": 500000,
+      "MAX_FORM_PARTS": 1000,
+      "PERMANENT_SESSION_LIFETIME": "31 days, 0:00:00",
+      "PREFERRED_URL_SCHEME": "http",
+      "PROPAGATE_EXCEPTIONS": null,
+      "PROVIDE_AUTOMATIC_OPTIONS": true,
+      "PUBLIC": "visible",
+      "SECRET_KEY": "***",
+      "SECRET_KEY_FALLBACKS": "***",
+      "SEND_FILE_MAX_AGE_DEFAULT": null,
+      "SERVER_NAME": null,
+      "SESSION_COOKIE_DOMAIN": null,
+      "SESSION_COOKIE_HTTPONLY": true,
+      "SESSION_COOKIE_NAME": "session",
+      "SESSION_COOKIE_PARTITIONED": false,
+      "SESSION_COOKIE_PATH": null,
+      "SESSION_COOKIE_SAMESITE": null,
+      "SESSION_COOKIE_SECURE": false,
+      "SESSION_REFRESH_EACH_REQUEST": true,
+      "TEMPLATES_AUTO_RELOAD": null,
+      "TESTING": false,
+      "TRAP_BAD_REQUEST_ERRORS": null,
+      "TRAP_HTTP_EXCEPTIONS": false,
+      "TRUSTED_HOSTS": null,
+      "USE_X_SENDFILE": false
+    },
+    "helpContainsConfig": true
+  },
+  "taskC": {
+    "status": "separate failure-path tests; production-model run skipped"
+  },
+  "limitations": [
+    "Reference edits were specified by the developer, not autonomously discovered by a model.",
+    "This report is not a competition demo or proof of model success."
+  ]
+}

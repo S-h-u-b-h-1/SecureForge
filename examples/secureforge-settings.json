@@ -1,0 +1,5 @@
+{
+  "secureforge.trueforgeUrl": "http://localhost:8790",
+  "secureforge.model": "your-provider/your-model",
+  "secureforge.contextBudgetBytes": 24000
+}

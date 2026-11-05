@@ -119,7 +119,7 @@ export async function discoverRelevantFiles({
   const assertActive = () => { if (signal?.aborted) throw new Error('Repository discovery cancelled'); };
   assertActive();
 
-  const listed = await workspace.listFiles({ maxFiles });
+  const listed = await workspace.listFiles({ maxFiles, signal });
   assertActive();
   if (!Array.isArray(listed)) throw new Error('Workspace file listing is invalid');
   // Defensive: a faulty adapter must not turn the file scan into an unbounded read.

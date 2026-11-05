@@ -11,3 +11,6 @@ dist/
 *.p12
 *.pfx
 .tmp/
+
+__pycache__/
+*.pyc

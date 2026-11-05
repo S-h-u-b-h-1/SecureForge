@@ -78,3 +78,109 @@ test('MCP preserves UTF-8 characters when a multibyte code point spans HTTP chun
   assert.equal(value.query, 'café');
   assert.ok(value.matches.some((m) => m.path === 'unicode.py'));
 });
+
+
+test('repository discovery is available through bounded read-only MCP calls', async t => {
+  const { root, post, request } = await setup(t);
+  const before = await readFile(path.join(root, 'a.py'), 'utf8');
+  const response = await post(request(50, 'tools/call', { name: 'discover_repository', arguments: { task: 'verify function' } }));
+  assert.equal(response.data.result.isError, undefined);
+  const result = JSON.parse(response.data.result.content[0].text);
+  assert.ok(result.candidates.some(item => item.path === 'a.py'));
+  assert.equal(await readFile(path.join(root, 'a.py'), 'utf8'), before);
+  const invalid = await post(request(51, 'tools/call', { name: 'discover_repository', arguments: { task: 'x'.repeat(401) } }));
+  assert.equal(invalid.data.result.isError, true);
+});
+
+test('cancelled MCP capabilities reject new calls and suppress in-flight source results', { timeout: 5000 }, async t => {
+  const root = await mkdtemp(path.join(tmpdir(), 'secureforge-revocation-'));
+  const controller = new AbortController();
+  const instance = await createMcpServer({ root, port: 0, signal: controller.signal });
+  t.after(async () => {
+    instance.server.closeAllConnections();
+    await new Promise(resolve => instance.server.close(resolve));
+    await instance.workspace.close();
+    await rm(root, { recursive: true, force: true });
+  });
+  let entered;
+  let release;
+  const started = new Promise(resolve => { entered = resolve; });
+  const pendingRead = new Promise(resolve => { release = resolve; });
+  instance.workspace.readFile = async () => {
+    entered();
+    await pendingRead;
+    return { lines: [{ text: 'private dummy source' }] };
+  };
+  const url = `http://127.0.0.1:${instance.address.port}/mcp`;
+  const call = () => fetch(url, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'read_file', arguments: { path: 'dummy.py' } } }),
+  });
+  const inFlight = call();
+  await started;
+  controller.abort();
+  release();
+  const response = await inFlight;
+  assert.equal(response.status, 410);
+  assert.ok(!(await response.text()).includes('private dummy source'));
+  assert.equal((await call()).status, 410);
+});
+
+test('source bundles round-trip complete UTF-8 bytes and hashes through read-only MCP', async t => {
+  const { root, post, request } = await setup(t);
+  const second = 'def café():\r\n    return "✓"\r\n';
+  await writeFile(path.join(root, 'b.py'), second);
+  const tools = (await post(request(70, 'tools/list'))).data.result.tools;
+  const advertised = tools.find(tool => tool.name === 'read_source_bundle');
+  assert.equal(advertised.annotations.readOnlyHint, true);
+  assert.equal(advertised.inputSchema.properties.paths.maxItems, 4);
+  const response = await post(request(71, 'tools/call', { name: 'read_source_bundle', arguments: { paths: ['a.py', 'b.py'] } }));
+  const bundle = JSON.parse(response.data.result.content[0].text);
+  assert.equal(bundle.status, 'read_only');
+  assert.equal(bundle.fileCount, 2);
+  assert.equal(bundle.files[1].content, second);
+  const { sha256 } = await import('../src/workspace.mjs');
+  assert.equal(bundle.files[1].sha256, sha256(second));
+  assert.equal(await readFile(path.join(root, 'b.py'), 'utf8'), second);
+});
+
+test('MCP source bundles reject denied paths, credentials and oversized requests without partial sources', async t => {
+  const { root, post, request } = await setup(t);
+  const token = 'ghp_abcdefghijklmnopqrstuv';
+  await writeFile(path.join(root, 'private.py'), `password = ${token}\n`);
+  for (const paths of [
+    ['a.py', '../outside.py'], ['a.py', '.env'], ['a.py', 'private.py'],
+    ['a.py', `login-${token}.py`], ['a.py', 'a.py'], Array(5).fill('a.py'),
+  ]) {
+    const response = await post(request(72, 'tools/call', { name: 'read_source_bundle', arguments: { paths } }));
+    assert.equal(response.data.result.isError, true);
+    const returned = JSON.stringify(response.data.result);
+    assert.ok(!returned.includes('def verify'));
+    assert.ok(!returned.includes(token));
+  }
+});
+
+test('MCP enforces advertised argument schemas before dispatch', async t => {
+  const { post, request } = await setup(t);
+  const listed = await post(request(80, 'tools/list'));
+  for (const tool of listed.data.result.tools) {
+    const response = await post(request(81, 'tools/call', { name: tool.name, arguments: {} }));
+    assert.equal(response.data.result.isError, true, tool.name);
+    assert.match(response.data.result.content[0].text, /Invalid tool arguments/);
+  }
+  for (const args of [{ path: 'a.py', maxLines: 181 }, { path: 'a.py', maxLines: '2' }, { path: 'a.py', extra: true }, null]) {
+    const response = await post(request(82, 'tools/call', { name: 'read_file', arguments: args }));
+    assert.equal(response.data.result.isError, true);
+    assert.match(response.data.result.content[0].text, /Invalid tool arguments/);
+  }
+  const valid = await post(request(83, 'tools/call', { name: 'lookup_symbol', arguments: { symbol: 'verify' } }));
+  assert.equal(valid.data.result.isError, undefined);
+});
+
+test('MCP rejects invalid JSON-RPC identifiers before executing tools', async t => {
+  const { post } = await setup(t);
+  const response = await post({ jsonrpc: '2.0', id: { invalid: true }, method: 'tools/list' });
+  assert.equal(response.status, 400);
+  assert.equal(response.data.error.code, -32600);
+  assert.equal(response.data.id, null);
+});

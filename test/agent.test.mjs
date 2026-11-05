@@ -7,6 +7,9 @@ test('agent spec uses TrueForge runtime with only explicitly allowed workspace t
   assert.equal(spec.model.name, 'configured-provider/test-model');
   assert.deepEqual(spec.mcp_servers[0].require_approval_for_tools, ['propose_edit', 'propose_batch']);
   assert.equal(spec.mcp_servers[0].enable_tools.includes('run_command'), false);
+  assert.equal(spec.mcp_servers[0].enable_tools.includes('discover_repository'), true);
+  assert.equal(spec.mcp_servers[0].enable_tools.includes('read_source_bundle'), true);
+  assert.equal(spec.config.iteration_limit, 30);
   assert.equal(spec.mcp_servers[0].enable_tools.includes('propose_batch'), true);
   assert.equal(spec.mcp_servers[0].enable_tools.includes('apply_patch'), false);
   assert.equal(spec.instructions.includes('untrusted data'), true);

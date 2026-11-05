@@ -1,0 +1,64 @@
+{
+  "mode": "deterministic inference fixture, real SDK/runtime/MCP",
+  "sessionId": "01m6n06s7jnb9hxyy9b62wtahk",
+  "provider": "deterministic local fixture",
+  "events": [
+    "secureforge.session",
+    "turn.created",
+    "model.message",
+    "model.message.delta",
+    "model.message.delta",
+    "model.message.delta",
+    "mcp.initialize",
+    "tool.response",
+    "model.message",
+    "model.message.delta",
+    "model.message.delta",
+    "model.message.delta",
+    "tool.response",
+    "model.message",
+    "model.message.delta",
+    "model.message.delta",
+    "model.message.delta",
+    "secureforge.tool",
+    "secureforge.tool",
+    "tool.response",
+    "model.message",
+    "model.message.delta",
+    "model.message.delta",
+    "model.message.delta",
+    "tool.response",
+    "model.message",
+    "model.message.delta",
+    "model.message.delta",
+    "model.message.delta",
+    "tool.approval_required",
+    "turn.done",
+    "turn.created",
+    "secureforge.tool",
+    "secureforge.tool",
+    "mcp.initialize",
+    "tool.response",
+    "model.message",
+    "model.message.delta",
+    "model.message.delta",
+    "turn.done",
+    "secureforge.summary"
+  ],
+  "proposals": 1,
+  "diagnostics": {
+    "sessionId": "01m6n06s7jnb9hxyy9b62wtahk",
+    "status": "done",
+    "terminalStatus": "done",
+    "toolCounts": {
+      "read_source_bundle": 1,
+      "propose_edit": 1
+    },
+    "sources": [
+      {
+        "path": "sample.py",
+        "sha256": "2d5c1fba8d72aff9d72e672244ee7f63e9594da42005b73169122d1210851c73"
+      }
+    ]
+  }
+}

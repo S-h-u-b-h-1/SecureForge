@@ -46,3 +46,8 @@ The existing `npm run check` script does not yet list this new file; explicitly 
 3. Assess representative repositories, especially Flask, for relevance and coverage; retain failure cases as tests.
 4. Coordinate a shared MCP integration with Aditya's security branch; do not edit Aditya's VS Code extension or approval code.
 5. Conduct a real TrueForge task that discovers files **without filenames in the prompt**. This is a later B2 gate; this module alone is not an autonomous agent.
+
+
+## Security-branch integration
+
+The security branch integrates the two repository-intelligence commits through `a28fe80`. A read-only `discover_repository` MCP tool exposes default bounded discovery with 3-400 character task input. The Build agent explicitly allows this tool and still uses exact reads and hashes before proposing edits. Live-run cancellation propagates into discovery. The extension's separately budgeted automatic context remains responsible for inline selections, file/symbol attachments and visible excerpt reasons. Representative Flask, cross-platform CI and real-model acceptance gates are reported in the Round 1 readiness document.
