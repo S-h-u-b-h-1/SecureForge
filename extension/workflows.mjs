@@ -247,7 +247,7 @@ export function registerWorkflows(vscode, context) {
           return await runApprovedCommand({ workspace, request, signal: controller.signal,
             approve: async command => await vscode.window.showWarningMessage(
               'Run this verification command?', { modal: true, detail:
-                `${command.executable} ${command.args.join(' ')}\nWorking directory: ${command.cwd}\nTimeout: ${command.timeoutMs} ms\nTests execute repository code with your local user permissions. Save accepted edits before verifying them.` },
+                `${command.executable} ${command.args.join(' ')}\nWorking directory: ${command.cwd}\nPython source path: ${command.pythonSourcePath || '(not set)'}\nTimeout: ${command.timeoutMs} ms\nTests execute repository code with your local user permissions. Save accepted edits before verifying them.` },
               'Run verification'
             ) === 'Run verification',
           });
