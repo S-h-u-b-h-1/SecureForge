@@ -26,12 +26,12 @@ exports.run = async function run() {
     assert.ok(commands.includes('secureforge.reviewProposal'));
     assert.ok(commands.includes('secureforge.reviewDemo'));
     for (const command of ['secureforge.openAgentPanel', 'secureforge.inlineEdit', 'secureforge.previewContext', 'secureforge.attachFile', 'secureforge.attachSymbol']) assert.ok(commands.includes(command));
-    const agentPanel = await vscode.commands.executeCommand('secureforge.openAgentPanel');
-    assert.match(agentPanel.webview.html, /Selected context/);
-    const script = agentPanel.webview.html.match(/<script nonce="[^"]+">([\s\S]*?)<\/script>/)[1];
-    assert.doesNotThrow(() => new (require('node:vm').Script)(script));
-    agentPanel.dispose();
-    results.push('Extension activation and command registration');
+    // SecureForge is a contributed WebviewView in the secondary sidebar.
+    // Focusing a view returns no WebviewPanel object. Earlier tests expected
+    // a separate editor panel, which is no longer part of the design.
+    assert.ok(commands.includes('secureforge.agentSidebar.focus'), 'Sidebar view focus command is contributed');
+    await vscode.commands.executeCommand('secureforge.openAgentPanel');
+    results.push('Extension activation, sidebar registration and focus command');
 
     await fs.writeFile(filename, original);
     const store = new ProposalStore(workspace);
