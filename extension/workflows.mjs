@@ -199,16 +199,38 @@ export function registerWorkflows(vscode, context) {
   async function verify() {
     const selected = await folder();
     if (!selected) return;
-    const choice = await vscode.window.showQuickPick(['Node test', 'Python pytest'], { title: 'Verification runner' });
+    const choice = await vscode.window.showQuickPick(['Node test', 'Python pytest'], {
+      title: 'Choose a verification runner',
+    });
     if (!choice) return;
-    const file = await vscode.window.showInputBox({ title: 'Verification test file', prompt: 'Workspace-relative test file path' });
-    if (!file) return;
-    const request = choice === 'Node test'
-      ? { executable: 'node', args: ['--test', file] }
-      : { executable: 'python3', args: ['-m', 'pytest', file, '-q'] };
     const workspace = await new Workspace(selected.uri.fsPath).init();
-    try { return await runCheck(workspace, request); }
-    finally { await workspace.close(); }
+    try {
+      const files = await workspace.listFiles({ maxFiles: 2500 });
+      const eligible = files.filter(file => choice === 'Node test'
+        ? /\.(?:test|spec)\.(?:mjs|cjs|js)$/.test(file)
+        : /(?:^|\/)test_[\w.-]+\.py$/.test(file));
+      if (!eligible.length) {
+        vscode.window.showInformationMessage('No supported test files found in this workspace.');
+        return;
+      }
+      const selection = await vscode.window.showQuickPick(eligible.map(file => ({
+        label: file,
+      })), {
+        title: 'Select tests to run',
+        placeHolder: 'Choose up to 20 test files. Review and approve the command before it executes.',
+        canPickMany: true,
+      });
+      if (!selection?.length) return;
+      if (selection.length > 20) throw new Error('Select at most 20 test files');
+      const names = selection.map(item => item.label);
+      const request = choice === 'Node test'
+        ? { executable: 'node', args: ['--test', ...names] }
+        : { executable: 'python3', args: ['-m', 'pytest', ...names, '-q'] };
+      const receipt = await runCheck(workspace, request);
+      broadcast({ type: 'verificationResult', status: receipt.status,
+        executed: receipt.executed, fileCount: names.length });
+      return receipt;
+    } finally { await workspace.close(); }
   }
 
   async function runCheck(workspace, request, parentSignal) {
