@@ -61,6 +61,8 @@ test('agent panel emits valid script, bounds tasks and surfaces run failures', a
   assert.match(messages.at(-1).message, /Model unavailable/);
   await receive({ type: 'cancel' });
   assert.equal(cancels, 1);
+  await receive({ type: 'verify' });
+  assert.equal(commands.at(-1), 'secureforge.runVerification');
   await receive({ type: 'openRecent' });
   assert.equal(commands.at(-1), 'workbench.action.openRecent');
   await receive({ type: 'openFolder' });
@@ -119,6 +121,13 @@ test('sidebar defaults to the right, and minimal composer dispatches tasks safel
   assert.match(element('status').textContent, /Review changes/);
   listeners.message({ data: { type: 'reviewResult', status: 'applied', accepted: 2 } });
   assert.match(element('status').textContent, /Save and verify/);
+  const reviewMessage = element('thread').children.at(-1);
+  const verifyButton = reviewMessage.children.at(-1);
+  assert.equal(verifyButton.textContent, 'Run tests (save files first)');
+  verifyButton.onclick();
+  assert.equal(posted.at(-1).type, 'verify');
+  listeners.message({ data: { type: 'verificationResult', executed: true, status: 'passed', fileCount: 2 } });
+  assert.equal(element('status').textContent, 'Tests passed');
   listeners.message({ data: { type: 'workspace', name: 'correct-flask-project' } });
   assert.equal(element('workspace-label').textContent, 'correct-flask-project');
   listeners.message({ data: { type: 'noProposal', message: 'The model cannot find the requested source.' } });
