@@ -29,7 +29,7 @@ export function registerAgentPanel(vscode, context, actions) {
       }
     });
     context.subscriptions.push(panel);
-    const workspaceLabel = (vscode.workspace.workspaceFolders?.length === 1 ? vscode.workspace.workspaceFolders[0].uri.fsPath : 'Choose your target project when you run Build');
+    const workspaceLabel = (vscode.workspace?.workspaceFolders?.length === 1 ? vscode.workspace.workspaceFolders[0].uri.fsPath : 'Choose your target project when you run Build');
     panel.webview.html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'nonce-${nonce}'; style-src 'nonce-${nonce}'">
 <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>SecureForge</title>
