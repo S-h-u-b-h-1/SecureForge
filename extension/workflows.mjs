@@ -92,8 +92,9 @@ export function registerWorkflows(vscode, context) {
       });
     } finally { await sourceWorkspace.close(); }
     if (taskContext.workspaceMismatch) {
+      const currentName = redactSecrets(String(selected.name || 'Unknown')).slice(0, 100);
       broadcast({ type: 'workspaceMismatch', code: taskContext.workspaceMismatch.code,
-        message: taskContext.workspaceMismatch.message });
+        message: `You're currently in ${currentName}. This task requires existing Flask source, but this folder contains no Python files. Choose Recent projects to find a previously opened Flask project, or Browse folders to locate it on your Mac. No model was called and no files were changed.` });
       return { status: 'workspace_mismatch' };
     }
     const baseUrl = localTrueForgeUrl(settings.get('trueforgeUrl', 'http://localhost:8790'));
