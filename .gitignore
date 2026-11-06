@@ -14,3 +14,6 @@ dist/
 
 __pycache__/
 *.pyc
+
+# Generated installers are retained by CI as artifacts, not recommitted on each build.
+outputs/*.vsix

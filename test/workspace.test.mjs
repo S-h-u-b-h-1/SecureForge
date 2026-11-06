@@ -36,6 +36,19 @@ test('path traversal, absolute paths and sensitive files are denied', async (t) 
   await assert.rejects(workspace.readFile('.git/config'), /Restricted/);
 });
 
+test('case-variant reserved directories cannot be read or enumerated on macOS or Linux', async t => {
+  const { root, workspace } = await fixture(t);
+  for (const directory of ['.GIT', 'NODE_MODULES', '.VENV', 'DIST']) {
+    const dir = path.join(root, directory);
+    await mkdir(dir);
+    await writeFile(path.join(dir, 'private.py'), 'private_setting = "hidden fixture"\n');
+    const rel = directory + '/private.py';
+    await assert.rejects(workspace.readFile(rel), /Restricted file path/);
+    await assert.rejects(workspace.rawForProposal(rel), /Restricted file path/);
+    assert.ok(!(await workspace.listFiles()).includes(rel), rel + ' should be excluded from discovery');
+  }
+});
+
 test('symlink escape and internal symlinks fail closed', async (t) => {
   const { workspace, root } = await fixture(t);
   await symlink('/etc/hosts', path.join(root, 'src', 'hosts.py'));

@@ -184,3 +184,35 @@ test('MCP rejects invalid JSON-RPC identifiers before executing tools', async t 
   assert.equal(response.data.error.code, -32600);
   assert.equal(response.data.id, null);
 });
+
+test('failed MCP calls emit bounded status without leaking tool arguments', async t => {
+  const root = await mkdtemp(path.join(tmpdir(), 'sf-mcp-failed-status-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await writeFile(path.join(root, 'safe.py'), 'def f(): pass\n');
+  const events = [];
+  const instance = await createMcpServer({ root, port: 0, onTool: event => events.push(event) });
+  t.after(async () => {
+    instance.server.closeAllConnections();
+    await new Promise(resolve => instance.server.close(resolve));
+    await instance.workspace.close();
+  });
+  const call = async args => {
+    const result = await fetch('http://127.0.0.1:' + instance.address.port + '/mcp', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 99, method: 'tools/call',
+        params: { name: 'read_file', arguments: args } }),
+    });
+    return (await result.json()).result;
+  };
+  const unsafe = await call({ path: '../super-secret-private.py' });
+  assert.equal(unsafe.isError, true);
+  assert.deepEqual(events.map(event => [event.name, event.status]),
+    [['read_file', 'started'], ['read_file', 'failed']]);
+  assert.equal(JSON.stringify(events).includes('super-secret-private'), false);
+  events.length = 0;
+  const safe = await call({ path: 'safe.py' });
+  assert.equal(safe.isError, undefined);
+  assert.deepEqual(events.map(event => [event.name, event.status]),
+    [['read_file', 'started'], ['read_file', 'completed']]);
+  assert.equal(events[1].sources[0].path, 'safe.py');
+});
