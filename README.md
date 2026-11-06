@@ -26,8 +26,8 @@ SecureForge's VSIX is a **local beta**, not a generally certified production cod
    npm run package:extension
    ```
 
-3. In VS Code open **Extensions → … → Install from VSIX…** and choose `outputs/SecureForge-0.1.2.vsix`, then reload the window.
-   The **SecureForge Review** panel displays the loaded extension version. If it doesn't show **0.1.2** after installation, fully quit VS Code and reinstall the VSIX; an earlier extension host can still be active.
+3. In VS Code open **Extensions → … → Install from VSIX…** and choose `outputs/SecureForge-0.1.3.vsix`, then reload the window.
+   The **SecureForge Review** panel displays the loaded extension version. If it doesn't show **0.1.3** after installation, fully quit VS Code and reinstall the VSIX; an earlier extension host can still be active.
 4. Open the **target repository folder you actually want to change** (e.g., Flask for a Flask request). The name beside the chat send button identifies the active target; opening a different terminal folder does not switch the VS Code workspace.
 5. In the Secondary Side Bar, select **SecureForge**. Type an instruction in the bottom composer; press **Enter** to send or **Shift+Enter** for a line break. The paperclip attaches file context, the stack icon adds symbol context, and Stop cancels an active run. If just one local model is discoverable, the extension selects it; otherwise pick or enter the configured model.
 6. If the task obviously belongs to a different project (such as changing Flask environment variables inside a Node-only workspace), SecureForge stops **before contacting the model**. Click **Recent projects** to open VS Code's existing project history, or **Browse folders** to choose a folder yourself.
@@ -35,6 +35,10 @@ SecureForge's VSIX is a **local beta**, not a generally certified production cod
 8. After applying accepted hunks, **save the files yourself** and choose **Run tests (save files first)** in the chat. Select Node or Python, choose up to 20 eligible test files, and approve the exact command in the confirmation dialog. A passing test receipt is reported in the sidebar; full details remain in **Output → SecureForge Activity**. Nothing runs automatically.
 
 **Never merge or approve generated patches solely because the chat says they are complete.** Review the diff, run relevant tests, and check `git diff --check`.
+
+### Reviewing multiple files safely
+
+Every file in a coordinated proposal is opened as a non-preview tab to keep VS Code from silently closing it during review. If an original file was closed, the review blocks Apply until **Recheck unchanged files** safely reopens it and verifies that both disk and editor bytes still match the original proposal SHA-256. Recheck never applies or saves edits, and any dirty, replaced, changed or mismatched file blocks the entire patch. Reopen/recheck is a recovery step, not approval to accept unsafe code.
 
 ### Repeated TrueForge approval prompts
 
