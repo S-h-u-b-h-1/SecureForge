@@ -12,6 +12,20 @@ export function registerAgentPanel(vscode, context, actions) {
     panel.webview.onDidReceiveMessage(async message => {
       if (disposed || !message || typeof message !== 'object') return;
       if (message.type === 'cancel') { await actions.cancel(); return; }
+      if (message.type === 'openRecent') {
+        await vscode.commands.executeCommand('workbench.action.openRecent');
+        return;
+      }
+      if (message.type === 'openFolder') {
+        const folders = await vscode.window.showOpenDialog({
+          canSelectFiles: false, canSelectFolders: true, canSelectMany: false,
+          openLabel: 'Open project folder',
+        });
+        if (folders?.[0]?.scheme === 'file') {
+          await vscode.commands.executeCommand('vscode.openFolder', folders[0], { forceNewWindow: true });
+        }
+        return;
+      }
       if (message.type === 'attachFile' || message.type === 'attachSymbol') {
         const mention = await (message.type === 'attachFile' ? actions.attachFile() : actions.attachSymbol());
         if (mention && !disposed) panel.webview.postMessage({ type: 'attachment', mention });
@@ -25,6 +39,7 @@ export function registerAgentPanel(vscode, context, actions) {
         const result = await actions.run(message.task);
         if (result?.status === 'cancelled') finalStatus = 'Cancelled. No files were changed.';
         else if (result?.status === 'no_proposal') finalStatus = 'No changes proposed.';
+        else if (result?.status === 'workspace_mismatch') finalStatus = 'Open the correct project folder to continue.';
         else if (result?.status === 'review') finalStatus = 'Review the proposed changes in the editor.';
       } catch (error) { finalStatus = error.message; }
       finally {
@@ -76,6 +91,7 @@ textarea::placeholder{color:var(--vscode-input-placeholderForeground)}
 #cancel{color:var(--vscode-errorForeground);font-size:11px;width:auto;padding:0 7px}
 #technical{margin:9px 0 0;padding:10px 4px 0;border-top:1px solid var(--vscode-panel-border);max-height:180px;overflow:auto}
 #technical summary{cursor:pointer;font-size:11px;color:var(--vscode-descriptionForeground)}
+.change-folder{margin-top:10px;padding:7px 10px;border-radius:7px;background:var(--vscode-button-secondaryBackground);color:var(--vscode-button-secondaryForeground);font-weight:600}
 #technical pre{max-height:125px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;font-size:11px}
 [hidden]{display:none!important}
 @media(max-width:300px){header{padding-left:10px}#thread{padding:12px}#dock{padding:0 7px 9px}.folder{max-width:30%}}
@@ -109,7 +125,7 @@ textarea::placeholder{color:var(--vscode-input-placeholderForeground)}
 const vscode=acquireVsCodeApi();
 const task=document.getElementById('task'),thread=document.getElementById('thread'),welcome=document.getElementById('welcome'),run=document.getElementById('run'),cancel=document.getElementById('cancel'),status=document.getElementById('status');
 let busy=false,review=false,hasReply=false;
-function message(role,value){if(welcome.isConnected)welcome.remove();const box=document.createElement('div');box.className='message '+role;const head=document.createElement('div');head.className='sender';head.textContent=role==='user'?'You':'SecureForge';const body=document.createElement('div');body.textContent=String(value||'').slice(0,4000);box.append(head,body);thread.append(box);thread.scrollTop=thread.scrollHeight;}
+function message(role,value){if(welcome.isConnected)welcome.remove();const box=document.createElement('div');box.className='message '+role;const head=document.createElement('div');head.className='sender';head.textContent=role==='user'?'You':'SecureForge';const body=document.createElement('div');body.textContent=String(value||'').slice(0,4000);box.append(head,body);thread.append(box);thread.scrollTop=thread.scrollHeight;return box;}
 function submit(){const text=task.value.trim();if(!text||busy)return;review=false;hasReply=false;message('user',text);task.value='';status.textContent='Reading your project…';vscode.postMessage({type:'run',task:text});}
 run.onclick=submit;
 task.onkeydown=event=>{if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();submit();}};
@@ -124,6 +140,20 @@ window.addEventListener('message',event=>{const data=event.data;if(!data||typeof
    else{if(review)status.textContent='Review changes in the editor';else if(!hasReply){status.textContent=data.message;message('agent',data.message);hasReply=true;}}
  }
  if(data.type==='reviewReady'){review=true;hasReply=true;const count=Number.isInteger(data.fileCount)?data.fileCount:0;const note=typeof data.message==='string'&&data.message.trim()?data.message.trim().slice(0,3000):'Review the proposed edits in the editor before applying them.';message('agent','Proposed changes in '+count+' file(s). Nothing has been applied.\\n\\n'+note);status.textContent='Review changes in the editor';}
+ if(data.type==='workspaceMismatch'){
+   hasReply=true;
+   const box=message('agent',String(data.message||'This task belongs to another project.').slice(0,1200));
+   const recent=document.createElement('button');
+   recent.className='change-folder';
+   recent.textContent='Recent projects';
+   recent.onclick=()=>vscode.postMessage({type:'openRecent'});
+   const browse=document.createElement('button');
+   browse.className='change-folder';
+   browse.textContent='Browse folders';
+   browse.onclick=()=>vscode.postMessage({type:'openFolder'});
+   box.append(recent,browse);
+   status.textContent='Wrong workspace · No model call';
+ }
  if(data.type==='noProposal'){hasReply=true;const note=typeof data.message==='string'&&data.message.trim()?data.message.trim().slice(0,3000):'The run completed without proposing changes. Your files are unchanged.';message('agent',note);status.textContent='No changes proposed';}
  if(data.type==='reviewResult'){
    review=false;hasReply=true;

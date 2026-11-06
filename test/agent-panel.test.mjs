@@ -23,7 +23,10 @@ test('agent panel emits valid script, bounds tasks and surfaces run failures', a
       registerCommand: (_name, handler) => { open = handler; return {}; },
       executeCommand: async name => { commands.push(name); },
     },
-    window: { registerWebviewViewProvider: (_id, item, opts) => { provider = item; options = opts; return {}; } },
+    window: {
+      registerWebviewViewProvider: (_id, item, opts) => { provider = item; options = opts; return {}; },
+      showOpenDialog: async () => [{ scheme: 'file', fsPath: '/tmp/flask-correct' }],
+    },
     workspace: { workspaceFolders: [{ uri: { fsPath: '/tmp/flask' } }] },
   };
   let runs = 0;
@@ -58,6 +61,10 @@ test('agent panel emits valid script, bounds tasks and surfaces run failures', a
   assert.match(messages.at(-1).message, /Model unavailable/);
   await receive({ type: 'cancel' });
   assert.equal(cancels, 1);
+  await receive({ type: 'openRecent' });
+  assert.equal(commands.at(-1), 'workbench.action.openRecent');
+  await receive({ type: 'openFolder' });
+  assert.equal(commands.at(-1), 'vscode.openFolder');
 });
 
 test('sidebar defaults to the right, and minimal composer dispatches tasks safely', async () => {
@@ -116,4 +123,15 @@ test('sidebar defaults to the right, and minimal composer dispatches tasks safel
   assert.equal(element('workspace-label').textContent, 'correct-flask-project');
   listeners.message({ data: { type: 'noProposal', message: 'The model cannot find the requested source.' } });
   assert.equal(element('status').textContent, 'No changes proposed');
+  listeners.message({ data: { type: 'workspaceMismatch', message: 'Flask source is absent. No model was called.' } });
+  assert.equal(element('status').textContent, 'Wrong workspace · No model call');
+  const lastMessage = element('thread').children.at(-1);
+  const recentButton = lastMessage.children.at(-2);
+  const browseButton = lastMessage.children.at(-1);
+  assert.equal(recentButton.textContent, 'Recent projects');
+  assert.equal(browseButton.textContent, 'Browse folders');
+  recentButton.onclick();
+  assert.equal(posted.at(-1).type, 'openRecent');
+  browseButton.onclick();
+  assert.equal(posted.at(-1).type, 'openFolder');
 });

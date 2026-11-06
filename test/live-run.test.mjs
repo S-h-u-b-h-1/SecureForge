@@ -13,7 +13,7 @@ async function fixture(t) {
   return root;
 }
 
-function clientFor(runTools, terminalState = { status: 'done' }, visibleReply = '') {
+function clientFor(runTools, terminalState = { status: 'done' }, visibleReply = '', progressText = '') {
   let manifest;
   const counters = { turns: 0, cancellations: 0, deletions: 0 };
   const client = {
@@ -28,6 +28,7 @@ function clientFor(runTools, terminalState = { status: 'done' }, visibleReply = 
         async *withMetadata() {
           counters.turns++;
           await runTools(manifest, options);
+          if (progressText) yield { data: { type: 'model.message.delta', content: progressText } };
           yield { data: { type: 'tool.response', content: 'tool output must never appear in answer' } };
           if (visibleReply) yield { data: { type: 'model.message.delta', content: visibleReply } };
           yield { data: { type: 'turn.done', state: terminalState } };
@@ -153,4 +154,15 @@ test('model answer shown in the sidebar is bounded', async t => {
   const result = await run.run({ model: 'test/model', task: 'Explain the code' });
   assert.ok(result.reply.length <= 3000);
   assert.ok(result.reply.startsWith('A'));
+});
+
+test('sidebar reply contains the final answer without prior search narration', async t => {
+  const root = await fixture(t);
+  const { client } = clientFor(async () => {}, { status: 'done' },
+    'There are no matching Flask files in this project.',
+    'I am checking the repository... Searching for Flask... ');
+  const run = new LiveRun({ client, root });
+  const result = await run.run({ model: 'test/model', task: 'Inspect project' });
+  assert.equal(result.reply, 'There are no matching Flask files in this project.');
+  assert.doesNotMatch(result.reply, /Searching for Flask/);
 });

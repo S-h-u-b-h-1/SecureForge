@@ -13,6 +13,22 @@ export function parseMentions(task) {
   };
 }
 
+// Conservative early guard: a request to *fix existing* Flask environment
+// handling cannot be fulfilled by a workspace with no Python source at all.
+// Do not block new integrations, general explanations, or partial file listings.
+export function detectWorkspaceMismatch(task, files, { scanLimit = 2500 } = {}) {
+  if (typeof task !== 'string' || !Array.isArray(files)) return null;
+  const targetsFlaskFlags = /\bFLASK_(?:DEBUG|SKIP_DOTENV)\b|\bget_(?:debug_flag|load_dotenv)\b/i.test(task);
+  const modifiesExisting = /\b(?:fix|repair|correct|refactor|modify|patch|update)\b/i.test(task);
+  const buildingNew = /\b(?:create|introduce|implement)\s+(?:a\s+|an\s+|new\s+)?(?:flask|python)\b/i.test(task);
+  const hasPython = files.some(file => typeof file === 'string' && /\.py$/i.test(file));
+  if (!targetsFlaskFlags || !modifiesExisting || buildingNew || hasPython || files.length >= scanLimit) return null;
+  return {
+    code: 'FLASK_SOURCE_ABSENT',
+    message: 'The open workspace contains no Python source files, but this task asks to fix existing Flask environment-variable parsing. Open your Flask project folder in VS Code, then send the task again. No model was called and no files were changed.',
+  };
+}
+
 export async function assembleContext(workspace, task, { budgetBytes = 24000, signal, selectedPath } = {}) {
   if (typeof task !== 'string' || !task.trim()) throw new Error('A context request is required');
   if (!Number.isInteger(budgetBytes) || budgetBytes < 2000 || budgetBytes > 96000) throw new Error('Context budget must be 2000..96000 UTF-8 bytes');
@@ -21,6 +37,14 @@ export async function assembleContext(workspace, task, { budgetBytes = 24000, si
   const terms = [...new Set(redactSecrets(task).replace(/@(?:file|symbol):(?:"[^"]+"|\S+)/g, '').toLowerCase().match(/[a-z_][a-z0-9_]{2,}/g) ?? [])]
     .filter(term => !STOP_WORDS.has(term)).slice(0, 24);
   const listed = await workspace.listFiles({ maxFiles: 2500, signal });
+  const workspaceMismatch = detectWorkspaceMismatch(task, listed);
+  if (workspaceMismatch) {
+    return { sources: [], budgetBytes, usedBytes: 2, tokenEstimate: 1,
+      estimateMethod: 'UTF-8 bytes / 3, approximate; enforced budget is bytes',
+      mentions, scannedFiles: 0, skipped: [],
+      limitations: ['Workspace mismatch detected before source reads or model calls.'],
+      workspaceMismatch };
+  }
   const files = [...new Set([...mentions.files, ...listed])];
   const candidates = [];
   const skipped = [];
