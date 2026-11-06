@@ -4,7 +4,7 @@ import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { Workspace } from '../src/workspace.mjs';
-import { registerWorkflows } from '../extension/workflows.mjs';
+import { registerWorkflows, describeNoProposal } from '../extension/workflows.mjs';
 
 test('standalone verification cancellation uses its own controller without an active Build', async t => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'sf-workflow-'));
@@ -191,4 +191,32 @@ test('opening only Flask src/flask stops before TrueForge and offers correct roo
   assert.equal(mismatch.code, 'FLASK_PACKAGE_SUBFOLDER');
   assert.match(mismatch.message, /two folders above/);
   assert.deepEqual(errors, []);
+});
+
+test('model no-op is never mistaken for verified work after an unsupported command', () => {
+  const unverified = describeNoProposal(
+    'No changes to stage — implementation and regression tests already satisfy the task.',
+    [],
+  );
+  assert.match(unverified, /No changes to stage/);
+  assert.match(unverified, /no passing test receipt/);
+  assert.match(unverified, /unsupported commands did not verify/);
+  assert.doesNotMatch(unverified, /recorded 1 passing/);
+
+  const rejected = describeNoProposal('Already fixed', [
+    { status: 'denied', executed: false }, { status: 'failed', executed: true },
+    { status: 'passed', executed: false },
+  ]);
+  assert.match(rejected, /no passing test receipt/);
+
+  const verified = describeNoProposal('Existing change', [
+    { status: 'passed', executed: true, command: { args: ['-m', 'pytest', 'tests/test_helpers.py'] } },
+  ]);
+  assert.match(verified, /1 passing verification command/);
+  assert.match(verified, /Check which test files/);
+
+  const blank = describeNoProposal('');
+  assert.match(blank, /applied no changes/);
+  const redacted = describeNoProposal('No changes. password=example-secret-token', []);
+  assert.doesNotMatch(redacted, /example-secret-token/);
 });
