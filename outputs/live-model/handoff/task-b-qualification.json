@@ -34,12 +34,14 @@
     "applicationConfigUnchanged": true,
     "cliHelpRegistration": true,
     "savedHashesMatchPassport": true,
-    "guardedUndoAndSaveRestoredTrackedFiles": true
+    "guardedUndoAndSaveRestoredTrackedFiles": false,
+    "guardedUndoRefusedClosedDocuments": true
   },
   "limitations": [
     "UI interactions are automated, not a human-operated official recording.",
-    "Closing source editor tabs did not close the retained documents in this run, so it did not qualify the closed-document Recheck path.",
+    "Source tabs were deliberately closed before Apply. Documents remained available for Apply but later closed after saving; guarded Undo correctly refused the closed-document state. This run does not qualify successful closed-document Recheck or Undo recovery.",
     "The earlier three-file candidate failed nested masking and remains recorded separately.",
     "Flask patch excerpts retain the upstream BSD license in outputs/flask-rehearsal/FLASK-LICENSE.txt."
-  ]
+  ],
+  "restoration": "After preserving evidence, original tracked files restored with git restore in the disposable checkout."
 }
