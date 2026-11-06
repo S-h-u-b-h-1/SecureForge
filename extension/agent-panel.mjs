@@ -1,4 +1,6 @@
 import { randomBytes } from 'node:crypto';
+import path from 'node:path';
+import { lstat } from 'node:fs/promises';
 
 export function registerAgentPanel(vscode, context, actions) {
   function attach(view) {
@@ -14,6 +16,29 @@ export function registerAgentPanel(vscode, context, actions) {
       if (message.type === 'cancel') { await actions.cancel(); return; }
       if (message.type === 'verify') {
         if (!running) await vscode.commands.executeCommand('secureforge.runVerification');
+        return;
+      }
+      if (message.type === 'openFlaskRoot') {
+        // The user must request this action. Validate the expected repository
+        // files before opening a folder two levels above the Python package.
+        const folders = vscode.workspace?.workspaceFolders?.filter(item => item.uri?.scheme === 'file');
+        if (folders?.length !== 1) return;
+        const root = path.resolve(folders[0].uri.fsPath, '..', '..');
+        try {
+          for (const relative of ['pyproject.toml', 'src/flask/helpers.py', 'tests/test_helpers.py']) {
+            const metadata = await lstat(path.join(root, relative));
+            if (!metadata.isFile()) throw new Error('Not a regular file');
+          }
+        } catch {
+          await vscode.window.showWarningMessage(
+            'The Flask repository root could not be verified. Choose Browse folders to locate the folder containing pyproject.toml, src/ and tests.');
+          return;
+        }
+        const approval = await vscode.window.showInformationMessage(
+          `Open Flask repository root: ${root}?`, { modal: true }, 'Open Flask root');
+        if (approval === 'Open Flask root') {
+          await vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(root), { forceNewWindow: true });
+        }
         return;
       }
       if (message.type === 'openRecent') {
@@ -147,6 +172,13 @@ window.addEventListener('message',event=>{const data=event.data;if(!data||typeof
  if(data.type==='workspaceMismatch'){
    hasReply=true;
    const box=message('agent',String(data.message||'This task belongs to another project.').slice(0,1200));
+   if(data.code==='FLASK_PACKAGE_SUBFOLDER'){
+     const rootButton=document.createElement('button');
+     rootButton.className='change-folder';
+     rootButton.textContent='Open Flask repository root';
+     rootButton.onclick=()=>vscode.postMessage({type:'openFlaskRoot'});
+     box.append(rootButton);
+   }
    const recent=document.createElement('button');
    recent.className='change-folder';
    recent.textContent='Recent projects';
