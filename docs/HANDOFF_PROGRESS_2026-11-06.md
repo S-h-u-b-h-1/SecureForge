@@ -52,3 +52,10 @@ Team registration, Team ID and member-detail collection are deferred at Aditya's
 - [ ] Review the final diff and exact-head CI before deciding whether PR #16 is qualified to merge.
 
 This checkpoint establishes the listed local regression results. Live model quality, interactive acceptance and submission remain separate gates.
+
+## Checkpoint 5 — runtime/editor fixture approval regression
+
+- Final-source desktop editor checks passed. The deterministic runtime transport checks passed in both full-file and compact-batch modes.
+- The combined editor/runtime regression initially failed because its simulated approval surface still returned the old `Allow request` button text. The current product intentionally requires the named modal's `Allow once` action, so this fixture denied staging.
+- Updated that fixture to assert the named staging tool, request counter, modal setting and exact offered action before returning it. The combined editor/runtime run now passes, including the normal Build-to-review handoff.
+- This checkpoint validates deterministic inference and simulated approval surfaces. The separate Task A evidence covers actual installed UI interaction with the configured real model.
