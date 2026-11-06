@@ -22,7 +22,20 @@ export function detectWorkspaceMismatch(task, files, { scanLimit = 2500 } = {}) 
   const modifiesExisting = /\b(?:fix|repair|correct|refactor|modify|patch|update)\b/i.test(task);
   const buildingNew = /\b(?:create|introduce|implement)\s+(?:a\s+|an\s+|new\s+)?(?:flask|python)\b/i.test(task);
   const hasPython = files.some(file => typeof file === 'string' && /\.py$/i.test(file));
-  if (!targetsFlaskFlags || !modifiesExisting || buildingNew || hasPython || files.length >= scanLimit) return null;
+  if (!targetsFlaskFlags || !modifiesExisting || buildingNew || files.length >= scanLimit) return null;
+  // A common mistake is opening <repo>/src/flask as the VS Code workspace.
+  // That contains helpers.py, so a "has any Python" guard misses it, but
+  // source-relative paths, pyproject.toml and regression tests are unavailable.
+  const packageOnly = files.includes('helpers.py') && files.includes('cli.py') &&
+    files.includes('__init__.py') && !files.includes('src/flask/helpers.py') &&
+    !files.includes('tests/test_helpers.py') && !files.includes('pyproject.toml');
+  if (packageOnly) {
+    return {
+      code: 'FLASK_PACKAGE_SUBFOLDER',
+      message: 'You opened the Flask Python package (src/flask), not the Flask repository root. Open the repository folder two levels up so src/flask/helpers.py, tests/test_helpers.py and pyproject.toml are available. No model was called and no files were changed.',
+    };
+  }
+  if (hasPython) return null;
   return {
     code: 'FLASK_SOURCE_ABSENT',
     message: 'The open workspace contains no Python source files, but this task asks to fix existing Flask environment-variable parsing. Open your Flask project folder in VS Code, then send the task again. No model was called and no files were changed.',
