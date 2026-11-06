@@ -230,11 +230,14 @@ function showReview(vscode, context, workspace, entries, group, onApplied) {
     void workspace.close();
   });
   context.subscriptions.push(panel);
-  panel.webview.html = reviewHtml();
+  const installedVersion = vscode.extensions?.getExtension?.('secureforge.secureforge-review')?.packageJSON?.version;
+  panel.webview.html = reviewHtml(installedVersion);
   return panel;
 }
 
-function reviewHtml() {
+function reviewHtml(version) {
+  const versionLabel = typeof version === 'string' && /^\d+\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?$/.test(version)
+    ? version : 'development';
   const nonce = randomBytes(18).toString('base64');
   return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8">
@@ -252,7 +255,7 @@ button:disabled { opacity: .5; cursor: default; }
 .added { border-left: 3px solid var(--vscode-gitDecoration-addedResourceForeground); }
 #status { padding: 12px 0; }
 </style></head><body>
-<h1>Review proposed changes</h1><h2 id="path"></h2><p id="rationale"></p>
+<h1>Review proposed changes</h1><p id="extensionVersion">SecureForge extension ${versionLabel}</p><h2 id="path"></h2><p id="rationale"></p>
 <p>Review each change independently. Apply affects the editor buffer. Save and Undo remain under your control.</p>
 <div id="hunks"></div>
 <div id="review-actions">
