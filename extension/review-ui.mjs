@@ -213,7 +213,7 @@ function showReview(vscode, context, workspace, entries, group, onApplied) {
       try {
         await recheckReviewEntries({ vscode, workspace, entries, signal: controller.signal });
         status = 'pending';
-        send({ type: 'status', status, message: 'Source and clean editor buffers match the original proposal. Closed files were reopened safely. Review decisions are retained; apply only when ready.' });
+        send({ type: 'status', status, message: 'Source and clean editor buffers match the original proposal. Review decisions are retained; apply only when ready.' });
       } catch (error) {
         status = 'blocked';
         send({ type: 'status', status, message: error.message });

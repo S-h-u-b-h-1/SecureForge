@@ -84,3 +84,11 @@ This checkpoint establishes the listed local regression results. Live model qual
 - Prepared the owned-template repair, reviewed all three hunks, explicitly applied and saved, then approved Verify Security Fix. All four post-fix regressions passed and the product reported verified_on_owned_fixture.
 - Exported a real Patch Passport and independently asserted receipt IDs, unchanged test hash, before/after target hashes, saved target hash, approved proposal/hunks, finding linkage and the safe control. Evidence is under outputs/live-model/handoff.
 - The lab proves its controlled regression cases. It does not cover concurrent path replacement or arbitrary repository exploitability. Approved tests retain local-user permissions. Export screening remains best effort.
+
+## Checkpoint 9 — live cancellation and explicit Recheck boundaries
+
+- Sidebar Stop cancelled a configured real Muse run, discarded pending proposals and reported that no proposals were applied. The Flask tracked source remained unchanged. Cancellation latency was not measured.
+- An owned synthetic full-v1 proposal exercised normal import, decisions, Apply, Save and successful guarded Undo followed by Save. Original disk bytes were restored. This fixture is not model-generation evidence.
+- A temporary editor edit made the new review stale. A single native Undo left part of the edit, and Recheck correctly refused the dirty buffer. After the fixture controller restored exact original bytes and the clean editor reloaded them, explicit Recheck resumed review. Apply and guarded Undo then succeeded.
+- Removed an overbroad success-message sentence claiming closed files had been reopened even for reviews with no closed documents. The actual closed-document reopen path remains covered by unit regressions and has not been independently established through installed UI.
+- Syntax checks, all 150 tests and a fresh VSIX build passed after this diagnostic-only change.
