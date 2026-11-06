@@ -3,7 +3,6 @@ on:
   push:
     branches: [main, feat/core-agent]
   pull_request:
-    branches: [main]
 permissions:
   contents: read
 jobs:
@@ -26,3 +25,26 @@ jobs:
       - run: npm run check
       - run: npm test
       - run: npm run demo:inspect -- 'TrueForge'
+      # Package once on Linux to catch missing manifest/media/bundle assets.
+      # VS Code UI tests still require a separate real editor-host qualification.
+      - name: Build installable VSIX
+        if: runner.os == 'Linux'
+        run: npm run package:extension
+      - name: Validate VSIX contents
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="outputs/SecureForge-0.1.0.vsix"
+          test -s "$archive"
+          unzip -Z1 "$archive" | grep -Fx 'extension/package.json'
+          unzip -Z1 "$archive" | grep -Fx 'extension/extension.cjs'
+          unzip -Z1 "$archive" | grep -Fx 'extension/dist/extension.mjs'
+          unzip -Z1 "$archive" | grep -Fx 'extension/media/secureforge.svg'
+      - name: Retain candidate VSIX
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: secureforge-vsix-candidate
+          path: outputs/SecureForge-0.1.0.vsix
+          if-no-files-found: error

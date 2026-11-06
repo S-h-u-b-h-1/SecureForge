@@ -9,6 +9,19 @@ import path from 'node:path';
 import { assembleContext } from '../src/context.mjs';
 import { registerAgentPanel } from './agent-panel.mjs';
 
+// A model can report "already fixed" even after an unsupported test command.
+// Keep generated explanation separate from independently recorded verification.
+export function describeNoProposal(reply, receipts = []) {
+  const passed = receipts.filter(receipt => receipt?.status === 'passed' && receipt.executed === true).length;
+  const content = typeof reply === 'string' && reply.trim()
+    ? redactSecrets(reply.trim()).slice(0, 2200)
+    : 'The agent finished without staging a patch. SecureForge applied no changes.';
+  const verification = passed
+    ? `SecureForge recorded ${passed} passing verification command(s) for this run. Check which test files were executed before relying on them.`
+    : 'SecureForge has no passing test receipt for this run. Rejected or unsupported commands did not verify the change. Review the Git diff and run the targeted tests before treating the task as complete.';
+  return `${content}\n\n${verification}`;
+}
+
 export function registerWorkflows(vscode, context) {
   const output = vscode.window.createOutputChannel('SecureForge Activity');
   const receipts = [];
@@ -93,8 +106,11 @@ export function registerWorkflows(vscode, context) {
     } finally { await sourceWorkspace.close(); }
     if (taskContext.workspaceMismatch) {
       const currentName = redactSecrets(String(selected.name || 'Unknown')).slice(0, 100);
+      const packageOnly = taskContext.workspaceMismatch.code === 'FLASK_PACKAGE_SUBFOLDER';
       broadcast({ type: 'workspaceMismatch', code: taskContext.workspaceMismatch.code,
-        message: `You're currently in ${currentName}. This task requires existing Flask source, but this folder contains no Python files. Choose Recent projects to find a previously opened Flask project, or Browse folders to locate it on your Mac. No model was called and no files were changed.` });
+        message: packageOnly
+          ? `You're currently in ${currentName}, which appears to be Flask's src/flask Python package. Open the Flask repository root two folders above, so the source, project configuration and regression tests are all available. No model was called and no files were changed.`
+          : `You're currently in ${currentName}. This task requires existing Flask source, but this folder contains no Python files. Choose Recent projects to find a previously opened Flask project, or Browse folders to locate it on your Mac. No model was called and no files were changed.` });
       return { status: 'workspace_mismatch' };
     }
     const baseUrl = localTrueForgeUrl(settings.get('trueforgeUrl', 'http://localhost:8790'));
@@ -135,6 +151,7 @@ export function registerWorkflows(vscode, context) {
       ) === 'Allow request',
     });
     const run = activeRun;
+    const previousReceipts = receipts.length;
     try {
       const payload = await vscode.window.withProgress({
         location: vscode.ProgressLocation.Notification, title: 'SecureForge Build', cancellable: true,
@@ -144,7 +161,7 @@ export function registerWorkflows(vscode, context) {
         finally { subscription.dispose(); }
       });
       if (!payload.proposals.length) {
-        broadcast({ type: 'noProposal', message: payload.reply || 'The agent completed without proposing an edit. Your files are unchanged.' });
+        broadcast({ type: 'noProposal', message: describeNoProposal(payload.reply, receipts.slice(previousReceipts)) });
         return { status: 'no_proposal' };
       }
       const workspace = await new Workspace(selected.uri.fsPath).init();
@@ -199,16 +216,38 @@ export function registerWorkflows(vscode, context) {
   async function verify() {
     const selected = await folder();
     if (!selected) return;
-    const choice = await vscode.window.showQuickPick(['Node test', 'Python pytest'], { title: 'Verification runner' });
+    const choice = await vscode.window.showQuickPick(['Node test', 'Python pytest'], {
+      title: 'Choose a verification runner',
+    });
     if (!choice) return;
-    const file = await vscode.window.showInputBox({ title: 'Verification test file', prompt: 'Workspace-relative test file path' });
-    if (!file) return;
-    const request = choice === 'Node test'
-      ? { executable: 'node', args: ['--test', file] }
-      : { executable: 'python3', args: ['-m', 'pytest', file, '-q'] };
     const workspace = await new Workspace(selected.uri.fsPath).init();
-    try { return await runCheck(workspace, request); }
-    finally { await workspace.close(); }
+    try {
+      const files = await workspace.listFiles({ maxFiles: 2500 });
+      const eligible = files.filter(file => choice === 'Node test'
+        ? /\.(?:test|spec)\.(?:mjs|cjs|js)$/.test(file)
+        : /(?:^|\/)test_[\w.-]+\.py$/.test(file));
+      if (!eligible.length) {
+        vscode.window.showInformationMessage('No supported test files found in this workspace.');
+        return;
+      }
+      const selection = await vscode.window.showQuickPick(eligible.map(file => ({
+        label: file,
+      })), {
+        title: 'Select tests to run',
+        placeHolder: 'Choose up to 20 test files. Review and approve the command before it executes.',
+        canPickMany: true,
+      });
+      if (!selection?.length) return;
+      if (selection.length > 20) throw new Error('Select at most 20 test files');
+      const names = selection.map(item => item.label);
+      const request = choice === 'Node test'
+        ? { executable: 'node', args: ['--test', ...names] }
+        : { executable: 'python3', args: ['-m', 'pytest', ...names, '-q'] };
+      const receipt = await runCheck(workspace, request);
+      broadcast({ type: 'verificationResult', status: receipt.status,
+        executed: receipt.executed, fileCount: names.length });
+      return receipt;
+    } finally { await workspace.close(); }
   }
 
   async function runCheck(workspace, request, parentSignal) {
@@ -225,7 +264,7 @@ export function registerWorkflows(vscode, context) {
           return await runApprovedCommand({ workspace, request, signal: controller.signal,
             approve: async command => await vscode.window.showWarningMessage(
               'Run this verification command?', { modal: true, detail:
-                `${command.executable} ${command.args.join(' ')}\nWorking directory: ${command.cwd}\nTimeout: ${command.timeoutMs} ms\nTests execute repository code with your local user permissions. Save accepted edits before verifying them.` },
+                `${command.executable} ${command.args.join(' ')}\nWorking directory: ${command.cwd}\nPython source path: ${command.pythonSourcePath || '(not set)'}\nTimeout: ${command.timeoutMs} ms\nTests execute repository code with your local user permissions. Save accepted edits before verifying them.` },
               'Run verification'
             ) === 'Run verification',
           });

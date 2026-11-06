@@ -1,4 +1,6 @@
 import { randomBytes } from 'node:crypto';
+import path from 'node:path';
+import { lstat } from 'node:fs/promises';
 
 export function registerAgentPanel(vscode, context, actions) {
   function attach(view) {
@@ -12,6 +14,33 @@ export function registerAgentPanel(vscode, context, actions) {
     panel.webview.onDidReceiveMessage(async message => {
       if (disposed || !message || typeof message !== 'object') return;
       if (message.type === 'cancel') { await actions.cancel(); return; }
+      if (message.type === 'verify') {
+        if (!running) await vscode.commands.executeCommand('secureforge.runVerification');
+        return;
+      }
+      if (message.type === 'openFlaskRoot') {
+        // The user must request this action. Validate the expected repository
+        // files before opening a folder two levels above the Python package.
+        const folders = vscode.workspace?.workspaceFolders?.filter(item => item.uri?.scheme === 'file');
+        if (folders?.length !== 1) return;
+        const root = path.resolve(folders[0].uri.fsPath, '..', '..');
+        try {
+          for (const relative of ['pyproject.toml', 'src/flask/helpers.py', 'tests/test_helpers.py']) {
+            const metadata = await lstat(path.join(root, relative));
+            if (!metadata.isFile()) throw new Error('Not a regular file');
+          }
+        } catch {
+          await vscode.window.showWarningMessage(
+            'The Flask repository root could not be verified. Choose Browse folders to locate the folder containing pyproject.toml, src/ and tests.');
+          return;
+        }
+        const approval = await vscode.window.showInformationMessage(
+          `Open Flask repository root: ${root}?`, { modal: true }, 'Open Flask root');
+        if (approval === 'Open Flask root') {
+          await vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(root), { forceNewWindow: true });
+        }
+        return;
+      }
       if (message.type === 'openRecent') {
         await vscode.commands.executeCommand('workbench.action.openRecent');
         return;
@@ -143,6 +172,13 @@ window.addEventListener('message',event=>{const data=event.data;if(!data||typeof
  if(data.type==='workspaceMismatch'){
    hasReply=true;
    const box=message('agent',String(data.message||'This task belongs to another project.').slice(0,1200));
+   if(data.code==='FLASK_PACKAGE_SUBFOLDER'){
+     const rootButton=document.createElement('button');
+     rootButton.className='change-folder';
+     rootButton.textContent='Open Flask repository root';
+     rootButton.onclick=()=>vscode.postMessage({type:'openFlaskRoot'});
+     box.append(rootButton);
+   }
    const recent=document.createElement('button');
    recent.className='change-folder';
    recent.textContent='Recent projects';
@@ -161,7 +197,29 @@ window.addEventListener('message',event=>{const data=event.data;if(!data||typeof
    const note=data.status==='applied'?'Applied '+count+' approved hunk(s) to the editor. Save the files and run tests before committing.':
      data.status==='undone'?'Approved changes were undone in the editor.':
      'No changes applied; all hunks were rejected.';
-   message('agent',note);status.textContent=data.status==='applied'?'Save and verify your changes':'Review complete';
+   const box=message('agent',note);
+   if(data.status==='applied'){
+     const button=document.createElement('button');
+     button.className='change-folder';
+     button.textContent='Run tests (save files first)';
+     button.onclick=()=>vscode.postMessage({type:'verify'});
+     box.append(button);
+   }
+   status.textContent=data.status==='applied'?'Save and verify your changes':'Review complete';
+ }
+ if(data.type==='verificationResult'){
+   const n=Number.isInteger(data.fileCount)?data.fileCount:0;
+   const description=data.executed===true&&data.status==='passed'?
+      'Verification passed for '+n+' selected test file(s). Review the diff before committing.':
+      data.executed===true&&data.status==='failed'?
+      'Verification failed. Open SecureForge Activity in the Output panel for details.':
+      data.status==='denied'?
+      'Verification was not approved. No tests were executed.':
+      data.status==='timed_out'?'Verification timed out. Inspect SecureForge Activity for details.':
+      data.status==='cancelled'?'Verification was cancelled.':
+      'Verification did not pass. Inspect SecureForge Activity for details.';
+   message('agent',description);
+   status.textContent=data.executed===true&&data.status==='passed'?'Tests passed':'Verification incomplete';
  }
  if(data.type==='workspace'){
    const label=document.querySelector('.folder span');

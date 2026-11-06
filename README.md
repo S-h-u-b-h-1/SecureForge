@@ -1,6 +1,6 @@
 # SecureForge
 
-> **Status: TrueForge editor integration, safe batch review and controlled security verification.**
+> **Status: draft VS Code sidebar release candidate with explicit per-hunk approval.**
 
 SecureForge is a security-first VS Code coding assistant powered by local **TrueForge**. The extension supports live proposal delivery, per-hunk review for existing-file batches, guarded apply/Undo, separately approved verification commands, cancellation, read-only security candidates, a controlled repair lab and exported Patch Passports. Build, Defend and Prove share the existing v1 proposal and batch contracts.
 
@@ -12,38 +12,45 @@ Local verification includes real VS Code editor tests and actual TrueForge runti
 - **Aditya Ranjan — Defend/Prove:** approval UI, path and tool security audit, verification, cancellation integrity and security review.
 - **Joint:** shared contracts, integration, mandatory competition tasks and release checks.
 
-## Quickstart (no VS Code CLI required)
+## Start here — VS Code sidebar
+
+SecureForge is currently a **draft release candidate**, not a fully qualified production coding agent. Use a trusted local repository.
+
+1. Start local TrueForge (`npx @truefoundry/trueforge@0.183.0`) and configure an available model at `http://localhost:8790`. The official SDK in this repository remains pinned to `0.182.0`. Keep TrueForge and workspace tools bound to localhost.
+2. Build the extension in the **SecureForge source repository**:
+
+   ```bash
+   npm ci
+   npm run check
+   npm test
+   npm run package:extension
+   ```
+
+3. In VS Code open **Extensions → … → Install from VSIX…** and choose `outputs/SecureForge-0.1.0.vsix`, then reload the window.
+4. Open the **target repository folder you actually want to change** (e.g., Flask for a Flask request). The name beside the chat send button identifies the active target; opening a different terminal folder does not switch the VS Code workspace.
+5. In the Secondary Side Bar, select **SecureForge**. Type an instruction in the bottom composer; press **Enter** to send or **Shift+Enter** for a line break. The paperclip attaches file context, the stack icon adds symbol context, and Stop cancels an active run. If just one local model is discoverable, the extension selects it; otherwise pick or enter the configured model.
+6. If the task obviously belongs to a different project (such as changing Flask environment variables inside a Node-only workspace), SecureForge stops **before contacting the model**. Click **Recent projects** to open VS Code's existing project history, or **Browse folders** to choose a folder yourself.
+7. When SecureForge stages a proposal, a **Review proposed changes** panel opens in the editor. Accept or reject every hunk, then explicitly apply accepted hunks. The code changes begin in the editor buffer and require your own Save and regression tests. The model never commits on your behalf.
+8. After applying accepted hunks, **save the files yourself** and choose **Run tests (save files first)** in the chat. Select Node or Python, choose up to 20 eligible test files, and approve the exact command in the confirmation dialog. A passing test receipt is reported in the sidebar; full details remain in **Output → SecureForge Activity**. Nothing runs automatically.
+
+**Never merge or approve generated patches solely because the chat says they are complete.** Review the diff, run relevant tests, and check `git diff --check`.
+
+### Development and verification
 
 ```bash
-# In the repository root:
-node --version               # Node >=22.14
 npm ci
 npm run check
 npm test
-npm run demo:inspect -- "SecureForge"
+npm run package:extension
+# Requires desktop VS Code and uses an isolated editor-host profile:
+npm run test:editor
+# Requires a local TrueForge runtime; uses deterministic inference, not a production model:
+npm run test:editor:wire
 ```
 
-To use an actual model, start TrueForge separately using `npx @truefoundry/trueforge@0.183.0` and configure a model in its local dashboard at `http://localhost:8790`. For the SDK client, run `npm install`, then:
+Real-model requests are **not run by CI** because they require a locally configured provider. The deterministic TrueForge wire fixture confirms transport, temporary authenticated MCP, source hashes, and proposal staging, not the semantic correctness of an arbitrary model response. Read the [release gates and merge order](docs/RELEASE_GATES.md) before merging the stacked PRs.
 
-```bash
-# Terminal 1, from the repository you want to inspect:
-SECUREFORGE_WORKSPACE="$PWD" npm run start:mcp
-
-# In TrueForge Settings -> Connectors, add a no-auth remote MCP server:
-# name = secureforge-workspace
-# URL  = http://127.0.0.1:8792/mcp
-
-# Terminal 2, set the exact model FQN shown in TrueForge's Models settings.
-SECUREFORGE_MODEL='your-configured-provider/model' \
-SECUREFORGE_MCP_NAME='secureforge-workspace' \
-npm run demo:agent -- 'Find the relevant source, propose a minimal README improvement, and do not apply it'
-```
-
-TrueForge standalone runtime **0.183.0** has been verified locally with the configured Muse Spark 1.3 model and SecureForge MCP connector (`npx @truefoundry/trueforge@0.183.0`). The SDK remains pinned to **0.182.0**. Current real-model generation, saved-output tests, editor API checks and limitations are recorded in [the live qualification report](outputs/live-model-qualification.json). Harness approvals and deterministic fixtures are identified separately from interactive editor acceptance.
-
-`SECUREFORGE_MODEL` and `SECUREFORGE_MCP_NAME` are environment variables; don't commit real credentials. For local TrueForge with no login, no API key is needed **for the TrueForge SDK itself**, but your configured model provider may require one. TrueForge local mode has no login: never expose it or the MCP bridge to the public internet.
-
-Real-model requests are **not tested by CI** because they require a locally configured TrueForge server and provider. `npm run test:wire` instead checks complete bounded source delivery, preloaded tool schemas, staging approvals and compact patch transport through a real local runtime with deterministic inference. Official recording and portal submission remain separate from automated qualification.
+The model has only bounded read/search/propose workspace tools. File writes are not an agent capability. A separately approved test runner can execute allowlisted tests with the user account's permissions. Secrets are filtered on a best-effort basis, not guaranteed DLP.
 
 ## Tool guarantees (current implementation)
 
@@ -67,4 +74,4 @@ Use **SecureForge: Security Review** for bounded read-only candidate findings. *
 
 ## Round 1 deliverables
 
-Installable VSIX, bounded task context, inline-selection guard and agent panel are included in this branch. Follow [Round 1 readiness and recording plan](docs/ROUND1_READINESS.md) for setup, model configuration, official-task rehearsal evidence and remaining submission gates. The write-up PDF is a readiness draft. Live-model A/B, the official video and portal submission remain pending.
+Installable VSIX, bounded task context, inline-selection guard and right-side chat are included in the draft stack. Follow [Round 1 readiness and recording plan](docs/ROUND1_READINESS.md) for setup, model configuration, official-task rehearsal evidence and remaining submission gates. The write-up PDF is a readiness draft. Live-model A/B, the official video and portal submission remain pending.

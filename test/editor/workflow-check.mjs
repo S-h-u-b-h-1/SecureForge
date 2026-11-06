@@ -26,6 +26,14 @@ export async function verifyBuildWorkflow({ root, model }) {
     },
     window: {
       createOutputChannel: () => ({ clear() {}, appendLine() {}, show() {}, dispose() {} }),
+      // Native SecureForge is now a WebviewView; the review itself remains a
+      // separate WebviewPanel. Exercise both registrations in this fixture.
+      registerWebviewViewProvider: (id, provider, options) => {
+        assert.equal(id, 'secureforge.agentSidebar');
+        assert.ok(provider.resolveWebviewView);
+        assert.equal(options.webviewOptions.retainContextWhenHidden, true);
+        return disposable();
+      },
       withProgress: async (_options, callback) => callback({}, { onCancellationRequested: disposable }),
       showWarningMessage: async () => 'Allow request',
       showErrorMessage: message => errors.push(message),

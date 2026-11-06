@@ -36,6 +36,21 @@ async function pytestExecutable(workspace) {
   return interpreter;
 }
 
+async function localPythonSourcePath(workspace) {
+  // Python src-layout projects may not be editable-installed into the selected
+  // venv. Pin PYTHONPATH to this workspace only, never to the user's ambient
+  // PYTHONPATH, so pytest exercises the reviewed local source.
+  const directory = path.join(workspace.root, 'src');
+  try {
+    const metadata = await lstat(directory);
+    if (!metadata.isDirectory()) throw new Error('Python source directory must be a real directory');
+    return directory;
+  } catch (error) {
+    if (error.code === 'ENOENT') return undefined;
+    throw error;
+  }
+}
+
 export async function prepareCommand(workspace, request) {
   if (!request || !['node', 'python3'].includes(request.executable) || !Array.isArray(request.args) ||
       request.args.some(arg => typeof arg !== 'string' || arg.length > 500)) {
@@ -78,6 +93,7 @@ export async function prepareCommand(workspace, request) {
     executable: request.executable === 'python3'
       ? await pytestExecutable(workspace) : await executablePath(request.executable),
     args: Object.freeze(args), cwd: workspace.root,
+    pythonSourcePath: request.executable === 'python3' ? await localPythonSourcePath(workspace) : undefined,
     sources: Object.freeze(sources.map(source => Object.freeze(source))),
     targets: Object.freeze(targets.map(source => Object.freeze(source))),
     timeoutMs: Math.min(Math.max(request.timeoutMs ?? 30000, 100), 120000),
@@ -103,6 +119,7 @@ export async function runApprovedCommand({ workspace, request, approve, signal }
   for (const key of ['PATH', 'HOME', 'USER', 'LANG', 'LC_ALL', 'TMPDIR', 'SYSTEMROOT']) {
     if (process.env[key]) environment[key] = process.env[key];
   }
+  if (command.pythonSourcePath) environment.PYTHONPATH = command.pythonSourcePath;
   return new Promise(resolve => {
     const child = spawn(command.executable, command.args, {
       cwd: command.cwd, env: environment, shell: false, detached: process.platform !== 'win32',

@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Script, runInNewContext } from 'node:vm';
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile, mkdtemp, mkdir, rm } from 'node:fs/promises';
+import path from 'node:path';
+import os from 'node:os';
 import { registerAgentPanel } from '../extension/agent-panel.mjs';
 
 test('agent panel emits valid script, bounds tasks and surfaces run failures', async () => {
@@ -61,6 +63,8 @@ test('agent panel emits valid script, bounds tasks and surfaces run failures', a
   assert.match(messages.at(-1).message, /Model unavailable/);
   await receive({ type: 'cancel' });
   assert.equal(cancels, 1);
+  await receive({ type: 'verify' });
+  assert.equal(commands.at(-1), 'secureforge.runVerification');
   await receive({ type: 'openRecent' });
   assert.equal(commands.at(-1), 'workbench.action.openRecent');
   await receive({ type: 'openFolder' });
@@ -119,6 +123,13 @@ test('sidebar defaults to the right, and minimal composer dispatches tasks safel
   assert.match(element('status').textContent, /Review changes/);
   listeners.message({ data: { type: 'reviewResult', status: 'applied', accepted: 2 } });
   assert.match(element('status').textContent, /Save and verify/);
+  const reviewMessage = element('thread').children.at(-1);
+  const verifyButton = reviewMessage.children.at(-1);
+  assert.equal(verifyButton.textContent, 'Run tests (save files first)');
+  verifyButton.onclick();
+  assert.equal(posted.at(-1).type, 'verify');
+  listeners.message({ data: { type: 'verificationResult', executed: true, status: 'passed', fileCount: 2 } });
+  assert.equal(element('status').textContent, 'Tests passed');
   listeners.message({ data: { type: 'workspace', name: 'correct-flask-project' } });
   assert.equal(element('workspace-label').textContent, 'correct-flask-project');
   listeners.message({ data: { type: 'noProposal', message: 'The model cannot find the requested source.' } });
@@ -134,4 +145,50 @@ test('sidebar defaults to the right, and minimal composer dispatches tasks safel
   assert.equal(posted.at(-1).type, 'openRecent');
   browseButton.onclick();
   assert.equal(posted.at(-1).type, 'openFolder');
+
+  listeners.message({ data: {
+    type: 'workspaceMismatch', code: 'FLASK_PACKAGE_SUBFOLDER',
+    message: 'You opened only src/flask. Open the repository root.',
+  } });
+  const packageMessage = element('thread').children.at(-1);
+  assert.equal(packageMessage.children.at(-3).textContent, 'Open Flask repository root');
+  packageMessage.children.at(-3).onclick();
+  assert.equal(posted.at(-1).type, 'openFlaskRoot');
+});
+
+test('Flask root button validates project structure and requires approval before opening', async t => {
+  const repo = await mkdtemp(path.join(os.tmpdir(), 'sf-flask-project-'));
+  t.after(() => rm(repo, { recursive: true, force: true }));
+  const packageFolder = path.join(repo, 'src', 'flask');
+  await mkdir(packageFolder, { recursive: true });
+  await mkdir(path.join(repo, 'tests'));
+  for (const file of ['pyproject.toml', 'src/flask/helpers.py', 'tests/test_helpers.py']) {
+    await writeFile(path.join(repo, file), 'fixture\n');
+  }
+  let receive;
+  let provider;
+  const commands = [];
+  const vscode = {
+    Uri: { file: fsPath => ({ scheme: 'file', fsPath }) },
+    workspace: { workspaceFolders: [{ uri: { scheme: 'file', fsPath: packageFolder } }] },
+    commands: {
+      registerCommand: () => ({ dispose() {} }),
+      executeCommand: async (...args) => { commands.push(args); },
+    },
+    window: {
+      registerWebviewViewProvider: (_id, item) => { provider = item; return { dispose() {} }; },
+      showInformationMessage: async () => 'Open Flask root',
+      showWarningMessage: async () => { throw new Error('Unexpected warning'); },
+    },
+  };
+  registerAgentPanel(vscode, { subscriptions: [] }, { subscribe: () => ({ dispose() {} }) });
+  provider.resolveWebviewView({
+    onDidDispose() {},
+    webview: { postMessage() {}, onDidReceiveMessage: handler => { receive = handler; } },
+  });
+  await receive({ type: 'openFlaskRoot' });
+  const last = commands.at(-1);
+  assert.equal(last[0], 'vscode.openFolder');
+  assert.equal(last[1].fsPath, repo);
+  assert.equal(last[2].forceNewWindow, true);
 });
