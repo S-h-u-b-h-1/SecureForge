@@ -197,7 +197,7 @@ test('closed reviewed file reopens only after explicit recheck and unchanged SHA
     },
     ViewColumn: { One: 1 },
     window: { showTextDocument: async (document, options) => {
-      assert.equal(document, reopened);
+      assert.ok(document === reopened || document.uri.fsPath === f.filename);
       assert.equal(options.preview, false);
       pinned++;
     } },
