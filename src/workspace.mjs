@@ -8,6 +8,9 @@ const CODE_EXTENSIONS = new Set([
   '.c', '.cc', '.cpp', '.h', '.hpp', '.html', '.css', '.scss', '.json', '.toml',
   '.yaml', '.yml', '.md', '.rst', '.txt', '.sql', '.sh', '.ini', '.cfg', '.xml', '.vue',
 ]);
+// Case-insensitive checks are required even on case-sensitive hosts: projects
+// move between Linux and default case-insensitive macOS volumes, where .GIT
+// and NODE_MODULES can resolve to sensitive excluded directories.
 const SKIP_DIRS = new Set(['.git', 'node_modules', '.venv', 'venv', 'dist', 'build',
   'coverage', '.next', '.cache', '.tmp', '__pycache__', '.idea', '.vscode']);
 const RESTRICTED_NAMES = /^(?:\.env(?:\..*)?|\.npmrc|\.pypirc|\.netrc|id_(?:rsa|ed25519)|credentials(?:\..*)?|secrets?(?:\..*)?)$/i;
@@ -33,7 +36,7 @@ function safeRelativeName(name) {
   if (redactSecrets(name) !== name) throw new Error('Restricted credential-bearing file path');
   const segments = name.replaceAll('\\', '/').split('/');
   if (segments.some((s) => !s || s === '.' || s === '..')) throw new Error('Unsafe path component');
-  if (segments.some((s) => SKIP_DIRS.has(s) || RESTRICTED_NAMES.test(s) || RESTRICTED_SUFFIX.test(s))) {
+  if (segments.some((s) => SKIP_DIRS.has(s.toLowerCase()) || RESTRICTED_NAMES.test(s) || RESTRICTED_SUFFIX.test(s))) {
     throw new Error('Restricted file path');
   }
   return segments.join('/');
@@ -216,7 +219,8 @@ export class Workspace {
       for (const entry of entries) {
         if (entry.isSymbolicLink()) continue;
         const rel = base ? `${base}/${entry.name}` : entry.name;
-        if (RESTRICTED_NAMES.test(entry.name) || RESTRICTED_SUFFIX.test(entry.name) || redactSecrets(rel) !== rel) continue;
+        if (SKIP_DIRS.has(entry.name.toLowerCase()) || RESTRICTED_NAMES.test(entry.name) ||
+            RESTRICTED_SUFFIX.test(entry.name) || redactSecrets(rel) !== rel) continue;
         if (entry.isDirectory()) {
           if (!SKIP_DIRS.has(entry.name)) {
             if (directories + queue.length >= maxDirectories) throw new Error(`Workspace scan directory limit reached (${maxDirectories})`);
