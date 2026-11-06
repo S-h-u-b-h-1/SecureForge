@@ -4,7 +4,7 @@
 
 SecureForge is a security-first VS Code coding assistant powered by local **TrueForge**. The extension supports live proposal delivery, per-hunk review for existing-file batches, guarded apply/Undo, separately approved verification commands, cancellation, read-only security candidates, a controlled repair lab and exported Patch Passports. Build, Defend and Prove share the existing v1 proposal and batch contracts.
 
-Qualification includes 150 automated regressions, actual VS Code editor/runtime checks and real Muse runs through the installed extension. The handoff Task A passed 55 approved tests. Task B autonomously changed three files and passed 66 approved tests plus 101 independent checks. Task C and the owned security lab have separate installed UI evidence. The official recording, PDF finalization and portal submission remain pending. See [current readiness](docs/ROUND1_READINESS.md) and [handoff evidence](outputs/live-model/handoff).
+Qualification includes 150 automated regressions, actual VS Code editor/runtime checks and real Muse runs through the installed extension. The handoff Task A passed 55 approved tests. Task B autonomously changed four files and passed 67 approved tests, 102 independent checks and a strict documentation build. Task C and the owned security lab have separate installed UI evidence. The official recording, PDF finalization and portal submission remain pending. See [current readiness](docs/ROUND1_READINESS.md) and [handoff evidence](outputs/live-model/handoff).
 
 ## Contributors and responsibility
 

@@ -110,3 +110,10 @@ The entries below record subsequent real-model, installed UI and evidence checks
 - Final documentation review found that the model-authored Task B CLI section linked to config_command without adding the corresponding API autodata target. Runtime behavior and test results remain valid, but full documentation qualification is open.
 - Added general agent guidance to inspect API indexes and resolve newly introduced documentation cross-references using surrounding conventions. Syntax checks, all 150 tests and packaging passed. A fresh exact-prompt run will assess the result.
 - Final packaging hashes will be regenerated after this follow-up. The earlier release-verification record identifies its specific pre-follow-up commit and build.
+
+## Checkpoint 13 — API documentation and strict build qualified
+
+- The fresh exact-prompt model run staged six hunks across four files, including the missing API autodata entry. The restored pinned checkout had clean tracked source at the start, while earlier owned UI fixtures remained untracked. The earlier fresh-checkout run is preserved separately.
+- Normal installed UI review, Apply and Save completed. Approved verification passed all 67 tests. The independent helpers, CLI and acceptance run passed 102 tests. All four saved hashes match the exported Passport.
+- Installed the upstream documentation dependencies in the disposable project environment. The strict original-source Sphinx baseline passed. A fresh candidate build with -E -b html -W --keep-going also passed, including the new API cross-reference.
+- This closes the documentation follow-up identified in checkpoint 12. The prior three-file candidate retains its recorded documentation limitation. New evidence is in task-b-docs-* files under outputs/live-model/handoff.

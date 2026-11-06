@@ -7,7 +7,7 @@ The current PR #16 handoff candidate has 150 passing automated tests, syntax che
 | Gate | Observed evidence | Remaining boundary |
 | --- | --- | --- |
 | Task A | Exact inline prompt, real Muse proposal, installed UI decisions/Apply/Save, 55 passing approved tests, exported hash match, successful Undo | Official screen recording with prescribed terminal verification |
-| Task B | Exact unnamed-file prompt, autonomous three-file proposal, five reviewed hunks, 66 approved tests, 101 independent tests, actual masked CLI output and help | Official screen recording with TrueForge session visible |
+| Task B | Exact unnamed-file prompt, autonomous four-file proposal, six reviewed hunks, 67 approved tests, 102 independent tests and strict Sphinx build, actual masked CLI output and help | Official screen recording with TrueForge session visible |
 | Task C | Unreachable provider configured in TrueForge, clear installed-editor failure, unchanged tracked source, returned editor control | Official screen recording; no automatic fallback claim |
 | Cancellation | Real Muse run stopped through the sidebar, pending proposals discarded, tracked source unchanged | No measured latency claim |
 | Review safety | Synthetic installed UI covers dirty/stale refusal, clean Recheck, Apply/Save and successful guarded Undo | All editor copies closed, Apply blocked, explicit Recheck reopened the unchanged source, separate Apply/Undo passed |
