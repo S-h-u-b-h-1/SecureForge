@@ -35,7 +35,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          archive="outputs/SecureForge-0.1.0.vsix"
+          archive="outputs/SecureForge-$(node -p "require('./extension/package.json').version").vsix"
           test -s "$archive"
           unzip -Z1 "$archive" | grep -Fx 'extension/package.json'
           unzip -Z1 "$archive" | grep -Fx 'extension/extension.cjs'
