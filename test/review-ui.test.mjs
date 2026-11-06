@@ -105,7 +105,7 @@ async function openMockPanel(t) {
   const vscode = {
     extensions: { getExtension: id => {
       assert.equal(id, 'secureforge.secureforge-review');
-      return { packageJSON: { version: '0.1.3' } };
+      return { packageJSON: { version: '0.1.4' } };
     } },
     ViewColumn: { One: 1, Beside: 2 }, Range, WorkspaceEdit,
     Uri: { file: fsPath => ({ scheme: 'file', fsPath }) },
@@ -303,7 +303,7 @@ test('review webview exposes separate Accept all, Apply, and stale Recheck contr
   const script = f.panel.webview.html.match(/<script nonce="[^"]+">([\s\S]*?)<\/script>/)?.[1];
   assert.ok(script);
   assert.match(f.panel.webview.html, /id="acceptAll"/);
-  assert.match(f.panel.webview.html, /id="extensionVersion">SecureForge extension 0\.1\.3/);
+  assert.match(f.panel.webview.html, /id="extensionVersion">SecureForge extension 0\.1\.4/);
   assert.match(f.panel.webview.html, /id="recheck"/);
   const nodes = new Map();
   const all = [];
