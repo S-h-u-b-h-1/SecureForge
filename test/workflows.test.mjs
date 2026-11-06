@@ -61,5 +61,9 @@ test('command failures reach the activity subscribers and visible notification',
   assert.deepEqual(events, [{ type: 'error', message: 'A trusted local workspace is required' }]);
   await handlers.get('secureforge.runBuild')();
   assert.deepEqual(navigation, ['secureforge.openAgentPanel']);
+  state.recordReview({ group: { id: 'test', files: [
+    { id: 'one', path: 'sample.py', baseSha256: 'sha', hunks: [{ id: 'h1', startLine: 1 }] },
+  ] }, result: { status: 'applied', accepted: 1 } });
+  assert.deepEqual(events.at(-1), { type: 'reviewResult', status: 'applied', accepted: 1 });
   subscription.dispose();
 });

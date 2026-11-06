@@ -167,3 +167,29 @@ test('pytest rejects option-shaped paths even when a matching repository file ex
     executable: 'python3', args: ['-m', 'pytest', '--confcutdir=tests/test_fixture.py'],
   }), /Pytest verification requires explicit test files/);
 });
+
+test('pytest verification chooses the workspace virtual environment and still requires approval', async t => {
+  const { workspace } = await fixture(t);
+  await mkdir(path.join(workspace.root, '.venv', 'bin'), { recursive: true });
+  const interpreter = path.join(workspace.root, '.venv', 'bin', 'python');
+  await symlink(process.execPath, interpreter);
+  await writeFile(path.join(workspace.root, 'test_sample.py'), 'def test_ok(): assert True\n');
+  const request = { executable: 'python3', args: ['-m', 'pytest', 'test_sample.py', '-q'] };
+  const prepared = await prepareCommand(workspace, request);
+  assert.equal(prepared.executable, interpreter);
+  const receipt = await runApprovedCommand({ workspace, request, approve: async command => {
+    assert.equal(command.executable, interpreter);
+    return false;
+  } });
+  assert.equal(receipt.status, 'denied');
+  assert.equal(receipt.executed, false);
+});
+
+test('pytest verification fails visibly for a broken project virtual environment', async t => {
+  const { workspace } = await fixture(t);
+  await mkdir(path.join(workspace.root, '.venv', 'bin'), { recursive: true });
+  await writeFile(path.join(workspace.root, 'test_sample.py'), 'def test_ok(): assert True\n');
+  await assert.rejects(prepareCommand(workspace, {
+    executable: 'python3', args: ['-m', 'pytest', 'test_sample.py', '-q'],
+  }), /virtual|interpreter|Workspace \.venv/i);
+});

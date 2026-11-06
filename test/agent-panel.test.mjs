@@ -92,7 +92,8 @@ test('sidebar defaults to the right, and minimal composer dispatches tasks safel
   const listeners = {};
   runInNewContext(script, {
     acquireVsCodeApi: () => ({ postMessage: value => posted.push(value) }),
-    document: { getElementById: element, createElement: () => element('new-' + elements.size) },
+    document: { getElementById: element, createElement: () => element('new-' + elements.size),
+      querySelector: selector => selector === '.folder span' ? element('workspace-label') : null },
     window: { addEventListener: (kind, fn) => { listeners[kind] = fn; } },
   });
   element('task').value = 'Fix the parser';
@@ -109,4 +110,10 @@ test('sidebar defaults to the right, and minimal composer dispatches tasks safel
   listeners.message({ data: { type: 'status', message: 'Done', running: false } });
   assert.equal(element('run').disabled, false);
   assert.match(element('status').textContent, /Review changes/);
+  listeners.message({ data: { type: 'reviewResult', status: 'applied', accepted: 2 } });
+  assert.match(element('status').textContent, /Save and verify/);
+  listeners.message({ data: { type: 'workspace', name: 'correct-flask-project' } });
+  assert.equal(element('workspace-label').textContent, 'correct-flask-project');
+  listeners.message({ data: { type: 'noProposal', message: 'The model cannot find the requested source.' } });
+  assert.equal(element('status').textContent, 'No changes proposed');
 });

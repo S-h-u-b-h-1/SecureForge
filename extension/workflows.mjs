@@ -1,5 +1,5 @@
 import { Workspace, redactSecrets } from '../src/workspace.mjs';
-import { createTrueForgeClient } from '../src/agent.mjs';
+import { createTrueForgeClient, resolveTrueForgeModel } from '../src/agent.mjs';
 import { LiveRun, localTrueForgeUrl } from '../src/live-run.mjs';
 import { runApprovedCommand } from '../src/commands.mjs';
 import { openReviewPayload } from './review-ui.mjs';
@@ -45,6 +45,10 @@ export function registerWorkflows(vscode, context) {
       })),
     } });
     if (applied.length > 100) applied.shift();
+    const status = record.result?.status;
+    if (status === 'applied' || status === 'undone' || status === 'rejected') {
+      broadcast({ type: 'reviewResult', status, accepted: record.result?.accepted ?? 0 });
+    }
   }
 
   async function build(initialTask, inline = false) {
@@ -55,7 +59,8 @@ export function registerWorkflows(vscode, context) {
       throw new Error('Select code in a saved source file before requesting an inline edit');
     }
     const selected = inline ? vscode.workspace.getWorkspaceFolder(editor.document.uri) : await folder();
-    if (!selected) return;
+    if (!selected) return { status: 'cancelled' };
+    broadcast({ type: 'workspace', name: selected.name });
     const selectionVersion = editor?.document.version;
     const startOffset = inline ? editor.document.offsetAt(editor.selection.start) : undefined;
     const endOffset = inline ? editor.document.offsetAt(editor.selection.end) : undefined;
@@ -63,7 +68,7 @@ export function registerWorkflows(vscode, context) {
       title: inline ? 'SecureForge Inline Edit' : 'SecureForge Build',
       prompt: 'Describe the change. Optional @file:path and @symbol:name mentions.', value: mentions.join(' '),
     });
-    if (!task?.trim()) return;
+    if (!task?.trim()) return { status: 'cancelled' };
     buildController.signal.throwIfAborted();
     mentions.length = 0;
     const settings = vscode.workspace.getConfiguration('secureforge');
@@ -87,16 +92,21 @@ export function registerWorkflows(vscode, context) {
       });
     } finally { await sourceWorkspace.close(); }
     const baseUrl = localTrueForgeUrl(settings.get('trueforgeUrl', 'http://localhost:8790'));
-    const model = settings.get('model', '').trim() || await vscode.window.showInputBox({
-      title: 'TrueForge model', prompt: 'Enter the configured model FQN from TrueForge Settings → Models',
+    const model = await resolveTrueForgeModel({
+      configured: settings.get('model', ''),
+      baseUrl,
+      chooseModel: names => vscode.window.showQuickPick(names, { title: 'Choose a local TrueForge model' }),
+      enterModel: () => vscode.window.showInputBox({
+        title: 'TrueForge model', prompt: 'Enter a configured model FQN from TrueForge Settings → Models',
+      }),
     });
-    if (!model?.trim()) return;
+    if (!model?.trim()) return { status: 'cancelled' };
     buildController.signal.throwIfAborted();
     const client = await createTrueForgeClient({ baseUrl });
     buildController.signal.throwIfAborted();
     let outputBytes = 0;
     output.clear();
-    output.show(true);
+    // Keep the editor and chat visible; diagnostics remain available in the Output channel.
     output.appendLine(`TrueForge ${baseUrl} | Build | ${model}`);
     output.appendLine(`Context ${taskContext.usedBytes}/${taskContext.budgetBytes} UTF-8 bytes (${taskContext.tokenEstimate} estimated tokens)`);
     for (const source of taskContext.sources) output.appendLine(`${source.path}:${source.startLine}-${source.endLine} — ${source.reason}`);
@@ -128,17 +138,17 @@ export function registerWorkflows(vscode, context) {
         finally { subscription.dispose(); }
       });
       if (!payload.proposals.length) {
-        broadcast({ type: 'noProposal' });
-        vscode.window.showInformationMessage(`TrueForge session ${payload.sessionId} finished without an edit proposal.`);
-        return;
+        broadcast({ type: 'noProposal', message: payload.reply || 'The agent completed without proposing an edit. Your files are unchanged.' });
+        return { status: 'no_proposal' };
       }
       const workspace = await new Workspace(selected.uri.fsPath).init();
       try {
         await openReviewPayload(vscode, context, workspace, payload, record => {
           recordReview({ ...record, sessionId: payload.sessionId });
         });
-        broadcast({ type: 'reviewReady', fileCount: payload.proposals.length });
+        broadcast({ type: 'reviewReady', fileCount: payload.proposals.length, message: payload.reply || '' });
       } catch (error) { await workspace.close(); throw error; }
+      return { status: 'review' };
     } finally {
       activeRun = undefined;
     }

@@ -20,9 +20,13 @@ export function registerAgentPanel(vscode, context, actions) {
       if (message.type !== 'run' || running || typeof message.task !== 'string' || !message.task.trim() || message.task.length > 20000) return;
       running = true;
       panel.webview.postMessage({ type: 'status', message: 'Running', running: true });
-      let finalStatus = 'Build finished. If a patch was proposed, the Review Changes window opens separately.';
-      try { await actions.run(message.task); }
-      catch (error) { finalStatus = error.message; }
+      let finalStatus = 'Run completed. Inspect the chat for its outcome.';
+      try {
+        const result = await actions.run(message.task);
+        if (result?.status === 'cancelled') finalStatus = 'Cancelled. No files were changed.';
+        else if (result?.status === 'no_proposal') finalStatus = 'No changes proposed.';
+        else if (result?.status === 'review') finalStatus = 'Review the proposed changes in the editor.';
+      } catch (error) { finalStatus = error.message; }
       finally {
         running = false;
         if (!disposed) panel.webview.postMessage({ type: 'status', message: finalStatus, running: false });
@@ -119,8 +123,20 @@ window.addEventListener('message',event=>{const data=event.data;if(!data||typeof
    if(busy){status.textContent='Working on your code…';}
    else{if(review)status.textContent='Review changes in the editor';else if(!hasReply){status.textContent=data.message;message('agent',data.message);hasReply=true;}}
  }
- if(data.type==='reviewReady'){review=true;message('agent','Changes are ready. Review the proposed edits in the editor before applying them.');status.textContent='Review changes in the editor';}
- if(data.type==='noProposal'){hasReply=true;message('agent','No patch was staged. Your files are unchanged.');status.textContent='No changes proposed';}
+ if(data.type==='reviewReady'){review=true;hasReply=true;const count=Number.isInteger(data.fileCount)?data.fileCount:0;const note=typeof data.message==='string'&&data.message.trim()?data.message.trim().slice(0,3000):'Review the proposed edits in the editor before applying them.';message('agent','Proposed changes in '+count+' file(s). Nothing has been applied.\\n\\n'+note);status.textContent='Review changes in the editor';}
+ if(data.type==='noProposal'){hasReply=true;const note=typeof data.message==='string'&&data.message.trim()?data.message.trim().slice(0,3000):'The run completed without proposing changes. Your files are unchanged.';message('agent',note);status.textContent='No changes proposed';}
+ if(data.type==='reviewResult'){
+   review=false;hasReply=true;
+   const count=Number.isInteger(data.accepted)?data.accepted:0;
+   const note=data.status==='applied'?'Applied '+count+' approved hunk(s) to the editor. Save the files and run tests before committing.':
+     data.status==='undone'?'Approved changes were undone in the editor.':
+     'No changes applied; all hunks were rejected.';
+   message('agent',note);status.textContent=data.status==='applied'?'Save and verify your changes':'Review complete';
+ }
+ if(data.type==='workspace'){
+   const label=document.querySelector('.folder span');
+   if(label&&typeof data.name==='string')label.textContent=data.name;
+ }
  if(data.type==='error'){hasReply=true;message('agent',data.message);status.textContent=data.message;}
  if(data.type==='attachment'){task.value+=(task.value?' ':'')+data.mention;task.focus();}
  if(data.type==='context')document.getElementById('context').textContent=data.summary;
