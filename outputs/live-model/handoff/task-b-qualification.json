@@ -41,7 +41,8 @@
     "UI interactions are automated, not a human-operated official recording.",
     "Source tabs were deliberately closed before Apply. Documents remained available for Apply but later closed after saving; guarded Undo correctly refused the closed-document state. This run does not qualify successful closed-document Recheck or Undo recovery.",
     "The earlier three-file candidate failed nested masking and remains recorded separately.",
-    "Flask patch excerpts retain the upstream BSD license in outputs/flask-rehearsal/FLASK-LICENSE.txt."
+    "Flask patch excerpts retain the upstream BSD license in outputs/flask-rehearsal/FLASK-LICENSE.txt.",
+    "The generated CLI documentation references cli.config_command, but the candidate did not add its API autodata entry. A full Sphinx build has not been qualified. Follow-up documentation qualification remains open."
   ],
   "restoration": "After preserving evidence, original tracked files restored with git restore in the disposable checkout."
 }

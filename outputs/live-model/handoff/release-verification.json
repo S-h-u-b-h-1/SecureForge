@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "codeCommit": "0495ce2c5166e9fe8d646072bee0e0a42c600596",
+  "extensionVersion": "0.1.4",
+  "runtimeVersion": "0.183.0",
+  "sdkVersion": "0.182.0",
+  "unitTests": 150,
+  "syntaxChecks": "passed",
+  "cleanClone": {
+    "commit": "166502b",
+    "installation": "npm ci",
+    "unitTests": 150,
+    "syntax": "passed",
+    "package": "passed"
+  },
+  "packagedEditorChecks": [
+    "Extension activation, sidebar registration and focus command",
+    "Mixed hunk decisions apply only the accepted edit in the editor",
+    "Repeated application is rejected",
+    "Guarded review Undo restores the original content",
+    "Changed document version is rejected even after Undo",
+    "Rejecting all hunks preserves content",
+    "External disk changes are preserved",
+    "Unicode, CRLF and missing final newline survive editor apply and Undo",
+    "One WorkspaceEdit applies a batch and one guarded Undo reverses both files",
+    "A stale member blocks the entire multi-file apply",
+    "Cancellation before batch apply preserves all documents",
+    "Owned security finding, editor-reviewed fix, saved regression proof and Patch Passport agree"
+  ],
+  "packagedEditorRuntimeChecks": [
+    "Extension activation, sidebar registration and focus command",
+    "Mixed hunk decisions apply only the accepted edit in the editor",
+    "Repeated application is rejected",
+    "Guarded review Undo restores the original content",
+    "Changed document version is rejected even after Undo",
+    "Rejecting all hunks preserves content",
+    "External disk changes are preserved",
+    "Unicode, CRLF and missing final newline survive editor apply and Undo",
+    "One WorkspaceEdit applies a batch and one guarded Undo reverses both files",
+    "A stale member blocks the entire multi-file apply",
+    "Cancellation before batch apply preserves all documents",
+    "Owned security finding, editor-reviewed fix, saved regression proof and Patch Passport agree",
+    "Normal Build command delivers a real runtime proposal into review using fixture editor surfaces",
+    "Real TrueForge session 01m6rzr18vfcxj01t238yxrs3s delivers a proposal into the editor (deterministic inference fixture)"
+  ],
+  "runtimeTransport": "Both full-file and compact-batch modes passed with deterministic inference",
+  "bundleSha256": "6241edcdc104539f5778f7eb7f37407d99fc3a6ec13a298a8b3be006552b1722",
+  "vsixSha256": "7ad6bc42cfd25828fc3838f4db0acc5074f33cce48d64b6f8a57b9b61a922f4e",
+  "installedBundleMatches": true,
+  "vulnerabilities": {
+    "info": 0,
+    "low": 0,
+    "moderate": 0,
+    "high": 0,
+    "critical": 0,
+    "total": 0
+  },
+  "limitations": [
+    "Test-host checks use an actual installed extension and labelled source-level/fixture surfaces. They do not independently repeat every real-model task.",
+    "Real Muse installed UI A/B/C and security proof are recorded separately in this directory.",
+    "Dependency audit reports known registry advisories, not complete code security.",
+    "VSIX is generated and ignored; identify it by version, code commit and hashes."
+  ]
+}

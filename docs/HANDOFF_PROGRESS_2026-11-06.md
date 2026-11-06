@@ -104,3 +104,9 @@ The entries below record subsequent real-model, installed UI and evidence checks
 - Replaced the stale PDF generator claims with the actual handoff evidence. The refreshed two-page PDF follows all eight required headings in order and identifies each judging criterion.
 - Rendered and visually inspected both pages. The layout is legible with no clipped text or overflowing table cells.
 - Team details and official-video timestamps remain visibly pending. The draft is not a final submitted PDF and does not claim that a public video or portal acknowledgement exists.
+
+## Checkpoint 12 — documentation cross-reference follow-up
+
+- Final documentation review found that the model-authored Task B CLI section linked to config_command without adding the corresponding API autodata target. Runtime behavior and test results remain valid, but full documentation qualification is open.
+- Added general agent guidance to inspect API indexes and resolve newly introduced documentation cross-references using surrounding conventions. Syntax checks, all 150 tests and packaging passed. A fresh exact-prompt run will assess the result.
+- Final packaging hashes will be regenerated after this follow-up. The earlier release-verification record identifies its specific pre-follow-up commit and build.
