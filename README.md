@@ -1,6 +1,6 @@
 # SecureForge
 
-> **Status: draft VS Code sidebar release candidate with explicit per-hunk approval.**
+> **Status: local beta — merged VS Code sidebar agent with explicit per-hunk approval.**
 
 SecureForge is a security-first VS Code coding assistant powered by local **TrueForge**. The extension supports live proposal delivery, per-hunk review for existing-file batches, guarded apply/Undo, separately approved verification commands, cancellation, read-only security candidates, a controlled repair lab and exported Patch Passports. Build, Defend and Prove share the existing v1 proposal and batch contracts.
 
@@ -14,7 +14,7 @@ Local verification includes real VS Code editor tests and actual TrueForge runti
 
 ## Start here — VS Code sidebar
 
-SecureForge is currently a **draft release candidate**, not a fully qualified production coding agent. Use a trusted local repository.
+SecureForge's VSIX is a **local beta**, not a generally certified production coding agent. A real pinned Flask task successfully completed model-generated staging → human-reviewed editor apply → explicit Save → 126 passing targeted tests (3 skipped). That is concrete integration evidence, not a guarantee that arbitrary tasks, models or source repositories work. Use a trusted local repository.
 
 1. Start local TrueForge (`npx @truefoundry/trueforge@0.183.0`) and configure an available model at `http://localhost:8790`. The official SDK in this repository remains pinned to `0.182.0`. Keep TrueForge and workspace tools bound to localhost.
 2. Build the extension in the **SecureForge source repository**:
@@ -26,7 +26,8 @@ SecureForge is currently a **draft release candidate**, not a fully qualified pr
    npm run package:extension
    ```
 
-3. In VS Code open **Extensions → … → Install from VSIX…** and choose `outputs/SecureForge-0.1.0.vsix`, then reload the window.
+3. In VS Code open **Extensions → … → Install from VSIX…** and choose `outputs/SecureForge-0.1.1.vsix`, then reload the window.
+   The **SecureForge Review** panel displays the loaded extension version. If it doesn't show **0.1.1** after installation, fully quit VS Code and reinstall the VSIX; an earlier extension host can still be active.
 4. Open the **target repository folder you actually want to change** (e.g., Flask for a Flask request). The name beside the chat send button identifies the active target; opening a different terminal folder does not switch the VS Code workspace.
 5. In the Secondary Side Bar, select **SecureForge**. Type an instruction in the bottom composer; press **Enter** to send or **Shift+Enter** for a line break. The paperclip attaches file context, the stack icon adds symbol context, and Stop cancels an active run. If just one local model is discoverable, the extension selects it; otherwise pick or enter the configured model.
 6. If the task obviously belongs to a different project (such as changing Flask environment variables inside a Node-only workspace), SecureForge stops **before contacting the model**. Click **Recent projects** to open VS Code's existing project history, or **Browse folders** to choose a folder yourself.
@@ -60,7 +61,7 @@ The model has only bounded read/search/propose workspace tools. File writes are 
 - `propose_edit` — stores full proposed content in process memory, requiring the expected SHA-256; **never writes source files**.
 - `get_proposal` and `check_proposal` — recover a proposal for UI display and detect stale bases.
 
-Known limitations: Linux workspace reads require `/proc/self/fd` and macOS reads use `O_NOFOLLOW_ANY` (test macOS support before relying on it); proposal persistence and production-model editor verification remain pending; no full symbol analysis; verification uses the editor-approved runner; automatic model fallback remains pending; no full MCP interoperability suite yet; best-effort secret redaction is not a DLP guarantee. Reading is blocked for symlinks, including internal symlinks, to fail closed. The bridge is for local development only.
+Known limitations: Linux workspace reads require `/proc/self/fd` and macOS reads use `O_NOFOLLOW_ANY` (test macOS support before relying on it); proposal persistence and broad production-model editor verification beyond the pinned Flask task remain pending; no full symbol analysis; verification uses the editor-approved runner; automatic model fallback remains pending; no full MCP interoperability suite yet; best-effort secret redaction is not a DLP guarantee. Reading is blocked for symlinks, including internal symlinks, to fail closed. The bridge is for local development only.
 
 See [Architecture and integration contract](docs/ARCHITECTURE.md) for the handoff with Aditya. Please don't merge to `main` without review and clean-clone tests.
 
