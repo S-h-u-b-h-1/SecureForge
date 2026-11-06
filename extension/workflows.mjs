@@ -93,8 +93,11 @@ export function registerWorkflows(vscode, context) {
     } finally { await sourceWorkspace.close(); }
     if (taskContext.workspaceMismatch) {
       const currentName = redactSecrets(String(selected.name || 'Unknown')).slice(0, 100);
+      const packageOnly = taskContext.workspaceMismatch.code === 'FLASK_PACKAGE_SUBFOLDER';
       broadcast({ type: 'workspaceMismatch', code: taskContext.workspaceMismatch.code,
-        message: `You're currently in ${currentName}. This task requires existing Flask source, but this folder contains no Python files. Choose Recent projects to find a previously opened Flask project, or Browse folders to locate it on your Mac. No model was called and no files were changed.` });
+        message: packageOnly
+          ? `You're currently in ${currentName}, which appears to be Flask's src/flask Python package. Open the Flask repository root two folders above, so the source, project configuration and regression tests are all available. No model was called and no files were changed.`
+          : `You're currently in ${currentName}. This task requires existing Flask source, but this folder contains no Python files. Choose Recent projects to find a previously opened Flask project, or Browse folders to locate it on your Mac. No model was called and no files were changed.` });
       return { status: 'workspace_mismatch' };
     }
     const baseUrl = localTrueForgeUrl(settings.get('trueforgeUrl', 'http://localhost:8790'));
