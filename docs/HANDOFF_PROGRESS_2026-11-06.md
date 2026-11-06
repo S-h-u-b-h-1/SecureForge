@@ -32,6 +32,14 @@ Team registration, Team ID and member-detail collection are deferred at Aditya's
 - The normal verification command refused the unsaved workspace before command approval or execution. After explicit Save All, an independent terminal run passed all 35 existing helper tests on the saved behavior change.
 - This mixed-hunk exercise is review and verification-boundary evidence. The rejected documentation change means it is not complete Task A acceptance.
 
+## Checkpoint 4 — real installed Task A qualification
+
+- Ran the exact Task A prompt through Inline Edit Selection on the pinned Flask checkout with the installed corrected extension and configured Muse provider. Normal UI interactions were driven through Playwright CDP.
+- Captured and approved the named propose_edit request, accepted both hunks, applied and explicitly saved the file. The model documented all five false string values, retained the existing default description and explained non-empty true behavior.
+- Selected the existing helper suite and 20 independent acceptance checks through normal verification UI. Explicit command approval executed the checkout-local Python and passed all 55 tests.
+- Exported a Patch Passport through the normal export command. Its applied SHA-256 matches the saved source. Normal Undo followed by Save restored the original tracked source bytes.
+- Evidence is under outputs/live-model/handoff. This is an automated interaction with the real installed UI, not the official video or a human-operated recording. Task B, Task C and the security lab remain pending.
+
 ## Remaining qualification
 
 - [ ] Finish independent review of every PR #16 change and its safety boundaries.
