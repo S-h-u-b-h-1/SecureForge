@@ -67,3 +67,12 @@ This checkpoint establishes the listed local regression results. Live model qual
 - Accepted all six hunks, applied and saved through installed UI. Normal approved verification ran the generated CLI suite plus six independent checks. It recorded 65 passing tests and one failure because nested sensitive settings were not masked.
 - This candidate is a failed qualification. The exported Passport retains both the denied command and the actual failed saved-source test. Normal guarded Undo and Save restored the three original tracked files.
 - Added general Build guidance for recursively redacted diagnostic exports, preservation of underlying application data, non-JSON-native values, and the limits of testing unapplied proposals. Syntax checks, all 150 tests and packaging passed. A new verbatim Task B attempt is required.
+
+## Checkpoint 7 — real installed Task B qualification
+
+- Reinstalled the corrected bundle and ran the exact Task B prompt with no filenames on the clean pinned Flask checkout. Muse discovered the source, tests and docs itself, retrieved a complete source bundle and staged one compact coordinated batch after one named approval.
+- Reviewed and accepted five hunks across three files, applied and saved through normal installed UI. The implementation masks nested dictionaries and sequences, handles default timedelta and other non-JSON values, preserves application configuration, and registers the command in help.
+- Normal approved verification passed 66 tests covering generated CLI tests and six independent acceptance cases. An independent terminal run of helpers, CLI and acceptance suites passed all 101 tests.
+- Ran the actual new command against an owned Flask example and verified nested masked JSON plus help registration. All three saved hashes match the exported Patch Passport. Guarded Undo and Save restored tracked source bytes.
+- Evidence, the failed earlier candidate and the model-authored approved patch are retained in outputs/live-model/handoff. Closing source editor tabs left retained documents live in this run, so this action does not claim actual closed-document Recheck coverage. That path has separate regression coverage.
+- Updated architecture documentation to describe the integrated product and its trust boundaries. Task C and the owned security lab remain pending.
