@@ -103,6 +103,44 @@ export async function openReviewPayload(vscode, context, workspace, proposal, on
   return showReview(vscode, context, workspace, entries, group, onApplied);
 }
 
+// Recheck against both the original on-disk SHA and the clean open buffer.
+// A harmless editor-version increment can be safely refreshed, but changed
+// or unsaved content is never rebased or silently overwritten.
+export async function recheckReviewEntries({ vscode, workspace, entries, signal }) {
+  if (!vscode.workspace.isTrusted) throw new Error('A trusted workspace is required');
+  const validated = [];
+  for (const entry of entries) {
+    signal?.throwIfAborted();
+    const { document, review } = entry;
+    if (document.isClosed) throw new Error(`Cannot resume review: ${review.path} is closed. Prepare a new review.`);
+    if (document.isDirty) {
+      throw new Error(`Cannot resume review: ${review.path} has unsaved changes. Save or revert them before rechecking; regenerate the proposal if the content changed.`);
+    }
+    if (document.uri.scheme !== 'file' || document.uri.fsPath !== path.resolve(workspace.root, review.path)) {
+      throw new Error('Cannot resume review: workspace document does not match the original proposal.');
+    }
+    const disk = await workspace.rawForProposal(review.path);
+    signal?.throwIfAborted();
+    if (disk.hash !== review.baseSha256 || document.isDirty ||
+        sha256(document.getText()) !== review.baseSha256) {
+      throw new Error(`Cannot resume review: ${review.path} changed since proposal creation. Generate a new proposal for the current contents.`);
+    }
+    validated.push({ entry, version: document.version });
+  }
+  // Recheck every open buffer after all asynchronous disk reads, before
+  // committing any new version baseline. applyReviewGroup checks again.
+  for (const { entry, version } of validated) {
+    const { document, review } = entry;
+    if (document.isClosed || document.isDirty || document.version !== version ||
+        sha256(document.getText()) !== review.baseSha256) {
+      throw new Error('A reviewed document changed while it was being rechecked. Retry after saving or reverting.');
+    }
+  }
+  signal?.throwIfAborted();
+  for (const { entry, version } of validated) entry.baseVersion = version;
+  return validated.length;
+}
+
 function showReview(vscode, context, workspace, entries, group, onApplied) {
   const panel = vscode.window.createWebviewPanel('secureforge.review', 'SecureForge Review', vscode.ViewColumn.Beside, {
     enableScripts: true,
@@ -134,6 +172,21 @@ function showReview(vscode, context, workspace, entries, group, onApplied) {
     } else if (message.type === 'decision' && status === 'pending' && knownIds.has(message.id) &&
         ['accept', 'reject'].includes(message.decision)) {
       decisions[message.id] = message.decision;
+    } else if (message.type === 'acceptAll' && status === 'pending') {
+      // Mark decisions only. This never invokes WorkspaceEdit or saves files.
+      for (const hunk of hunks) decisions[hunk.id] = 'accept';
+      send({ type: 'status', status, message: `Marked all ${hunks.length} hunks Accept. Review the choices, then explicitly apply.` });
+    } else if (message.type === 'recheck' && ['stale', 'blocked'].includes(status)) {
+      status = 'checking';
+      send({ type: 'status', status, message: 'Checking unchanged source files and editor buffers…' });
+      try {
+        await recheckReviewEntries({ vscode, workspace, entries, signal: controller.signal });
+        status = 'pending';
+        send({ type: 'status', status, message: 'Original source and clean buffers match the proposal. Review decisions are retained; apply only when ready.' });
+      } catch (error) {
+        status = 'blocked';
+        send({ type: 'status', status, message: error.message });
+      }
     } else if (message.type === 'discard' && status === 'pending') {
       status = 'discarded';
       send({ type: 'status', status, message: 'Proposal discarded.' });
@@ -154,7 +207,7 @@ function showReview(vscode, context, workspace, entries, group, onApplied) {
           : 'All hunks rejected. The document was not edited.' });
       } catch (error) {
         status = 'blocked';
-        send({ type: 'status', status, message: error.message });
+        send({ type: 'status', status, message: `${error.message} Click Recheck unchanged files below. If the file's contents changed, save or revert and generate a new proposal; SecureForge will not overwrite it.` });
       }
     } else if (message.type === 'undo' && status === 'applied') {
       status = 'undoing';
@@ -201,8 +254,14 @@ button:disabled { opacity: .5; cursor: default; }
 </style></head><body>
 <h1>Review proposed changes</h1><h2 id="path"></h2><p id="rationale"></p>
 <p>Review each change independently. Apply affects the editor buffer. Save and Undo remain under your control.</p>
-<div id="hunks"></div><button id="apply" disabled>Apply accepted hunks</button><button id="discard">Discard proposal</button>
-<button id="undo" disabled>Undo applied hunks</button>
+<div id="hunks"></div>
+<div id="review-actions">
+  <button id="acceptAll" disabled>Accept all hunks</button>
+  <button id="apply" disabled>Apply accepted hunks</button>
+  <button id="discard">Discard proposal</button>
+  <button id="undo" disabled>Undo applied hunks</button>
+  <button id="recheck" disabled hidden>Recheck unchanged files</button>
+</div>
 <p id="status" role="status" aria-live="polite">Loading proposal…</p>
 <script nonce="${nonce}">
 const vscode = acquireVsCodeApi();
@@ -212,8 +271,12 @@ let state = 'pending';
 const apply = document.getElementById('apply');
 function update() {
   apply.disabled = state !== 'pending' || decisions.size !== ids.length || ids.length === 0;
+  document.getElementById('acceptAll').disabled = state !== 'pending' || ids.length === 0;
   document.getElementById('discard').disabled = state !== 'pending';
   document.getElementById('undo').disabled = state !== 'applied';
+  const recheck = document.getElementById('recheck');
+  recheck.hidden = !['stale','blocked'].includes(state);
+  recheck.disabled = !['stale','blocked'].includes(state);
   document.querySelectorAll('[data-decision]').forEach(button => { button.disabled = state !== 'pending'; });
 }
 window.addEventListener('message', event => {
@@ -253,6 +316,20 @@ window.addEventListener('message', event => {
     document.getElementById('status').textContent = message.message;
   }
   update();
+});
+document.getElementById('acceptAll').addEventListener('click', () => {
+  if (state !== 'pending' || ids.length === 0) return;
+  ids.forEach(id => decisions.set(id, 'accept'));
+  document.querySelectorAll('[data-decision]').forEach(button => {
+    button.setAttribute('aria-pressed', String(button.dataset.decision === 'accept'));
+  });
+  update();
+  vscode.postMessage({ type: 'acceptAll' });
+});
+document.getElementById('recheck').addEventListener('click', () => {
+  if (!['stale','blocked'].includes(state)) return;
+  state = 'checking'; update();
+  vscode.postMessage({ type: 'recheck' });
 });
 apply.addEventListener('click', () => {
   if (state !== 'pending' || apply.disabled) return;
