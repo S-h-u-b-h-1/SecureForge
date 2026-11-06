@@ -4,7 +4,7 @@ import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { Workspace } from '../src/workspace.mjs';
-import { registerWorkflows, describeNoProposal } from '../extension/workflows.mjs';
+import { registerWorkflows, describeNoProposal, requireSavedWorkspaceDocuments } from '../extension/workflows.mjs';
 
 test('standalone verification cancellation uses its own controller without an active Build', async t => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'sf-workflow-'));
@@ -219,4 +219,63 @@ test('model no-op is never mistaken for verified work after an unsupported comma
   assert.match(blank, /applied no changes/);
   const redacted = describeNoProposal('No changes. password=example-secret-token', []);
   assert.doesNotMatch(redacted, /example-secret-token/);
+});
+
+test('verification rejects dirty workspace buffers but not unrelated unsaved documents', async t => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'sf-dirty-source-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await writeFile(path.join(root, 'sample.test.mjs'), 'import test from "node:test"; test("ok", () => {});\n');
+  const workspace = await new Workspace(root).init();
+  t.after(() => workspace.close());
+  const document = { uri: { scheme: 'file', fsPath: path.join(workspace.root, 'sample.test.mjs') },
+    isDirty: true };
+  const unrelated = { uri: { scheme: 'file', fsPath: path.join(os.tmpdir(), 'unrelated.test.mjs') },
+    isDirty: true };
+  const vscode = { workspace: { textDocuments: [unrelated, document] } };
+  assert.throws(() => requireSavedWorkspaceDocuments(vscode, workspace), /Save all edited files/);
+  document.isDirty = false;
+  assert.doesNotThrow(() => requireSavedWorkspaceDocuments(vscode, workspace));
+  assert.doesNotThrow(() => requireSavedWorkspaceDocuments({ workspace: {} }, workspace));
+});
+
+test('the local command dialog rechecks buffer cleanliness before executing verification', async t => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'sf-modal-dirty-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const testPath = 'sample.test.mjs';
+  const marker = path.join(root, 'executed.marker');
+  await writeFile(path.join(root, testPath),
+    'import { writeFileSync } from "node:fs"; writeFileSync("executed.marker", "ran");\n');
+  const workspace = await new Workspace(root).init();
+  t.after(() => workspace.close());
+  const dirty = { uri: { scheme: 'file', fsPath: path.join(workspace.root, testPath) },
+    isDirty: true };
+  let prompts = 0;
+  const output = { appendLine() {}, show() {}, clear() {}, dispose() {} };
+  const vscode = {
+    workspace: { isTrusted: true, textDocuments: [dirty] },
+    commands: { registerCommand: () => ({ dispose() {} }) },
+    ProgressLocation: { Notification: 1 },
+    window: {
+      createOutputChannel: () => output,
+      registerWebviewViewProvider: () => ({ dispose() {} }),
+      withProgress: async (_options, callback) => callback({}, {
+        onCancellationRequested: () => ({ dispose() {} }),
+      }),
+      showWarningMessage: async () => {
+        prompts++;
+        dirty.isDirty = true; // Simulate an edit while a modal approval is open.
+        return 'Run verification';
+      },
+    },
+  };
+  const state = registerWorkflows(vscode, { subscriptions: [] });
+  const request = { executable: 'node', args: ['--test', testPath] };
+  await assert.rejects(state.runCheck(workspace, request), /Save all edited files/);
+  assert.equal(prompts, 0, 'Do not request approval while a workspace edit is unsaved');
+  dirty.isDirty = false;
+  await assert.rejects(state.runCheck(workspace, request), /Save all edited files/);
+  assert.equal(prompts, 1, 'Revalidate after the user approves and before spawn');
+  assert.equal(state.receipts.length, 0);
+  const { access } = await import('node:fs/promises');
+  await assert.rejects(access(marker), { code: 'ENOENT' });
 });
