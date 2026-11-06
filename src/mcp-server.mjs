@@ -67,7 +67,7 @@ export async function createMcpServer({ root, port = 8792, host = '127.0.0.1', a
   const batches = new BatchProposalStore(proposals);
   const tools = [...TOOLS];
   if (onRunCommand) tools.push({
-    name: 'run_command', description: 'Request a bounded verification command. A local user must separately approve the exact executable, arguments and working directory. Tests execute repository code.',
+    name: 'run_command', description: 'Request a bounded, separately approved test run. Python example: {"executable":"python3","args":["-m","pytest","tests/test_helpers.py","tests/test_cli.py","-q"]}. Node example: {"executable":"node","args":["--test","test/agent.test.mjs"]}. Only workspace-relative explicit test files (max 20) are accepted; no shells, absolute paths, arbitrary flags or direct .venv executables. SecureForge selects the virtual environment and local Python src path. Tests execute repository code with the local user permissions; a rejected command has NOT run tests.',
     inputSchema: { type: 'object', properties: {
       executable: { type: 'string', enum: ['node', 'python3'] },
       args: { type: 'array', items: { type: 'string', maxLength: 500 }, minItems: 2, maxItems: 25 },
