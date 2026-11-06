@@ -16,6 +16,14 @@ Team registration, Team ID and member-detail collection are deferred at Aditya's
 - Focused regression suite passed 19 tests. The combined suite passed 148 tests. Syntax checks passed.
 - TrueForge 0.183.0 was started on loopback with the existing exact outbound allowlist. The configured Muse model is present. Model registration alone is not authentication or live-acceptance evidence.
 
+## Checkpoint 2 — closed-file preflight and exhaustive-input documentation
+
+- Added a regression proving that a refused or changed closed-file source must be checked before VS Code is asked to reopen its path. The old ordering reopened first and refused afterward.
+- Closed-file Recheck now performs the workspace-policy read and frozen-hash check before opening the editor. Existing post-open, whole-group and apply-time checks remain in place. This is a preflight improvement, not an atomic filesystem guarantee.
+- Added general agent guidance to include source-demonstrated defaults and absent/empty behavior when documenting every accepted input value. The first observed interactive Task A candidate listed the five string flags but omitted empty/default behavior, so that candidate is not counted as complete official qualification.
+- Combined automated suite passed 149 tests and syntax checks passed. The earlier corrected build also passed actual editor-host checks and both deterministic runtime transport modes.
+- An isolated installed-extension VS Code window is connected through Playwright CDP for normal UI checks. UI automation, fixtures and harness callbacks will be identified separately in final evidence.
+
 ## Remaining qualification
 
 - [ ] Finish independent review of every PR #16 change and its safety boundaries.

@@ -124,6 +124,13 @@ export async function recheckReviewEntries({ vscode, workspace, entries, signal 
     const { review } = entry;
     let document = entry.document;
     if (document.isClosed) {
+      // Validate the source policy and original hash before asking VS Code
+      // to open a closed path. The normal post-open checks still run below.
+      const candidate = await workspace.rawForProposal(review.path);
+      signal?.throwIfAborted();
+      if (candidate.hash !== review.baseSha256) {
+        throw new Error(`Cannot resume review: ${review.path} changed since proposal creation. Generate a new proposal for the current contents.`);
+      }
       // A closed VS Code document is not proof of a changed file. Recover it
       // only after explicit Recheck, then verify the original bytes and
       // hashes exactly as for a still-open document.

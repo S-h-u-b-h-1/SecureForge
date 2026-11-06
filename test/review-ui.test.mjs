@@ -76,6 +76,30 @@ test('a stale file prevents the entire multi-file version refresh', async t => {
   assert.equal(b.baseVersion, 1);
 });
 
+test('closed-file recheck validates permitted unchanged disk bytes before opening an editor', async t => {
+  const f = await fixture(t);
+  for (const denied of [true, false]) {
+    let opened = 0;
+    const closed = { isClosed: true };
+    const entry = { document: closed, review: { path: 'sample.py', baseSha256: sha256(f.original) }, baseVersion: 1 };
+    const workspace = { root: f.root, async rawForProposal() {
+      if (denied) throw new Error('Restricted file path');
+      return { hash: sha256('external change\n') };
+    } };
+    const vscode = { Uri: { file: fsPath => ({ scheme: 'file', fsPath }) },
+      ViewColumn: { One: 1 }, window: { async showTextDocument() {} },
+      workspace: { isTrusted: true, async openTextDocument(uri) {
+        opened++;
+        return { uri, isClosed: false, isDirty: false, version: 2, getText: () => f.original };
+      } },
+    };
+    await assert.rejects(recheckReviewEntries({ vscode, workspace, entries: [entry] }));
+    assert.equal(opened, 0, 'A refused disk source must not reach VS Code file opening');
+    assert.equal(entry.document, closed);
+    assert.equal(entry.baseVersion, 1);
+  }
+});
+
 async function openMockPanel(t) {
   const f = await fixture(t);
   const store = new ProposalStore(f.workspace);
