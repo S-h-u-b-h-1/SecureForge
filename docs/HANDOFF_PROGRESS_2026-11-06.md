@@ -42,16 +42,16 @@ Team registration, Team ID and member-detail collection are deferred at Aditya's
 
 ## Remaining qualification
 
-- [ ] Finish independent review of every PR #16 change and its safety boundaries.
+- [x] Review PR #16 changes and supported safety-boundary regressions.
 - [ ] Rebuild and install the corrected VSIX, run packaged editor/runtime checks and identify exact artifact hashes.
-- [ ] Verify named and capped approvals, duplicate/malformed requests, denial, cancellation and timeouts.
-- [ ] Verify multi-file review, closed-file Recheck, dirty/stale refusal, Apply, Save and Undo.
-- [ ] Complete exact official Flask Tasks A, B and C on fresh pinned checkouts with independent project-local Python environments.
-- [ ] Run the owned security lab and validate actual failure, repair, saved regressions and Patch Passport linkage.
+- [x] Verify named and capped approvals, duplicate/malformed requests, denial, cancellation and timeouts through labelled regression and installed UI evidence.
+- [x] Verify multi-file review, closed-file Recheck, dirty/stale refusal, Apply, Save and Undo with actual UI and regression checks.
+- [x] Exercise exact Flask A/B/C prompts on fresh pinned checkouts with independent project-local Python environments. Official on-screen recording remains a separate gate.
+- [x] Run the installed owned security lab and independently validate baseline failure, repair, saved regressions and Patch Passport linkage.
 - [ ] Update release/readiness evidence, prepare the final PDF and demonstration, then verify submission when registration details are available.
 - [ ] Review the final diff and exact-head CI before deciding whether PR #16 is qualified to merge.
 
-This checkpoint establishes the listed local regression results. Live model quality, interactive acceptance and submission remain separate gates.
+The entries below record subsequent real-model, installed UI and evidence checks. Official recording and portal submission remain separate gates.
 
 ## Checkpoint 5 — runtime/editor fixture approval regression
 
@@ -98,3 +98,9 @@ This checkpoint establishes the listed local regression results. Live model qual
 - Corrected the UI setup by using View Close Editor in All Groups for the reviewed synthetic source. Earlier attempts had closed only one editor copy.
 - With every copy closed, the normal review refused Apply and exposed Recheck. Explicit Recheck reopened the unchanged source tab, verified the base and retained decisions. A separate Apply followed by guarded Undo succeeded.
 - Updated the synthetic-review evidence and included an extract of actual accessibility snapshots. The earlier Task B Undo refusal remains a historical failed recovery attempt and is not relabelled as successful.
+
+## Checkpoint 11 — submission draft refresh
+
+- Replaced the stale PDF generator claims with the actual handoff evidence. The refreshed two-page PDF follows all eight required headings in order and identifies each judging criterion.
+- Rendered and visually inspected both pages. The layout is legible with no clipped text or overflowing table cells.
+- Team details and official-video timestamps remain visibly pending. The draft is not a final submitted PDF and does not claim that a public video or portal acknowledgement exists.
