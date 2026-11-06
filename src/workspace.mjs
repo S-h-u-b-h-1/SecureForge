@@ -66,15 +66,15 @@ export function redactSecrets(content) {
 // source reads, model context, or previously existing credential content.
 // This function never changes the bytes stored for the proposed edit.
 const PROPOSAL_EXAMPLE_ASSIGNMENT =
-  /(?:api[_-]?key|access[_-]?token|auth[_-]?token|password|secret)["']?[ \t]*[:=][ \t]*["']?([^\s"',;]+)/gi;
+  /(?:api[_-]?key|access[_-]?token|auth[_-]?token|password|secret)["']?[ \t]*[:=][ \t]*(?:(["'])([^"'\r\n]*)\1|([^\s"',;}\])]+))(?=[ \t]*(?:[,;})\]]|#|\/\/|\r?\n|$))/gi;
 const SAFE_EXAMPLE_VALUES = new Set(['***', '0', 'None', 'null', 'True', 'False', '[REDACTED]']);
 
 export function hasProposedCredentialContent(content) {
   if (typeof content !== 'string') throw new TypeError('Proposed content must be text');
-  const screened = content.replace(PROPOSAL_EXAMPLE_ASSIGNMENT, (match, value) => {
-    // The broad assignment matcher can include trailing JSON punctuation.
-    // Never strip anything except ordinary closing brackets.
-    const literal = value.replace(/[})\]]+$/, '');
+  const screened = content.replace(PROPOSAL_EXAMPLE_ASSIGNMENT, (match, quote, quoted, unquoted) => {
+    // A sentinel must be the entire literal value. Do not exempt a safe
+    // prefix followed by string concatenation or another expression.
+    const literal = quoted ?? unquoted;
     return SAFE_EXAMPLE_VALUES.has(literal) ? '[SAFE_TEST_SENTINEL]' : match;
   });
   return redactSecrets(screened) !== screened;
