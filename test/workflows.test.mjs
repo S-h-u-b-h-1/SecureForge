@@ -153,3 +153,42 @@ test('verification UI selects multiple repository test files, runs only after ap
     type: 'verificationResult', status: 'passed', executed: true, fileCount: 2,
   });
 });
+
+test('opening only Flask src/flask stops before TrueForge and offers correct root guidance', async t => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'sf-flask-package-'));
+  for (const file of ['__init__.py', 'helpers.py', 'cli.py']) {
+    await writeFile(path.join(root, file), 'from __future__ import annotations\n');
+  }
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const handlers = new Map();
+  const errors = [];
+  const vscode = {
+    commands: { registerCommand: (name, handler) => {
+      handlers.set(name, handler); return { dispose() {} };
+    } },
+    workspace: {
+      isTrusted: true,
+      workspaceFolders: [{ name: 'flask', uri: { scheme: 'file', fsPath: root } }],
+      getConfiguration: () => ({ get: (_name, fallback) => fallback }),
+    },
+    ProgressLocation: { Notification: 1 },
+    window: {
+      createOutputChannel: () => ({ appendLine() {}, show() {}, clear() {}, dispose() {} }),
+      registerWebviewViewProvider: () => ({ dispose() {} }),
+      withProgress: async (_options, callback) => callback({}, {
+        onCancellationRequested: () => ({ dispose() {} }),
+      }),
+      showErrorMessage: message => errors.push(message),
+    },
+  };
+  const state = registerWorkflows(vscode, { subscriptions: [] });
+  const events = [];
+  state.subscribe(event => events.push(event));
+  const result = await handlers.get('secureforge.runBuild')(
+    'Fix existing FLASK_DEBUG and FLASK_SKIP_DOTENV parsing and add regression tests');
+  assert.equal(result.status, 'workspace_mismatch');
+  const mismatch = events.find(event => event.type === 'workspaceMismatch');
+  assert.equal(mismatch.code, 'FLASK_PACKAGE_SUBFOLDER');
+  assert.match(mismatch.message, /two folders above/);
+  assert.deepEqual(errors, []);
+});
