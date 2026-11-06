@@ -22,6 +22,25 @@ export function describeNoProposal(reply, receipts = []) {
   return `${content}\n\n${verification}`;
 }
 
+// A passing command only verifies bytes saved on disk. Running while a
+// workspace document is dirty can silently test the old code rather than the
+// newly approved editor patch. Keep this check separate from tool approval.
+export function requireSavedWorkspaceDocuments(vscode, workspace) {
+  const roots = [workspace.root, workspace.requestedRoot]
+    .filter(root => typeof root === 'string' && root.length);
+  const inWorkspace = file => roots.some(root => {
+    const relative = path.relative(root, file);
+    return relative === '' || (relative !== '..' && !relative.startsWith('..' + path.sep) &&
+      !path.isAbsolute(relative));
+  });
+  for (const document of vscode.workspace?.textDocuments ?? []) {
+    if (document?.isDirty && document.uri?.scheme === 'file' &&
+        typeof document.uri.fsPath === 'string' && inWorkspace(document.uri.fsPath)) {
+      throw new Error('Save all edited files in this workspace before verification. Tests run saved disk contents, not unsaved editor buffers.');
+    }
+  }
+}
+
 export function registerWorkflows(vscode, context) {
   const output = vscode.window.createOutputChannel('SecureForge Activity');
   const receipts = [];
@@ -251,6 +270,7 @@ export function registerWorkflows(vscode, context) {
   }
 
   async function runCheck(workspace, request, parentSignal) {
+    requireSavedWorkspaceDocuments(vscode, workspace);
     const controller = new AbortController();
     const abort = () => controller.abort();
     parentSignal?.addEventListener('abort', abort, { once: true });
@@ -262,11 +282,16 @@ export function registerWorkflows(vscode, context) {
         const subscription = token.onCancellationRequested(() => controller.abort());
         try {
           return await runApprovedCommand({ workspace, request, signal: controller.signal,
-            approve: async command => await vscode.window.showWarningMessage(
-              'Run this verification command?', { modal: true, detail:
-                `${command.executable} ${command.args.join(' ')}\nWorking directory: ${command.cwd}\nPython source path: ${command.pythonSourcePath || '(not set)'}\nTimeout: ${command.timeoutMs} ms\nTests execute repository code with your local user permissions. Save accepted edits before verifying them.` },
-              'Run verification'
-            ) === 'Run verification',
+            approve: async command => {
+              requireSavedWorkspaceDocuments(vscode, workspace);
+              const confirmed = await vscode.window.showWarningMessage(
+                'Run this verification command?', { modal: true, detail:
+                  `${command.executable} ${command.args.join(' ')}\nWorking directory: ${command.cwd}\nPython source path: ${command.pythonSourcePath || '(not set)'}\nTimeout: ${command.timeoutMs} ms\nTests execute repository code with your local user permissions. Save all edits before verifying them.` },
+                'Run verification'
+              ) === 'Run verification';
+              if (confirmed) requireSavedWorkspaceDocuments(vscode, workspace);
+              return confirmed;
+            },
           });
         } finally { subscription.dispose(); }
       });
