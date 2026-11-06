@@ -106,3 +106,23 @@ test('workspace mismatch guard is conservative when there is Python or a new int
   assert.equal(detectWorkspaceMismatch(task, Array(2500).fill('src/file.js')), null);
   assert.equal(detectWorkspaceMismatch('Fix the Node server', ['server.js']), null);
 });
+
+test('Flask package subfolder is distinguished from full source checkout before contacting model', async () => {
+  const task = 'Fix existing FLASK_DEBUG and FLASK_SKIP_DOTENV parsing and add regression tests';
+  const packageFiles = ['__init__.py', '__main__.py', 'app.py', 'helpers.py', 'cli.py', 'json/__init__.py'];
+  const mismatch = detectWorkspaceMismatch(task, packageFiles);
+  assert.equal(mismatch?.code, 'FLASK_PACKAGE_SUBFOLDER');
+  assert.match(mismatch.message, /two levels up/);
+  let sourceReads = 0;
+  const context = await assembleContext({
+    listFiles: async () => packageFiles,
+    rawForProposal: async () => { sourceReads++; throw new Error('Source must not be read'); },
+  }, task);
+  assert.equal(context.workspaceMismatch?.code, 'FLASK_PACKAGE_SUBFOLDER');
+  assert.equal(sourceReads, 0);
+  assert.equal(detectWorkspaceMismatch(task,
+    ['pyproject.toml', 'src/flask/helpers.py', 'src/flask/cli.py', 'tests/test_helpers.py']), null);
+  assert.equal(detectWorkspaceMismatch(task, ['helpers.py', 'cli.py', '__init__.py', 'pyproject.toml']), null);
+  assert.equal(detectWorkspaceMismatch('Explain FLASK_DEBUG parsing', packageFiles), null);
+  assert.equal(detectWorkspaceMismatch('Implement a new Flask service', packageFiles), null);
+});
