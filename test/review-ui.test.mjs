@@ -9,14 +9,17 @@ import { ProposalStore } from '../src/proposals.mjs';
 import { openReviewPayload, recheckReviewEntries } from '../extension/review-ui.mjs';
 
 async function fixture(t) {
-  const root = await mkdtemp(path.join(os.tmpdir(), 'sf-review-recheck-'));
-  t.after(() => rm(root, { recursive: true, force: true }));
+  const temporary = await mkdtemp(path.join(os.tmpdir(), 'sf-review-recheck-'));
+  t.after(() => rm(temporary, { recursive: true, force: true }));
+  const workspace = await new Workspace(temporary).init();
+  t.after(() => workspace.close());
+  // Workspace.init canonicalizes /var to /private/var on macOS. Test editor
+  // URIs must be constructed the same way production openReviewPayload does.
+  const root = workspace.root;
   const filename = path.join(root, 'sample.py');
   const original = 'first\nunchanged\nlast\n';
   const proposed = 'FIRST\nunchanged\nLAST\n';
   await writeFile(filename, original);
-  const workspace = await new Workspace(root).init();
-  t.after(() => workspace.close());
   return { root, filename, original, proposed, workspace };
 }
 
