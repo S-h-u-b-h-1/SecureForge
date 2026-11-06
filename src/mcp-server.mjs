@@ -158,6 +158,10 @@ export async function createMcpServer({ root, port = 8792, host = '127.0.0.1', a
               onTool({ name, status: 'completed', sources: sources.map(source => ({ path: source.path, sha256: source.sha256 })) });
               return { content: [{ type: 'text', text: JSON.stringify(data) }] };
             } catch (err) {
+              // Do not include the tool payload or exception text in activity
+              // telemetry. Operators need to distinguish a failed tool call
+              // from a model turn that simply chose not to stage a proposal.
+              onTool({ name, status: 'failed' });
               return { isError: true, content: [{ type: 'text', text: err.message }] };
             }
           }
