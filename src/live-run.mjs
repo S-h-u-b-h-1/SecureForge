@@ -161,7 +161,7 @@ export class LiveRun {
               throw approvalError('TF_APPROVAL_FORMAT');
             }
             for (const call of calls) {
-              if (typeof call.id !== 'string' || !call.id) throw approvalError('TF_APPROVAL_FORMAT');
+              if (!call || typeof call.id !== 'string' || !call.id) throw approvalError('TF_APPROVAL_FORMAT');
               const key = JSON.stringify([threadId, call.id]);
               if (approvedRefs.has(key)) throw approvalError('TF_APPROVAL_LOOP');
               if (this.approvalPrompts >= MAX_APPROVAL_CALLS_PER_RUN) {

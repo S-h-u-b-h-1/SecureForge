@@ -24,6 +24,14 @@ Team registration, Team ID and member-detail collection are deferred at Aditya's
 - Combined automated suite passed 149 tests and syntax checks passed. The earlier corrected build also passed actual editor-host checks and both deterministic runtime transport modes.
 - An isolated installed-extension VS Code window is connected through Playwright CDP for normal UI checks. UI automation, fixtures and harness callbacks will be identified separately in final evidence.
 
+## Checkpoint 3 — malformed approval diagnostics and first installed UI checks
+
+- Added a regression for a null approval-call entry. It previously ended as a generic runtime error. It now stops before any prompt with the explicit malformed-approval diagnostic and preserves source bytes.
+- Syntax checks and all 150 automated tests passed. A new 0.1.4 VSIX was built from these corrected sources. Artifact hashes will identify this build independently of the earlier 0.1.4 candidate.
+- In the normal installed extension, the first real Muse inline proposal reached the visible review panel. UI actions rejected the documentation hunk and accepted the behavior hunk. Apply changed one editor hunk while the disk remained unchanged until the explicit Save All action.
+- The normal verification command refused the unsaved workspace before command approval or execution. After explicit Save All, an independent terminal run passed all 35 existing helper tests on the saved behavior change.
+- This mixed-hunk exercise is review and verification-boundary evidence. The rejected documentation change means it is not complete Task A acceptance.
+
 ## Remaining qualification
 
 - [ ] Finish independent review of every PR #16 change and its safety boundaries.

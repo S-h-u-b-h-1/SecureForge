@@ -154,3 +154,19 @@ test('malformed approval refs fail closed without a prompt or source write', asy
   });
   assert.equal(await readFile(path.join(root, 'sample.py'), 'utf8'), 'original\n');
 });
+
+test('null pending approval calls retain the explicit malformed-approval diagnostic', async t => {
+  const root = await fixture(t);
+  const { client } = mockClient(() => [
+    { type: 'tool.approval_required', threadId: 'main', toolCalls: [null] },
+    { type: 'turn.done', state: { status: 'done' } },
+  ]);
+  const run = new LiveRun({ client, root, approveTool: async () => {
+    assert.fail('Malformed approval must not reach the user');
+  } });
+  await assert.rejects(run.run({ model: 'test/model', task: 'Inspect' }), error => {
+    assert.equal(error.code, 'approval_format');
+    return true;
+  });
+  assert.equal(await readFile(path.join(root, 'sample.py'), 'utf8'), 'original\n');
+});
