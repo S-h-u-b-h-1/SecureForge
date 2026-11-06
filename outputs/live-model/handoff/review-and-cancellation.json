@@ -25,11 +25,19 @@
       "cleanRecheckResumed": true,
       "resumedApplyAndUndoSucceeded": true
     },
-    "closedDocumentReopen": "Not established by actual UI; covered by dedicated unit regressions"
+    "closedDocumentReopen": {
+      "interface": "View: Close Editor in All Groups on the reviewed source",
+      "applyBlockedBeforeRecheck": true,
+      "explicitRecheckReopenedSourceTab": true,
+      "originalHashPreserved": true,
+      "retainedDecisions": true,
+      "separateApplyThenGuardedUndoSucceeded": true
+    }
   },
   "limitations": [
     "UI automation is not a human-operated recording.",
     "Typing then a single native Undo did not remove the entire temporary edit, so dirty Recheck correctly refused it. The fixture controller subsequently restored exact original disk bytes before successful Recheck.",
-    "The separate Task B run refused guarded Undo after its source tabs were closed. That outcome remains documented."
+    "The separate Task B run refused guarded Undo after its source tabs were closed. That outcome remains documented.",
+    "Earlier attempts closed only one editor copy. The successful closed-source run used Close Editor in All Groups."
   ]
 }

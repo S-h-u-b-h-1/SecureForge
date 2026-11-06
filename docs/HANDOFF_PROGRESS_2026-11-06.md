@@ -92,3 +92,9 @@ This checkpoint establishes the listed local regression results. Live model qual
 - A temporary editor edit made the new review stale. A single native Undo left part of the edit, and Recheck correctly refused the dirty buffer. After the fixture controller restored exact original bytes and the clean editor reloaded them, explicit Recheck resumed review. Apply and guarded Undo then succeeded.
 - Removed an overbroad success-message sentence claiming closed files had been reopened even for reviews with no closed documents. The actual closed-document reopen path remains covered by unit regressions and has not been independently established through installed UI.
 - Syntax checks, all 150 tests and a fresh VSIX build passed after this diagnostic-only change.
+
+## Checkpoint 10 — installed closed-source recovery qualified
+
+- Corrected the UI setup by using View Close Editor in All Groups for the reviewed synthetic source. Earlier attempts had closed only one editor copy.
+- With every copy closed, the normal review refused Apply and exposed Recheck. Explicit Recheck reopened the unchanged source tab, verified the base and retained decisions. A separate Apply followed by guarded Undo succeeded.
+- Updated the synthetic-review evidence and included an extract of actual accessibility snapshots. The earlier Task B Undo refusal remains a historical failed recovery attempt and is not relabelled as successful.
