@@ -9,6 +9,19 @@ import path from 'node:path';
 import { assembleContext } from '../src/context.mjs';
 import { registerAgentPanel } from './agent-panel.mjs';
 
+// A model can report "already fixed" even after an unsupported test command.
+// Keep generated explanation separate from independently recorded verification.
+export function describeNoProposal(reply, receipts = []) {
+  const passed = receipts.filter(receipt => receipt?.status === 'passed' && receipt.executed === true).length;
+  const content = typeof reply === 'string' && reply.trim()
+    ? redactSecrets(reply.trim()).slice(0, 2200)
+    : 'The agent finished without staging a patch. SecureForge applied no changes.';
+  const verification = passed
+    ? `SecureForge recorded ${passed} passing verification command(s) for this run. Check which test files were executed before relying on them.`
+    : 'SecureForge has no passing test receipt for this run. Rejected or unsupported commands did not verify the change. Review the Git diff and run the targeted tests before treating the task as complete.';
+  return `${content}\n\n${verification}`;
+}
+
 export function registerWorkflows(vscode, context) {
   const output = vscode.window.createOutputChannel('SecureForge Activity');
   const receipts = [];
@@ -148,13 +161,7 @@ export function registerWorkflows(vscode, context) {
         finally { subscription.dispose(); }
       });
       if (!payload.proposals.length) {
-        const newReceipts = receipts.slice(previousReceipts);
-        const passing = newReceipts.filter(item => item.status === 'passed').length;
-        const verification = passing
-          ? `SecureForge recorded ${passing} passing verification command(s) for this run; inspect their test scope before relying on the result.`
-          : 'SecureForge has no passing test receipt for this run. Any rejected or unsupported test command did not verify the change. Review the Git diff and run targeted tests before concluding the task is complete.';
-        const note = (payload.reply || 'The agent completed without proposing an edit. Your files are unchanged.').slice(0, 2200);
-        broadcast({ type: 'noProposal', message: `${note}\n\n${verification}` });
+        broadcast({ type: 'noProposal', message: describeNoProposal(payload.reply, receipts.slice(previousReceipts)) });
         return { status: 'no_proposal' };
       }
       const workspace = await new Workspace(selected.uri.fsPath).init();
