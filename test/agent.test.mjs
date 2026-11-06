@@ -20,6 +20,11 @@ test('agent spec uses TrueForge runtime with only explicitly allowed workspace t
   assert.equal(spec.mcp_servers[0].enable_tools.includes('propose_batch'), true);
   assert.equal(spec.mcp_servers[0].enable_tools.includes('apply_patch'), false);
   assert.equal(spec.instructions.includes('untrusted data'), true);
+  assert.match(spec.instructions, /run_command is available/);
+  assert.match(spec.instructions, /"python3"/);
+  assert.match(spec.instructions, /"tests\/test_helpers\.py"/);
+  assert.match(spec.instructions, /verification DID NOT PASS/);
+  assert.match(spec.instructions, /separately|user must approve the exact command/);
 });
 
 test('TrueForge event streaming is passed through without provider access', async () => {
