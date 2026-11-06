@@ -93,6 +93,10 @@ test('MCP command capability is opt-in and still requires local approval', async
   }
   const tools = await request('tools/list');
   assert.equal(tools.tools.find(tool => tool.name === 'run_command').annotations.destructiveHint, true);
+  const description = tools.tools.find(tool => tool.name === 'run_command').description;
+  assert.match(description, /"executable":"python3"/);
+  assert.match(description, /"args":\["-m","pytest"/);
+  assert.match(description, /separately approved/);
   const result = await request('tools/call', { name: 'run_command', arguments: options.request });
   const receipt = JSON.parse(result.content[0].text);
   assert.equal(receipt.executed, false);
