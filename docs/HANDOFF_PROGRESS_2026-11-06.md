@@ -59,3 +59,11 @@ This checkpoint establishes the listed local regression results. Live model qual
 - The combined editor/runtime regression initially failed because its simulated approval surface still returned the old `Allow request` button text. The current product intentionally requires the named modal's `Allow once` action, so this fixture denied staging.
 - Updated that fixture to assert the named staging tool, request counter, modal setting and exact offered action before returning it. The combined editor/runtime run now passes, including the normal Build-to-review handoff.
 - This checkpoint validates deterministic inference and simulated approval surfaces. The separate Task A evidence covers actual installed UI interaction with the configured real model.
+
+## Checkpoint 6 — independently rejected Task B candidate
+
+- The verbatim Task B prompt autonomously discovered and staged coordinated source, tests and CLI documentation changes in three files. The normal named staging approval was granted once.
+- The model requested tests before application. The separate exact-command dialog was cancelled, producing an honest denied/unexecuted receipt. The model explicitly reported that verification did not pass.
+- Accepted all six hunks, applied and saved through installed UI. Normal approved verification ran the generated CLI suite plus six independent checks. It recorded 65 passing tests and one failure because nested sensitive settings were not masked.
+- This candidate is a failed qualification. The exported Passport retains both the denied command and the actual failed saved-source test. Normal guarded Undo and Save restored the three original tracked files.
+- Added general Build guidance for recursively redacted diagnostic exports, preservation of underlying application data, non-JSON-native values, and the limits of testing unapplied proposals. Syntax checks, all 150 tests and packaging passed. A new verbatim Task B attempt is required.
