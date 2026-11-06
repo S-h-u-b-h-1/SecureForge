@@ -26,8 +26,8 @@ SecureForge's VSIX is a **local beta**, not a generally certified production cod
    npm run package:extension
    ```
 
-3. In VS Code open **Extensions → … → Install from VSIX…** and choose `outputs/SecureForge-0.1.1.vsix`, then reload the window.
-   The **SecureForge Review** panel displays the loaded extension version. If it doesn't show **0.1.1** after installation, fully quit VS Code and reinstall the VSIX; an earlier extension host can still be active.
+3. In VS Code open **Extensions → … → Install from VSIX…** and choose `outputs/SecureForge-0.1.2.vsix`, then reload the window.
+   The **SecureForge Review** panel displays the loaded extension version. If it doesn't show **0.1.2** after installation, fully quit VS Code and reinstall the VSIX; an earlier extension host can still be active.
 4. Open the **target repository folder you actually want to change** (e.g., Flask for a Flask request). The name beside the chat send button identifies the active target; opening a different terminal folder does not switch the VS Code workspace.
 5. In the Secondary Side Bar, select **SecureForge**. Type an instruction in the bottom composer; press **Enter** to send or **Shift+Enter** for a line break. The paperclip attaches file context, the stack icon adds symbol context, and Stop cancels an active run. If just one local model is discoverable, the extension selects it; otherwise pick or enter the configured model.
 6. If the task obviously belongs to a different project (such as changing Flask environment variables inside a Node-only workspace), SecureForge stops **before contacting the model**. Click **Recent projects** to open VS Code's existing project history, or **Browse folders** to choose a folder yourself.
@@ -35,6 +35,12 @@ SecureForge's VSIX is a **local beta**, not a generally certified production cod
 8. After applying accepted hunks, **save the files yourself** and choose **Run tests (save files first)** in the chat. Select Node or Python, choose up to 20 eligible test files, and approve the exact command in the confirmation dialog. A passing test receipt is reported in the sidebar; full details remain in **Output → SecureForge Activity**. Nothing runs automatically.
 
 **Never merge or approve generated patches solely because the chat says they are complete.** Review the diff, run relevant tests, and check `git diff --check`.
+
+### Repeated TrueForge approval prompts
+
+A Build run may request human approval to stage an in-memory patch, and a test command has its own explicit execution approval. Only approve a tool request whose name and purpose you recognize. The dialog shows the tool name and how many approvals have been requested in this run; it does not authorize editing, saving, or executing tests by itself.
+
+If the model repeatedly requests permission without producing a review, **Stop or cancel the run**. Open **Activity and retrieved files** in the SecureForge sidebar or **Output → SecureForge Activity**, check the most recent tool names and failed statuses, and verify `git status --short` in the target repository. The client refuses a repeated pending approval and stops after eight distinct approval prompts instead of silently continuing. If the same call keeps failing, capture the session ID and sanitized activity log before retrying on a clean checkout. Never approve indefinitely or treat a cancelled/failed run as a successful patch.
 
 ### Development and verification
 
