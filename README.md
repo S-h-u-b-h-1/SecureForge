@@ -26,8 +26,8 @@ SecureForge's VSIX is a **local beta**, not a generally certified production cod
    npm run package:extension
    ```
 
-3. In VS Code open **Extensions → … → Install from VSIX…** and choose `outputs/SecureForge-0.1.3.vsix`, then reload the window.
-   The **SecureForge Review** panel displays the loaded extension version. If it doesn't show **0.1.3** after installation, fully quit VS Code and reinstall the VSIX; an earlier extension host can still be active.
+3. In VS Code open **Extensions → … → Install from VSIX…** and choose `outputs/SecureForge-0.1.4.vsix`, then reload the window.
+   The **SecureForge Review** panel displays the loaded extension version. If it doesn't show **0.1.4** after installation, fully quit VS Code and reinstall the VSIX; an earlier extension host can still be active.
 4. Open the **target repository folder you actually want to change** (e.g., Flask for a Flask request). The name beside the chat send button identifies the active target; opening a different terminal folder does not switch the VS Code workspace.
 5. In the Secondary Side Bar, select **SecureForge**. Type an instruction in the bottom composer; press **Enter** to send or **Shift+Enter** for a line break. The paperclip attaches file context, the stack icon adds symbol context, and Stop cancels an active run. If just one local model is discoverable, the extension selects it; otherwise pick or enter the configured model.
 6. If the task obviously belongs to a different project (such as changing Flask environment variables inside a Node-only workspace), SecureForge stops **before contacting the model**. Click **Recent projects** to open VS Code's existing project history, or **Browse folders** to choose a folder yourself.
@@ -35,6 +35,10 @@ SecureForge's VSIX is a **local beta**, not a generally certified production cod
 8. After applying accepted hunks, **save the files yourself** and choose **Run tests (save files first)** in the chat. Select Node or Python, choose up to 20 eligible test files, and approve the exact command in the confirmation dialog. A passing test receipt is reported in the sidebar; full details remain in **Output → SecureForge Activity**. Nothing runs automatically.
 
 **Never merge or approve generated patches solely because the chat says they are complete.** Review the diff, run relevant tests, and check `git diff --check`.
+
+### Credential screening for generated masking tests
+
+SecureForge's source read/search redactor remains conservative and unchanged. When it evaluates **newly proposed** code, it permits only a small fixed set of deliberately harmless test sentinel values (for example `{"password": "***"}` or `{"api_key": 0}`) instead of treating them as real credentials. Literal password strings, unknown numeric values, and recognized API-token patterns still block proposal staging. This is a narrowly scoped heuristic, not guaranteed secret detection; never put real credentials in prompts, source examples, or test data.
 
 ### Reviewing multiple files safely
 
