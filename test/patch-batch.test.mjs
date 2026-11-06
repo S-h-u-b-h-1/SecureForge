@@ -73,6 +73,53 @@ test('patch batches reject symlinks and recognized credential content', async t 
   }] }), /Credential/);
 });
 
+test('masking-code test placeholders can stage without weakening credential exclusion', async t => {
+  const f = await fixture(t);
+  // A valid security test needs to mention key names and "***" masks.
+  // These are synthetic test placeholders, not credential literals.
+  const sample = [
+    'def config_example():',
+    '    payload = {"password": 0, "api_key": "***", "secret": None}',
+    '    labels = ("SECRET", "PASSWORD", "TOKEN", "KEY")',
+    '    assert "***" in labels or payload["password"] == 0',
+    '',
+  ].join('\n');
+  const edits = [
+    f.edits[0],
+    { ...f.edits[1], replacements: [{ oldText: 'beta', newText: sample }] },
+  ];
+  const batch = await proposePatchBatch({ ...f, edits });
+  assert.equal(batch.fileCount, 2);
+  const proposal = f.proposals.getProposal(batch.proposals[1].id);
+  assert.ok(proposal.proposedContent.includes(sample));
+  assert.equal(await readFile(path.join(f.root, '1.py'), 'utf8'), f.originals[1]);
+  assert.equal((await f.batches.checkBatch(batch.id)).fresh, true);
+
+  const direct = await f.proposals.proposeEdit({
+    path: '1.py', expectedSha256: sha256(f.originals[1]), proposedContent: sample,
+  });
+  assert.equal(f.proposals.getProposal(direct.id).proposedContent, sample);
+});
+
+test('real credential literals are still rejected by all proposal paths', async t => {
+  const f = await fixture(t);
+  for (const value of [
+    '{"password": "actual-secret-value"}',
+    'api_key = "definitely-not-a-placeholder"',
+    '{"password": 123456}',
+    '"sk-' + 'a'.repeat(32) + '"',
+  ]) {
+    const edits = [f.edits[0], {
+      ...f.edits[1], replacements: [{ oldText: 'beta', newText: value }],
+    }];
+    await assert.rejects(proposePatchBatch({ ...f, edits }), /Credential-bearing proposed content excluded/);
+    await assert.rejects(f.proposals.proposeEdit({
+      path: '1.py', expectedSha256: sha256(f.originals[1]), proposedContent: value,
+    }), /Credential-bearing proposed content excluded/);
+  }
+  assert.equal(await readFile(path.join(f.root, '1.py'), 'utf8'), f.originals[1]);
+});
+
 test('cancellation after a source read publishes no batch', async t => {
   const f = await fixture(t);
   const controller = new AbortController();
