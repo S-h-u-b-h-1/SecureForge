@@ -138,6 +138,7 @@ export function registerWorkflows(vscode, context) {
       ) === 'Allow request',
     });
     const run = activeRun;
+    const previousReceipts = receipts.length;
     try {
       const payload = await vscode.window.withProgress({
         location: vscode.ProgressLocation.Notification, title: 'SecureForge Build', cancellable: true,
@@ -147,7 +148,13 @@ export function registerWorkflows(vscode, context) {
         finally { subscription.dispose(); }
       });
       if (!payload.proposals.length) {
-        broadcast({ type: 'noProposal', message: payload.reply || 'The agent completed without proposing an edit. Your files are unchanged.' });
+        const newReceipts = receipts.slice(previousReceipts);
+        const passing = newReceipts.filter(item => item.status === 'passed').length;
+        const verification = passing
+          ? `SecureForge recorded ${passing} passing verification command(s) for this run; inspect their test scope before relying on the result.`
+          : 'SecureForge has no passing test receipt for this run. Any rejected or unsupported test command did not verify the change. Review the Git diff and run targeted tests before concluding the task is complete.';
+        const note = (payload.reply || 'The agent completed without proposing an edit. Your files are unchanged.').slice(0, 2200);
+        broadcast({ type: 'noProposal', message: `${note}\n\n${verification}` });
         return { status: 'no_proposal' };
       }
       const workspace = await new Workspace(selected.uri.fsPath).init();
