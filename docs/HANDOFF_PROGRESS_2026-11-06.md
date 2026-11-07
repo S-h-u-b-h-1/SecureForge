@@ -126,3 +126,8 @@ The entries below record subsequent real-model, installed UI and evidence checks
 - Escaped initial workspace text and tooltip values in the sidebar HTML. This preserves legal metacharacters as text and prevents markup injection. The source audit did not establish a nonce-CSP bypass.
 - Added focused command-selector and private-lab regressions, and extended the sidebar regression for markup-like workspace names. All 23 focused tests passed. Full product regression and exact-head CI follow this checkpoint.
 - Team details, PDF finalization and video are explicitly user-owned. Further recording/authoring work was stopped after that clarification.
+
+## Checkpoint 15 — MCP startup cleanup
+
+- Source review identified a functional cleanup gap when an MCP listener cannot bind its requested port. The initialized workspace is now closed before that startup error escapes.
+- Added a deterministic occupied-port regression. All 12 focused MCP tests passed. This closes the direct-API startup resource leak without changing successful listener ownership.
