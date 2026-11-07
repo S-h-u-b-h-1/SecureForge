@@ -117,3 +117,12 @@ The entries below record subsequent real-model, installed UI and evidence checks
 - Normal installed UI review, Apply and Save completed. Approved verification passed all 67 tests. The independent helpers, CLI and acceptance run passed 102 tests. All four saved hashes match the exported Passport.
 - Installed the upstream documentation dependencies in the disposable project environment. The strict original-source Sphinx baseline passed. A fresh candidate build with -E -b html -W --keep-going also passed, including the new API cross-reference.
 - This closes the documentation follow-up identified in checkpoint 12. The prior three-file candidate retains its recorded documentation limitation. New evidence is in task-b-docs-* files under outputs/live-model/handoff.
+
+## Checkpoint 14 — fresh audit fixes on 7 November
+
+- Corrected CI artifact retention to use the exact version-derived archive already validated by the preceding step. The old workflow verified 0.1.4 but uploaded the tracked historical 0.1.0 installer.
+- Rejected backslash-containing verification arguments before source reads or approval. Workspace readers normalize those separators, while native POSIX runners can select a different literal-backslash filename. Command source hashes and execution selectors now share the supported forward-slash path contract.
+- Moved owned-lab creation out of repository-controlled temporary parents into a fresh private OS temporary directory. Fixture copies are exclusive and partial creation is cleaned on failure. Updated callers and test cleanup.
+- Escaped initial workspace text and tooltip values in the sidebar HTML. This preserves legal metacharacters as text and prevents markup injection. The source audit did not establish a nonce-CSP bypass.
+- Added focused command-selector and private-lab regressions, and extended the sidebar regression for markup-like workspace names. All 23 focused tests passed. Full product regression and exact-head CI follow this checkpoint.
+- Team details, PDF finalization and video are explicitly user-owned. Further recording/authoring work was stopped after that clarification.
