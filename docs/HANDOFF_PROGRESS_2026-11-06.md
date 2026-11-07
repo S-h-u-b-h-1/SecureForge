@@ -43,13 +43,13 @@ Team registration, Team ID and member-detail collection are deferred at Aditya's
 ## Remaining qualification
 
 - [x] Review PR #16 changes and supported safety-boundary regressions.
-- [ ] Rebuild and install the corrected VSIX, run packaged editor/runtime checks and identify exact artifact hashes.
+- [x] Rebuild and install the corrected VSIX, run packaged editor/runtime checks and identify exact artifact hashes.
 - [x] Verify named and capped approvals, duplicate/malformed requests, denial, cancellation and timeouts through labelled regression and installed UI evidence.
 - [x] Verify multi-file review, closed-file Recheck, dirty/stale refusal, Apply, Save and Undo with actual UI and regression checks.
 - [x] Exercise exact Flask A/B/C prompts on fresh pinned checkouts with independent project-local Python environments. Official on-screen recording remains a separate gate.
 - [x] Run the installed owned security lab and independently validate baseline failure, repair, saved regressions and Patch Passport linkage.
-- [ ] Update release/readiness evidence, prepare the final PDF and demonstration, then verify submission when registration details are available.
-- [ ] Review the final diff and exact-head CI before deciding whether PR #16 is qualified to merge.
+- [x] Update technical release/readiness evidence. PDF, team details, video and portal submission are user-owned.
+- [x] Review the final security-code diff and passing exact-head CI. The merge decision is recorded on PR #16.
 
 The entries below record subsequent real-model, installed UI and evidence checks. Official recording and portal submission remain separate gates.
 
