@@ -2,7 +2,7 @@
 
 ## Current qualification
 
-The current PR #16 handoff candidate has 150 passing automated tests, syntax checks, a rebuilt 0.1.4 VSIX and clean-clone setup evidence. Exact-head CI must be checked again before merge. Detailed checkpoint history is in `HANDOFF_PROGRESS_2026-11-06.md`.
+The current PR #16 handoff candidate has 153 passing automated tests, syntax checks, a rebuilt 0.1.4 VSIX and clean-clone setup evidence. Exact-head CI must be checked again before merge. Detailed checkpoint history is in `HANDOFF_PROGRESS_2026-11-06.md`.
 
 | Gate | Observed evidence | Remaining boundary |
 | --- | --- | --- |

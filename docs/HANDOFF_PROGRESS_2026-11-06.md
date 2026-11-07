@@ -131,3 +131,11 @@ The entries below record subsequent real-model, installed UI and evidence checks
 
 - Source review identified a functional cleanup gap when an MCP listener cannot bind its requested port. The initialized workspace is now closed before that startup error escapes.
 - Added a deterministic occupied-port regression. All 12 focused MCP tests passed. This closes the direct-API startup resource leak without changing successful listener ownership.
+
+## Checkpoint 16 — audit and corrected product qualification closed
+
+- Completed the standard source-only audit with 19 owned coverage units, two independent coverage critics and fresh validators for both newly identified baseline candidates. Current-source corrections refuted both original paths. Four prior-run leads and all three deferred source obligations were revalidated.
+- Both findings and coverage-ledger validators passed. Full local audit artifacts are retained in the external run-2 directory, and the public source report records scope, fixes, hardening and assurance limits.
+- Corrected product source passed all 153 automated tests, syntax checks and rebuilt packaging. The installed packaged editor and deterministic runtime checks passed after restarting the stopped local TrueForge service. The failed connection attempt remains labelled as an environment retry.
+- The corrected CI artifact was downloaded and checked to be version 0.1.4. Its bundle matched the corresponding installed checkpoint. Final documentation refresh and exact-head CI precede merge.
+- PDF finalization, team details, the official video and portal submission remain user-owned. No submission-complete claim is made.
