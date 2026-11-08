@@ -4,24 +4,18 @@ import { sha256, redactSecrets } from '../src/workspace.mjs';
 import { applyReviewGroup, undoReviewGroup } from './apply-review.mjs';
 import { recheckReviewEntries } from './review-ui.mjs';
 
-// Native CodeLens controls sit above the affected source line. Nothing is
-// written to an editor buffer until the developer explicitly applies the
-// accepted hunks. The existing hash-checked WorkspaceEdit path is reused.
+// Interactive inlay hints sit at the right end of each affected source line.
+// Apply, Undo and Discard remain native CodeLens actions and in chat.
+// No edits are written until approval. The existing hash-checked WorkspaceEdit
+// path is reused; inlay hint commands never mutate the document directly.
 export function registerInlineReview(vscode, context, { onApplied = () => {}, notify = () => {} } = {}) {
   let active;
   const changed = new vscode.EventEmitter();
+  const hintChanged = new vscode.EventEmitter();
   const highlight = vscode.window.createTextEditorDecorationType({
     isWholeLine: true,
     backgroundColor: new vscode.ThemeColor('diffEditor.insertedTextBackground'),
   });
-  const ghost = vscode.window.createTextEditorDecorationType({
-    after: {
-      color: new vscode.ThemeColor('editorGhostText.foreground'),
-      margin: '0 0 0 12px',
-      fontStyle: 'italic',
-    },
-  });
-
   function fileFor(document) {
     return active?.group.files.find(file => path.resolve(active.workspace.root, file.path) === document.uri.fsPath);
   }
@@ -46,23 +40,6 @@ export function registerInlineReview(vscode, context, { onApplied = () => {}, no
     if (!file) return [];
     const entries = [];
     const canChoose = active.status === 'pending';
-    for (const hunk of file.hunks) {
-      const line = Math.max(0, Math.min(document.lineCount - 1, hunk.startLine - 1));
-      const range = new vscode.Range(line, 0, line, 0);
-      const decision = active.decisions[hunk.id];
-      if (canChoose) {
-        entries.push(new vscode.CodeLens(range, {
-          title: decision === 'accept' ? '$(check) Accepted' : '$(check) Accept',
-          tooltip: 'Approve this hunk; the file is not edited until Apply',
-          command: 'secureforge.inlineReview.accept', arguments: [hunk.id],
-        }));
-        entries.push(new vscode.CodeLens(range, {
-          title: decision === 'reject' ? '$(close) Rejected' : '$(close) Reject',
-          tooltip: 'Exclude this hunk from the eventual edit',
-          command: 'secureforge.inlineReview.reject', arguments: [hunk.id],
-        }));
-      }
-    }
     if (file === active.group.files[0]) {
       const first = file.hunks[0];
       const line = Math.max(0, Math.min(document.lineCount - 1, first.startLine - 1));
@@ -90,35 +67,71 @@ export function registerInlineReview(vscode, context, { onApplied = () => {}, no
     return entries;
   }
 
+  // InlayHintLabelPart.commands are genuine clickable editor controls.
+  // Native VS Code renders them at the end of the affected line, not at a
+  // fixed viewport-right pixel coordinate (which the public API lacks).
+  function inlayHints(document, visibleRange) {
+    const file = fileFor(document);
+    if (!file || !['pending', 'stale', 'blocked'].includes(active.status)) return [];
+    const hints = [];
+    for (const hunk of file.hunks) {
+      const line = Math.max(0, Math.min(document.lineCount - 1, hunk.startLine - 1));
+      const position = new vscode.Position(line, document.lineAt(line).text.length);
+      if (visibleRange?.contains && !visibleRange.contains(position)) continue;
+      const tooltip = safeHover(hunk, document.languageId);
+      const sample = preview(hunk);
+      const short = sample.length > 42 ? sample.slice(0, 39) + '…' : sample;
+      const suggestion = new vscode.InlayHint(position, ' ⇢ ' + short, vscode.InlayHintKind.Type);
+      suggestion.tooltip = tooltip;
+      suggestion.paddingLeft = true;
+      hints.push(suggestion);
+      if (active.status !== 'pending') continue;
+      // These typographic bold labels are cross-theme; colored status icons
+      // distinguish the actions without overriding user theme settings.
+      const decision = active.decisions[hunk.id];
+      for (const [kind, label, symbol] of [
+        ['accept', decision === 'accept' ? '𝗔𝗖𝗖𝗘𝗣𝗧𝗘𝗗' : '𝗔𝗖𝗖𝗘𝗣𝗧', '✅'],
+        ['reject', decision === 'reject' ? '𝗥𝗘𝗝𝗘𝗖𝗧𝗘𝗗' : '𝗥𝗘𝗝𝗘𝗖𝗧', '❌'],
+      ]) {
+        const part = new vscode.InlayHintLabelPart('  ' + symbol + ' ' + label + '  ');
+        part.command = {
+          title: kind === 'accept' ? 'SecureForge: Accept hunk' : 'SecureForge: Reject hunk',
+          command: 'secureforge.inlineReview.' + kind, arguments: [hunk.id],
+        };
+        part.tooltip = kind === 'accept'
+          ? 'Approve this change. No file is edited until Apply accepted.'
+          : 'Reject this change. It will not be applied.';
+        const hint = new vscode.InlayHint(position, [part], kind === 'accept'
+          ? vscode.InlayHintKind.Parameter : vscode.InlayHintKind.Type);
+        hint.paddingLeft = true;
+        hints.push(hint);
+      }
+    }
+    return hints;
+  }
+
   function decorate() {
     for (const editor of vscode.window.visibleTextEditors ?? []) {
       const file = fileFor(editor.document);
       if (!file || !['pending', 'stale', 'blocked'].includes(active.status)) {
         editor.setDecorations(highlight, []);
-        editor.setDecorations(ghost, []);
         continue;
       }
       const rows = [];
-      const hints = [];
       for (const hunk of file.hunks) {
         const line = Math.max(0, Math.min(editor.document.lineCount - 1, hunk.startLine - 1));
         const end = Math.min(editor.document.lineCount - 1,
           line + Math.max(0, hunk.oldText.split('\n').length - 2));
         rows.push(new vscode.Range(line, 0, end, editor.document.lineAt(end).text.length));
-        const right = editor.document.lineAt(line).text.length;
-        hints.push({
-          range: new vscode.Range(line, right, line, right),
-          hoverMessage: safeHover(hunk, editor.document.languageId),
-          renderOptions: { after: { contentText: '  ⇢ ' + preview(hunk) } },
-        });
+
       }
       editor.setDecorations(highlight, rows);
-      editor.setDecorations(ghost, hints);
     }
   }
 
   function publish() {
     changed.fire();
+    hintChanged.fire();
     decorate();
     if (!active) return;
     const items = active.group.files.flatMap(file => file.hunks.map(hunk => ({
@@ -137,6 +150,7 @@ export function registerInlineReview(vscode, context, { onApplied = () => {}, no
     const previous = active;
     active = undefined;
     changed.fire();
+    hintChanged.fire();
     decorate();
     previous?.listener?.dispose();
     if (previous?.workspace) await previous.workspace.close();
@@ -294,7 +308,11 @@ export function registerInlineReview(vscode, context, { onApplied = () => {}, no
     onDidChangeCodeLenses: changed.event,
     provideCodeLenses: lenses,
   });
-  context.subscriptions.push(provider, changed, highlight, ghost);
+  const hintProvider = vscode.languages.registerInlayHintsProvider({ scheme: 'file' }, {
+    onDidChangeInlayHints: hintChanged.event,
+    provideInlayHints: inlayHints,
+  });
+  context.subscriptions.push(provider, hintProvider, changed, hintChanged, highlight);
   const commands = {
     'secureforge.inlineReview.accept': id => action('accept', id),
     'secureforge.inlineReview.reject': id => action('reject', id),
