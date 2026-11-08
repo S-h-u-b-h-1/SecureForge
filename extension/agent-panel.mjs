@@ -18,6 +18,14 @@ export function registerAgentPanel(vscode, context, actions) {
         if (!running) await vscode.commands.executeCommand('secureforge.runVerification');
         return;
       }
+      if (message.type === 'reviewAction') {
+        if (!['accept', 'reject', 'apply', 'undo', 'discard', 'recheck', 'focus'].includes(message.action)) return;
+        try { await actions.reviewAction?.(message.action, message.id); }
+        catch (error) {
+          if (!disposed) panel.webview.postMessage({ type: 'reviewError', message: String(error.message || 'Review action failed').slice(0, 300) });
+        }
+        return;
+      }
       if (message.type === 'openFlaskRoot') {
         // The user must request this action. Validate the expected repository
         // files before opening a folder two levels above the Python package.
@@ -123,6 +131,17 @@ textarea::placeholder{color:var(--vscode-input-placeholderForeground)}
 #technical{margin:9px 0 0;padding:10px 4px 0;border-top:1px solid var(--vscode-panel-border);max-height:180px;overflow:auto}
 #technical summary{cursor:pointer;font-size:11px;color:var(--vscode-descriptionForeground)}
 .change-folder{margin-top:10px;padding:7px 10px;border-radius:7px;background:var(--vscode-button-secondaryBackground);color:var(--vscode-button-secondaryForeground);font-weight:600}
+.inline-review{border:1px solid var(--vscode-panel-border);border-radius:10px;margin:12px 0;padding:10px;background:var(--vscode-editor-background);font-size:12px}
+.inline-review .title{font-weight:650;margin-bottom:4px}
+.inline-review .hint{color:var(--vscode-descriptionForeground);font-size:11px;margin-bottom:7px}
+.inline-review .hunk{padding:7px 0;border-top:1px solid var(--vscode-panel-border)}
+.inline-review .file{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--vscode-editor-font-family);font-size:11px;color:var(--vscode-descriptionForeground)}
+.inline-review .preview{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:3px 0;color:var(--vscode-editorGhostText-foreground,var(--vscode-descriptionForeground))}
+.inline-review .actions{display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin-top:3px}
+.inline-review .small{font-size:11px;padding:3px 8px;border:1px solid var(--vscode-panel-border);border-radius:6px}
+.inline-review .small:hover:not(:disabled){background:var(--vscode-toolbar-hoverBackground)}
+.inline-review .small.selected{border-color:var(--vscode-focusBorder);color:var(--vscode-textLink-foreground)}
+.inline-review .small.primary{background:var(--vscode-button-background);color:var(--vscode-button-foreground);border-color:transparent}
 #technical pre{max-height:125px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;font-size:11px}
 [hidden]{display:none!important}
 @media(max-width:300px){header{padding-left:10px}#thread{padding:12px}#dock{padding:0 7px 9px}.folder{max-width:30%}}
@@ -155,8 +174,46 @@ textarea::placeholder{color:var(--vscode-input-placeholderForeground)}
 <script nonce="${nonce}">
 const vscode=acquireVsCodeApi();
 const task=document.getElementById('task'),thread=document.getElementById('thread'),welcome=document.getElementById('welcome'),run=document.getElementById('run'),cancel=document.getElementById('cancel'),status=document.getElementById('status');
-let busy=false,review=false,hasReply=false;
+let busy=false,review=false,hasReply=false,reviewCard;
 function message(role,value){if(welcome.isConnected)welcome.remove();const box=document.createElement('div');box.className='message '+role;const head=document.createElement('div');head.className='sender';head.textContent=role==='user'?'You':'SecureForge';const body=document.createElement('div');body.textContent=String(value||'').slice(0,4000);box.append(head,body);thread.append(box);thread.scrollTop=thread.scrollHeight;return box;}
+function drawReview(data){
+ if(reviewCard)reviewCard.remove();
+ reviewCard=undefined;
+ if(!Array.isArray(data.hunks)||!data.hunks.length)return;
+ const card=document.createElement('section');card.className='inline-review';
+ const heading=document.createElement('div');heading.className='title';heading.textContent='Review edits · '+data.hunks.length+' hunk(s)';
+ const hint=document.createElement('div');hint.className='hint';
+ hint.textContent=(data.message||'Select Accept or Reject for each change.').slice(0,300);
+ card.append(heading,hint);
+ const post=(action,id)=>vscode.postMessage({type:'reviewAction',action,id});
+ function small(label,action,id,selected=false,primary=false){
+  const button=document.createElement('button');button.className='small'+(selected?' selected':'')+(primary?' primary':'');
+  button.textContent=label;button.onclick=()=>post(action,id);return button;
+ }
+ for(const item of data.hunks.slice(0,200)){
+  const hunk=document.createElement('div');hunk.className='hunk';
+  const file=document.createElement('button');file.className='file';file.textContent=item.path+':'+item.line;file.title='Open location in editor';file.onclick=()=>post('focus',item.id);
+  const snippet=document.createElement('span');snippet.className='preview';snippet.textContent=item.preview||'Change';
+  const actions=document.createElement('div');actions.className='actions';
+  if(data.status==='pending'){
+   actions.append(small('✓ Accept','accept',item.id,item.decision==='accept'),
+     small('✕ Reject','reject',item.id,item.decision==='reject'));
+  }else{
+   const state=document.createElement('span');state.className='hint';
+   state.textContent=item.decision==='accept'?'Accepted':item.decision==='reject'?'Rejected':data.status;
+   actions.append(state);
+  }
+  hunk.append(file,snippet,actions);card.append(hunk);
+ }
+ const foot=document.createElement('div');foot.className='actions';
+ if(data.status==='pending'){
+  const complete=data.decided===data.hunks.length;
+  const apply=small('Apply accepted','apply',undefined,false,true);apply.disabled=!complete;
+  foot.append(apply,small('Discard','discard'));
+ }else if(data.status==='applied'){foot.append(small('↶ Undo approved edit','undo',undefined,false,true));}
+ else if(data.status==='stale'||data.status==='blocked'){foot.append(small('Recheck unchanged','recheck'));}
+ card.append(foot);thread.append(card);thread.scrollTop=thread.scrollHeight;reviewCard=card;
+}
 function submit(){const text=task.value.trim();if(!text||busy)return;review=false;hasReply=false;message('user',text);task.value='';status.textContent='Reading your project…';vscode.postMessage({type:'run',task:text});}
 run.onclick=submit;
 task.onkeydown=event=>{if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();submit();}};
@@ -170,7 +227,9 @@ window.addEventListener('message',event=>{const data=event.data;if(!data||typeof
    if(busy){status.textContent='Working on your code…';}
    else{if(review)status.textContent='Review changes in the editor';else if(!hasReply){status.textContent=data.message;message('agent',data.message);hasReply=true;}}
  }
- if(data.type==='reviewReady'){review=true;hasReply=true;const count=Number.isInteger(data.fileCount)?data.fileCount:0;const note=typeof data.message==='string'&&data.message.trim()?data.message.trim().slice(0,3000):'Review the proposed edits in the editor before applying them.';message('agent','Proposed changes in '+count+' file(s). Nothing has been applied.\\n\\n'+note);status.textContent='Review changes in the editor';}
+ if(data.type==='inlineReviewState'){drawReview(data);}
+  if(data.type==='reviewError'){message('agent',String(data.message||'Review action failed').slice(0,300));}
+  if(data.type==='reviewReady'){review=true;hasReply=true;const count=Number.isInteger(data.fileCount)?data.fileCount:0;const note=typeof data.message==='string'&&data.message.trim()?data.message.trim().slice(0,3000):'Review the proposed edits in the editor before applying them.';message('agent','Proposed changes in '+count+' file(s). Nothing has been applied.\\n\\n'+note);status.textContent='Review changes in the editor';}
  if(data.type==='workspaceMismatch'){
    hasReply=true;
    const box=message('agent',String(data.message||'This task belongs to another project.').slice(0,1200));
