@@ -138,7 +138,11 @@ textarea::placeholder{color:var(--vscode-input-placeholderForeground)}
 .inline-review .file{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--vscode-editor-font-family);font-size:11px;color:var(--vscode-descriptionForeground)}
 .inline-review .preview{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:3px 0;color:var(--vscode-editorGhostText-foreground,var(--vscode-descriptionForeground))}
 .inline-review .actions{display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin-top:3px}
-.inline-review .small{font-size:11px;padding:3px 8px;border:1px solid var(--vscode-panel-border);border-radius:6px}
+.inline-review .small{font-size:13px;font-weight:750;line-height:1.35;min-height:28px;padding:4px 9px;border:1px solid var(--vscode-panel-border);border-radius:7px}
+.inline-review .small.accept{color:var(--vscode-testing-iconPassed,#36b878);border-color:currentColor}
+.inline-review .small.reject{color:var(--vscode-testing-iconFailed,#f06565);border-color:currentColor}
+.inline-review .small.accept.selected{background:var(--vscode-testing-iconPassed,#267a51);color:var(--vscode-editor-background)}
+.inline-review .small.reject.selected{background:var(--vscode-testing-iconFailed,#a83d43);color:var(--vscode-editor-background)}
 .inline-review .small:hover:not(:disabled){background:var(--vscode-toolbar-hoverBackground)}
 .inline-review .small.selected{border-color:var(--vscode-focusBorder);color:var(--vscode-textLink-foreground)}
 .inline-review .small.primary{background:var(--vscode-button-background);color:var(--vscode-button-foreground);border-color:transparent}
@@ -187,7 +191,8 @@ function drawReview(data){
  card.append(heading,hint);
  const post=(action,id)=>vscode.postMessage({type:'reviewAction',action,id});
  function small(label,action,id,selected=false,primary=false){
-  const button=document.createElement('button');button.className='small'+(selected?' selected':'')+(primary?' primary':'');
+  const button=document.createElement('button');button.className='small'+(selected?' selected':'')+(primary?' primary':'')+
+    (action==='accept'||action==='reject'?' '+action:'');
   button.textContent=label;button.onclick=()=>post(action,id);return button;
  }
  for(const item of data.hunks.slice(0,200)){
