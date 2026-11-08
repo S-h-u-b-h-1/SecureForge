@@ -142,6 +142,24 @@ export function registerInlineReview(vscode, context, { onApplied = () => {}, no
     if (previous?.workspace) await previous.workspace.close();
   }
 
+  // Keep the developer's existing editor group intact. VS Code can display
+  // the same TextDocument in several editor groups; showTextDocument with
+  // ViewColumn.Active would create an unnecessary second view.
+  function visibleEditor(document) {
+    return (vscode.window.visibleTextEditors ?? []).find(editor =>
+      editor.document === document ||
+      (editor.document?.uri?.toString?.() && document.uri?.toString?.() &&
+        editor.document.uri.toString() === document.uri.toString()));
+  }
+
+  async function showSource(document) {
+    const existing = visibleEditor(document);
+    if (existing) return existing;
+    return vscode.window.showTextDocument(document, {
+      viewColumn: vscode.ViewColumn.Active, preview: false, preserveFocus: false,
+    });
+  }
+
   async function open(workspace, payload, reviewCallback = onApplied) {
     if (active && ['pending', 'stale', 'blocked', 'checking', 'applying', 'undoing'].includes(active.status)) {
       throw new Error('Finish or discard the existing inline review before starting another.');
@@ -172,9 +190,7 @@ export function registerInlineReview(vscode, context, { onApplied = () => {}, no
       }
     });
     const first = entries.find(entry => entry.document === vscode.window.activeTextEditor?.document) || entries[0];
-    await vscode.window.showTextDocument(first.document, {
-      viewColumn: vscode.ViewColumn.Active, preview: false, preserveFocus: false,
-    });
+    await showSource(first.document);
     publish();
     return group;
   }
@@ -187,7 +203,7 @@ export function registerInlineReview(vscode, context, { onApplied = () => {}, no
       const entry = session.entries.find(e => e.review === item);
       if (!entry) throw new Error('Unknown review hunk');
       const hunk = item.hunks.find(h => h.id === hunkId);
-      const editor = await vscode.window.showTextDocument(entry.document, { preview: false });
+      const editor = await showSource(entry.document);
       const line = Math.max(0, Math.min(editor.document.lineCount - 1, hunk.startLine - 1));
       editor.revealRange(new vscode.Range(line, 0, line, 0), vscode.TextEditorRevealType.InCenterIfOutsideViewport);
       return;
