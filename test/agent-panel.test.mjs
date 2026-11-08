@@ -138,7 +138,7 @@ test('sidebar defaults to the right, and minimal composer dispatches tasks safel
   const hunk = card.children[2];
   assert.equal(hunk.children[0].textContent, 'src/sample.py:12');
   hunk.children[2].children[0].onclick();
-  assert.deepEqual(posted.at(-1), { type: 'reviewAction', action: 'accept', id: 'p:h1' });
+  assert.deepEqual(JSON.parse(JSON.stringify(posted.at(-1))), { type: 'reviewAction', action: 'accept', id: 'p:h1' });
   listeners.message({ data: { type: 'status', message: 'Done', running: false } });
   assert.equal(element('run').disabled, false);
   assert.match(element('status').textContent, /Review changes/);
