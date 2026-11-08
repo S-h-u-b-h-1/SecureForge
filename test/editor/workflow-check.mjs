@@ -50,8 +50,8 @@ export async function verifyBuildWorkflow({ root, model }) {
       createTextEditorDecorationType: () => ({ dispose() {} }),
       onDidChangeVisibleTextEditors: disposable,
       createOutputChannel: () => ({ clear() {}, appendLine() {}, show() {}, dispose() {} }),
-      // Native SecureForge is now a WebviewView; the review itself remains a
-      // separate WebviewPanel. Exercise both registrations in this fixture.
+      // Native SecureForge uses a sidebar WebviewView for prompts; review is
+      // rendered by CodeLens in the source editor without a review tab.
       registerWebviewViewProvider: (id, provider, options) => {
         assert.equal(id, 'secureforge.agentSidebar');
         assert.ok(provider.resolveWebviewView);
