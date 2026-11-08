@@ -363,7 +363,8 @@ export function registerWorkflows(vscode, context) {
       }
     }));
   }
-  const state = { folder, receipts, applied, securityReports, proofs, output, runCheck, recordReview, subscribe };
+  const state = { folder, receipts, applied, securityReports, proofs, output, runCheck, recordReview, subscribe,
+    openInlineReview: (workspace, payload, callback) => getInlineReview().open(workspace, payload, callback) };
   registerSecurityCommands(vscode, context, state);
   registerAgentPanel(vscode, context, { run: guardedBuild, cancel: () => { buildController?.abort(); return activeRun?.cancel(); }, attachFile, attachSymbol,
     subscribe, reviewAction: (action, id) => {
