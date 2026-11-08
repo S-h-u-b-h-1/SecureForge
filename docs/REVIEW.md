@@ -1,5 +1,31 @@
 # Hunk review milestone
 
+## Inline editor review (default for Live Build)
+
+The SecureForge sidebar accepts natural-language prompts. For a selection-specific
+request, select code and run **SecureForge: Inline Edit Selection** (Cmd+Option+I on macOS).
+Live Build and Inline Edit now open the **existing source file** in the normal VS Code
+editor rather than a second review webview. Suggested hunks are highlighted with
+subtle ghost previews, with compact native CodeLens **Accept** and **Reject** actions
+above the affected lines. Hover for original/proposed content. Selecting a hunk
+does not edit the document; choose a decision for every hunk, then click
+**Apply accepted** in the editor or in SecureForge chat.
+
+The chat sidebar also shows each hunk's location, a short preview, and matching
+Accept / Reject / Apply / Undo controls. Clicking a file location focuses the
+source editor. The old **Review Proposal JSON** and **Open Two-Hunk Review Demo**
+commands remain as compatibility-oriented classic review paths; model-driven
+review uses the editor-native flow.
+
+Both surfaces share the same in-memory review decisions and the established
+hash-validated, multi-file WorkspaceEdit transaction. The extension refuses
+stale or dirty source buffers, does not modify disk until Save, and records
+approval receipts for the Patch Passport. **Undo approved edit** is available
+only while the editor and disk remain consistent with the applied receipt.
+When external edits or Save/Restore interfere, use native Undo or inspect Git
+rather than forcing a stale restore. The editor-native review never launches
+the classic review tab automatically.
+
 This local editor milestone consumes the existing pending v1 `get_proposal` payload, including `originalContent` and `proposedContent`. It derives line-level hunks without modifying the shared agent or MCP contracts.
 
 ## Run in VS Code
