@@ -7,7 +7,7 @@ import { Workspace } from '../src/workspace.mjs';
 import { ProposalStore } from '../src/proposals.mjs';
 import { registerInlineReview } from '../extension/inline-review.mjs';
 
-async function harness(t, proposed = 'HELLO\nkeep\nBYE\n') {
+async function harness(t, proposed = 'HELLO\nkeep\nBYE\n', { sourceVisible = true, otherActive = false } = {}) {
   const root = await mkdtemp(path.join(os.tmpdir(), 'sf-inline-review-'));
   t.after(() => rm(root, { recursive: true, force: true }));
   const workspace = await new Workspace(root).init();
@@ -60,7 +60,10 @@ async function harness(t, proposed = 'HELLO\nkeep\nBYE\n') {
     constructor() { this.edits = []; }
     replace(uri, range, newText) { this.edits.push({ uri, range, newText }); }
   }
-  const editor = { document, setDecorations() {}, revealRange() {} };
+  const editor = { document, viewColumn: 1, setDecorations() {}, revealRange() {} };
+  const otherEditor = { document: { uri: { fsPath: path.join(workspace.root, 'other.py') } },
+    viewColumn: 2, setDecorations() {}, revealRange() {} };
+  let showCalls = 0;
   const vscode = {
     EventEmitter, Range, CodeLens, ThemeColor, MarkdownString, WorkspaceEdit,
     TextEditorRevealType: { InCenterIfOutsideViewport: 1 },
@@ -86,10 +89,16 @@ async function harness(t, proposed = 'HELLO\nkeep\nBYE\n') {
       },
     },
     window: {
-      visibleTextEditors: [editor], activeTextEditor: editor,
+      visibleTextEditors: sourceVisible ? (otherActive ? [editor, otherEditor] : [editor]) : [],
+      activeTextEditor: otherActive ? otherEditor : sourceVisible ? editor : undefined,
       createTextEditorDecorationType: () => ({ dispose() {} }),
       onDidChangeVisibleTextEditors: () => disposable(),
-      showTextDocument: async () => editor,
+      showTextDocument: async () => {
+        showCalls++;
+        vscode.window.visibleTextEditors = [editor];
+        vscode.window.activeTextEditor = editor;
+        return editor;
+      },
       showWarningMessage: message => notice.push(message),
     },
   };
@@ -102,6 +111,7 @@ async function harness(t, proposed = 'HELLO\nkeep\nBYE\n') {
   await controller.open(workspace, payload);
   return {
     root, file, original, document, controller, provider, handlers, events, notice,
+    showCalls: () => showCalls,
     text: () => docText, get hunks() { return payload.proposals?.[0]?.hunks; },
   };
 }
@@ -146,4 +156,18 @@ test('unknown hunk IDs and unapproved apply are refused', async t => {
   await assert.rejects(fixture.controller.action('accept', 'not-a-hunk'), /Unknown review hunk/);
   await assert.rejects(fixture.controller.action('apply'), /Accept or reject every hunk/);
   assert.equal(fixture.text(), fixture.original);
+});
+
+test('reuses an already visible source instead of opening it in another editor group', async t => {
+  const fixture = await harness(t, 'HELLO\nkeep\nBYE\n', { otherActive: true });
+  assert.equal(fixture.showCalls(), 0, 'Review must not open a second source tab');
+  const state = fixture.events.find(event => event.type === 'inlineReviewState');
+  await fixture.controller.action('focus', state.hunks[0].id);
+  assert.equal(fixture.showCalls(), 0, 'Chat navigation must reuse the visible editor');
+  assert.equal(await readFile(fixture.file, 'utf8'), fixture.original);
+});
+
+test('opens a source file once when it is not already visible', async t => {
+  const fixture = await harness(t, 'HELLO\nkeep\nBYE\n', { sourceVisible: false });
+  assert.equal(fixture.showCalls(), 1);
 });
