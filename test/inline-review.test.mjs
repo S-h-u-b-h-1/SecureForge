@@ -25,6 +25,7 @@ async function harness(t, proposed = 'HELLO\nkeep\nBYE\n', { sourceVisible = tru
   const events = [];
   const notice = [];
   let provider;
+  let hintsProvider;
   let changedHandler;
   let docText = original;
   const disposable = () => ({ dispose() {} });
@@ -52,6 +53,11 @@ async function harness(t, proposed = 'HELLO\nkeep\nBYE\n', { sourceVisible = tru
   }
   class CodeLens { constructor(range, command) { this.range = range; this.command = command; } }
   class ThemeColor { constructor(name) { this.name = name; } }
+  class Position { constructor(line, character) { this.line = line; this.character = character; } }
+  class InlayHint { constructor(position, label, kind) {
+    this.position = position; this.label = label; this.kind = kind;
+  } }
+  class InlayHintLabelPart { constructor(value) { this.value = value; } }
   class MarkdownString {
     appendMarkdown() { return this; }
     appendCodeblock() { return this; }
@@ -66,6 +72,7 @@ async function harness(t, proposed = 'HELLO\nkeep\nBYE\n', { sourceVisible = tru
   let showCalls = 0;
   const vscode = {
     EventEmitter, Range, CodeLens, ThemeColor, MarkdownString, WorkspaceEdit,
+    Position, InlayHint, InlayHintLabelPart, InlayHintKind: { Type: 1, Parameter: 2 },
     TextEditorRevealType: { InCenterIfOutsideViewport: 1 },
     ViewColumn: { Active: 1 }, Uri: { file: fsPath => ({ scheme: 'file', fsPath }) },
     commands: {
@@ -73,6 +80,7 @@ async function harness(t, proposed = 'HELLO\nkeep\nBYE\n', { sourceVisible = tru
     },
     languages: {
       registerCodeLensProvider: (_selector, value) => { provider = value; return disposable(); },
+      registerInlayHintsProvider: (_selector, value) => { hintsProvider = value; return disposable(); },
     },
     workspace: {
       isTrusted: true, openTextDocument: async () => document,
@@ -110,7 +118,7 @@ async function harness(t, proposed = 'HELLO\nkeep\nBYE\n', { sourceVisible = tru
   t.after(() => controller.dispose());
   await controller.open(workspace, payload);
   return {
-    root, file, original, document, controller, provider, handlers, events, notice,
+    root, file, original, document, controller, provider, hintsProvider, handlers, events, notice,
     showCalls: () => showCalls,
     text: () => docText, get hunks() { return payload.proposals?.[0]?.hunks; },
   };
@@ -118,10 +126,18 @@ async function harness(t, proposed = 'HELLO\nkeep\nBYE\n', { sourceVisible = tru
 
 test('native CodeLens review accepts one hunk and rejects another without a separate panel', async t => {
   const fixture = await harness(t);
-  const { controller, provider, document, events, original, file } = fixture;
-  const lenses = provider.provideCodeLenses(document);
-  assert.ok(lenses.some(item => item.command.command === 'secureforge.inlineReview.accept'));
-  assert.ok(lenses.some(item => item.command.command === 'secureforge.inlineReview.reject'));
+  const { controller, provider, hintsProvider, document, events, original, file } = fixture;
+  const initialHints = hintsProvider.provideInlayHints(document);
+  const controls = initialHints.flatMap(hint => Array.isArray(hint.label) ? hint.label : []);
+  assert.ok(controls.some(part => part.command?.command === 'secureforge.inlineReview.accept'));
+  assert.ok(controls.some(part => part.command?.command === 'secureforge.inlineReview.reject'));
+  assert.ok(controls.every(part => part.value.includes('𝗘') || part.value.includes('𝗖') ||
+    part.value.includes('𝗝')));
+  assert.equal(provider.provideCodeLenses(document).some(item =>
+    item.command.command === 'secureforge.inlineReview.accept'), false,
+    'The former small, left-aligned per-hunk CodeLens controls must be removed');
+  assert.ok(initialHints.every(hint => hint.position.character ===
+    document.lineAt(hint.position.line).text.length), 'Controls stay at the right end of the source line');
   assert.equal(await readFile(file, 'utf8'), original, 'Staging must not edit source');
   const state = events.find(item => item.type === 'inlineReviewState' && item.status === 'pending');
   assert.equal(state.hunks.length, 2);
@@ -170,4 +186,20 @@ test('reuses an already visible source instead of opening it in another editor g
 test('opens a source file once when it is not already visible', async t => {
   const fixture = await harness(t, 'HELLO\nkeep\nBYE\n', { sourceVisible: false });
   assert.equal(fixture.showCalls(), 1);
+});
+
+test('line-end hint controls stay clickable and refresh when a hunk is accepted', async t => {
+  const fixture = await harness(t);
+  const before = fixture.hintsProvider.provideInlayHints(fixture.document);
+  const accepts = before.flatMap(h => Array.isArray(h.label) ? h.label : []).filter(
+    p => p.command?.command === 'secureforge.inlineReview.accept');
+  assert.equal(accepts.length, 2);
+  assert.equal(accepts[0].command.arguments.length, 1);
+  assert.match(accepts[0].value, /𝗔𝗖𝗖𝗘𝗣𝗧/);
+  assert.match(before.find(h => typeof h.label === 'string').label, /⇢/);
+  await fixture.handlers.get('secureforge.inlineReview.accept')(accepts[0].command.arguments[0]);
+  const after = fixture.hintsProvider.provideInlayHints(fixture.document);
+  assert.ok(after.flatMap(h => Array.isArray(h.label) ? h.label : []).some(
+    p => p.command?.command === 'secureforge.inlineReview.accept' && /𝗔𝗖𝗖𝗘𝗣𝗧𝗘𝗗/.test(p.value)));
+  assert.equal(fixture.text(), fixture.original);
 });
