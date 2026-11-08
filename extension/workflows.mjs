@@ -83,8 +83,16 @@ export function registerWorkflows(vscode, context) {
     }
   }
 
-  const inlineReview = registerInlineReview(vscode, context, { onApplied: recordReview, notify: broadcast });
-  context.subscriptions.push({ dispose: () => { void inlineReview.dispose(); } });
+  // Register editor surfaces only when a proposal exists. This keeps context
+  // previews and verification commands independent of open editor state.
+  let inlineReview;
+  function getInlineReview() {
+    if (!inlineReview) {
+      inlineReview = registerInlineReview(vscode, context, { onApplied: recordReview, notify: broadcast });
+      context.subscriptions.push({ dispose: () => { void inlineReview.dispose(); } });
+    }
+    return inlineReview;
+  }
 
   async function build(initialTask, inline = false) {
     if (!vscode.workspace.isTrusted) throw new Error('A trusted local workspace is required');
@@ -201,11 +209,12 @@ export function registerWorkflows(vscode, context) {
       }
       const workspace = await new Workspace(selected.uri.fsPath).init();
       try {
-        await inlineReview.open(workspace, payload, record => {
+        const review = getInlineReview();
+        await review.open(workspace, payload, record => {
           recordReview({ ...record, sessionId: payload.sessionId });
         });
         broadcast({ type: 'reviewReady', fileCount: payload.proposals.length, message: payload.reply || '' });
-        inlineReview.publish();
+        review.publish();
       } catch (error) { await workspace.close(); throw error; }
       return { status: 'review' };
     } finally {
@@ -357,6 +366,9 @@ export function registerWorkflows(vscode, context) {
   const state = { folder, receipts, applied, securityReports, proofs, output, runCheck, recordReview, subscribe };
   registerSecurityCommands(vscode, context, state);
   registerAgentPanel(vscode, context, { run: guardedBuild, cancel: () => { buildController?.abort(); return activeRun?.cancel(); }, attachFile, attachSymbol,
-    subscribe, reviewAction: (action, id) => inlineReview.action(action, id) });
+    subscribe, reviewAction: (action, id) => {
+      if (!inlineReview) throw new Error('No inline review is active');
+      return inlineReview.action(action, id);
+    } });
   return state;
 }
