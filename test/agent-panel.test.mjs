@@ -33,10 +33,12 @@ test('agent panel emits valid script, bounds tasks and surfaces run failures', a
   };
   let runs = 0;
   let cancels = 0;
+  const reviewActions = [];
   registerAgentPanel(vscode, { subscriptions: [] }, {
     subscribe: () => ({ dispose() {} }),
     run: async () => { runs++; throw new Error('Model unavailable'); },
     cancel: async () => { cancels++; },
+    reviewAction: async (kind, id) => { reviewActions.push({ kind, id }); },
   });
   await open();
   assert.deepEqual(commands, ['secureforge.agentSidebar.focus']);
@@ -61,6 +63,10 @@ test('agent panel emits valid script, bounds tasks and surfaces run failures', a
   await receive({ type: 'run', task: 'Update docstring' });
   assert.equal(runs, 1);
   assert.match(messages.at(-1).message, /Model unavailable/);
+  await receive({ type: 'reviewAction', action: 'accept', id: 'sample:h1' });
+  assert.deepEqual(reviewActions, [{ kind: 'accept', id: 'sample:h1' }]);
+  await receive({ type: 'reviewAction', action: 'not-allowed', id: 'sample:h1' });
+  assert.equal(reviewActions.length, 1, 'Unknown review actions must be ignored');
   await receive({ type: 'cancel' });
   assert.equal(cancels, 1);
   await receive({ type: 'verify' });
@@ -123,6 +129,16 @@ test('sidebar defaults to the right, and minimal composer dispatches tasks safel
   assert.equal(element('run').disabled, true);
   assert.equal(element('cancel').hidden, false);
   listeners.message({ data: { type: 'reviewReady', fileCount: 2 } });
+  listeners.message({ data: { type: 'inlineReviewState', status: 'pending',
+    message: 'Review in the editor', decided: 0, hunks: [
+      { id: 'p:h1', path: 'src/sample.py', line: 12, preview: 'new code', decision: null },
+    ] } });
+  const card = element('thread').children.at(-1);
+  assert.match(card.children[0].textContent, /Review edits/);
+  const hunk = card.children[2];
+  assert.equal(hunk.children[0].textContent, 'src/sample.py:12');
+  hunk.children[2].children[0].onclick();
+  assert.deepEqual(posted.at(-1), { type: 'reviewAction', action: 'accept', id: 'p:h1' });
   listeners.message({ data: { type: 'status', message: 'Done', running: false } });
   assert.equal(element('run').disabled, false);
   assert.match(element('status').textContent, /Review changes/);
