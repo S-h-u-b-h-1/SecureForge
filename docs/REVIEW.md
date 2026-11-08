@@ -5,10 +5,21 @@
 The SecureForge sidebar accepts natural-language prompts. For a selection-specific
 request, select code and run **SecureForge: Inline Edit Selection** (Cmd+Option+I on macOS).
 Live Build and Inline Edit now open the **existing source file** in the normal VS Code
-editor rather than a second review webview. Suggested hunks are highlighted with
-subtle ghost previews, with clickable native **inlay-hint Accept / Reject controls at the right end of each affected source line**. Labels use bold characters and green/red icons for visibility, while Apply / Discard / Recheck / guarded Undo remain CodeLens actions above the first change. Hover for original/proposed content. Inlay hints are governed by the user’s VS Code settings and theme; the public VS Code API cannot pin interactive labels to the viewport’s extreme right or assign a unique pixel font size to an extension’s hints. Set `editor.inlayHints.fontSize` to `15` in VS Code Settings if you want larger labels (this setting affects all inlay hints). Selecting a hunk
-does not edit the document; choose a decision for every hunk, then click
-**Apply accepted** in the editor or in SecureForge chat.
+editor rather than a second review webview. Suggested hunks are highlighted,
+with one compact clickable hint displaying **✅ Accept | ❌ Reject** at the end of
+each affected line. Both actions are separately clickable label parts. The
+full old/new code preview is available by hovering over either action or from
+the SecureForge chat sidebar; it is intentionally not appended beside the
+buttons because VS Code truncates overly long groups of inlay hints. Once
+selected, a decision changes to **✅ Accepted** or **❌ Rejected**.
+
+Apply / Discard / Recheck / guarded Undo remain CodeLens actions above the first
+change. Inlay hints inherit the user's VS Code theme and settings; the public
+API cannot pin controls to the viewport's extreme right or assign separate
+font size / bold styling to one extension's hints. For larger controls, set
+`editor.inlayHints.fontSize` to `15` (affects all hints). Choosing Accept
+or Reject does not edit the document; click **Apply accepted** in the editor
+or in SecureForge chat after deciding every hunk.
 
 The chat sidebar also shows each hunk's location, a short preview, and matching
 Accept / Reject / Apply / Undo controls. Clicking a file location focuses the
