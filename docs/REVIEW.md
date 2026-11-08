@@ -6,8 +6,7 @@ The SecureForge sidebar accepts natural-language prompts. For a selection-specif
 request, select code and run **SecureForge: Inline Edit Selection** (Cmd+Option+I on macOS).
 Live Build and Inline Edit now open the **existing source file** in the normal VS Code
 editor rather than a second review webview. Suggested hunks are highlighted with
-subtle ghost previews, with compact native CodeLens **Accept** and **Reject** actions
-above the affected lines. Hover for original/proposed content. Selecting a hunk
+subtle ghost previews, with clickable native **inlay-hint Accept / Reject controls at the right end of each affected source line**. Labels use bold characters and green/red icons for visibility, while Apply / Discard / Recheck / guarded Undo remain CodeLens actions above the first change. Hover for original/proposed content. Inlay hints are governed by the user’s VS Code settings and theme; the public VS Code API cannot pin interactive labels to the viewport’s extreme right or assign a unique pixel font size to an extension’s hints. Set `editor.inlayHints.fontSize` to `15` in VS Code Settings if you want larger labels (this setting affects all inlay hints). Selecting a hunk
 does not edit the document; choose a decision for every hunk, then click
 **Apply accepted** in the editor or in SecureForge chat.
 
