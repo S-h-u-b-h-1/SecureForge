@@ -131,8 +131,18 @@ test('native CodeLens review accepts one hunk and rejects another without a sepa
   const controls = initialHints.flatMap(hint => Array.isArray(hint.label) ? hint.label : []);
   assert.ok(controls.some(part => part.command?.command === 'secureforge.inlineReview.accept'));
   assert.ok(controls.some(part => part.command?.command === 'secureforge.inlineReview.reject'));
-  assert.ok(controls.every(part => part.value.includes('𝗘') || part.value.includes('𝗖') ||
-    part.value.includes('𝗝')));
+  assert.equal(initialHints.length, 2, 'Each changed line gets exactly one inlay hint');
+  for (const hint of initialHints) {
+    assert.equal(hint.label.map(part => part.value).join(''), '✅ Accept | ❌ Reject');
+    assert.ok(hint.label.map(part => part.value).join('').length < 43,
+      'The complete label fits VS Code\'s default per-line inlay limit');
+    assert.equal(hint.label[0].command.command, 'secureforge.inlineReview.accept');
+    assert.equal(hint.label[1].value, ' | ');
+    assert.equal(hint.label[1].command, undefined);
+    assert.equal(hint.label[2].command.command, 'secureforge.inlineReview.reject');
+    assert.ok(hint.label[0].tooltip && hint.label[2].tooltip,
+      'The complete code preview remains accessible on hover');
+  }
   assert.equal(provider.provideCodeLenses(document).some(item =>
     item.command.command === 'secureforge.inlineReview.accept'), false,
     'The former small, left-aligned per-hunk CodeLens controls must be removed');
@@ -195,11 +205,15 @@ test('line-end hint controls stay clickable and refresh when a hunk is accepted'
     p => p.command?.command === 'secureforge.inlineReview.accept');
   assert.equal(accepts.length, 2);
   assert.equal(accepts[0].command.arguments.length, 1);
-  assert.match(accepts[0].value, /𝗔𝗖𝗖𝗘𝗣𝗧/);
-  assert.match(before.find(h => typeof h.label === 'string').label, /⇢/);
+  assert.equal(accepts[0].value, '✅ Accept');
+  assert.ok(before.every(hint => Array.isArray(hint.label)),
+    'Do not add a long inline preview that clips the following buttons');
   await fixture.handlers.get('secureforge.inlineReview.accept')(accepts[0].command.arguments[0]);
   const after = fixture.hintsProvider.provideInlayHints(fixture.document);
   assert.ok(after.flatMap(h => Array.isArray(h.label) ? h.label : []).some(
-    p => p.command?.command === 'secureforge.inlineReview.accept' && /𝗔𝗖𝗖𝗘𝗣𝗧𝗘𝗗/.test(p.value)));
+    p => p.command?.command === 'secureforge.inlineReview.accept' && p.value === '✅ Accepted'));
+  assert.ok(after.every(hint =>
+    hint.label.map(part => part.value).join('').includes(' | ❌ Reject')),
+    'Reject remains visible and clickable after accepting another hunk');
   assert.equal(fixture.text(), fixture.original);
 });
