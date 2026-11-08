@@ -13,9 +13,10 @@ does not edit the document; choose a decision for every hunk, then click
 
 The chat sidebar also shows each hunk's location, a short preview, and matching
 Accept / Reject / Apply / Undo controls. Clicking a file location focuses the
-source editor. The old **Review Proposal JSON** and **Open Two-Hunk Review Demo**
-commands remain as compatibility-oriented classic review paths; model-driven
-review uses the editor-native flow.
+source editor. **Review Proposal JSON** and **Open Two-Hunk Review Demo** also open editor-native
+reviews through the same controller. The previous standalone review-webview
+implementation remains available as an internal compatibility API and is no
+longer the default UI.
 
 Both surfaces share the same in-memory review decisions and the established
 hash-validated, multi-file WorkspaceEdit transaction. The extension refuses
