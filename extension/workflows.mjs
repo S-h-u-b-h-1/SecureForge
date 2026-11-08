@@ -2,7 +2,7 @@ import { Workspace, redactSecrets } from '../src/workspace.mjs';
 import { createTrueForgeClient, resolveTrueForgeModel } from '../src/agent.mjs';
 import { LiveRun, localTrueForgeUrl } from '../src/live-run.mjs';
 import { runApprovedCommand } from '../src/commands.mjs';
-import { openReviewPayload } from './review-ui.mjs';
+import { registerInlineReview } from './inline-review.mjs';
 import { createPassport } from '../src/passport.mjs';
 import { registerSecurityCommands } from './security-ui.mjs';
 import path from 'node:path';
@@ -82,6 +82,9 @@ export function registerWorkflows(vscode, context) {
       broadcast({ type: 'reviewResult', status, accepted: record.result?.accepted ?? 0 });
     }
   }
+
+  const inlineReview = registerInlineReview(vscode, context, { onApplied: recordReview, notify: broadcast });
+  context.subscriptions.push({ dispose: () => { void inlineReview.dispose(); } });
 
   async function build(initialTask, inline = false) {
     if (!vscode.workspace.isTrusted) throw new Error('A trusted local workspace is required');
@@ -198,10 +201,11 @@ export function registerWorkflows(vscode, context) {
       }
       const workspace = await new Workspace(selected.uri.fsPath).init();
       try {
-        await openReviewPayload(vscode, context, workspace, payload, record => {
+        await inlineReview.open(workspace, payload, record => {
           recordReview({ ...record, sessionId: payload.sessionId });
         });
         broadcast({ type: 'reviewReady', fileCount: payload.proposals.length, message: payload.reply || '' });
+        inlineReview.publish();
       } catch (error) { await workspace.close(); throw error; }
       return { status: 'review' };
     } finally {
@@ -353,6 +357,6 @@ export function registerWorkflows(vscode, context) {
   const state = { folder, receipts, applied, securityReports, proofs, output, runCheck, recordReview, subscribe };
   registerSecurityCommands(vscode, context, state);
   registerAgentPanel(vscode, context, { run: guardedBuild, cancel: () => { buildController?.abort(); return activeRun?.cancel(); }, attachFile, attachSymbol,
-    subscribe });
+    subscribe, reviewAction: (action, id) => inlineReview.action(action, id) });
   return state;
 }
