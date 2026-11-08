@@ -59,8 +59,9 @@ async function harness(t, proposed = 'HELLO\nkeep\nBYE\n', { sourceVisible = tru
   } }
   class InlayHintLabelPart { constructor(value) { this.value = value; } }
   class MarkdownString {
-    appendMarkdown() { return this; }
-    appendCodeblock() { return this; }
+    constructor() { this.text = ''; }
+    appendMarkdown(text) { this.text += text; return this; }
+    appendCodeblock(text) { this.text += '\n' + text + '\n'; return this; }
   }
   class WorkspaceEdit {
     constructor() { this.edits = []; }
@@ -142,10 +143,22 @@ test('native CodeLens review accepts one hunk and rejects another without a sepa
     assert.equal(hint.label[2].command.command, 'secureforge.inlineReview.reject');
     assert.ok(hint.label[0].tooltip && hint.label[2].tooltip,
       'The complete code preview remains accessible on hover');
+    assert.equal(hint.tooltip, undefined, 'Do not display duplicate previews');
+    assert.deepEqual(Array.from(hint.label[0].tooltip.isTrusted.enabledCommands), [
+      'secureforge.inlineReview.accept', 'secureforge.inlineReview.reject',
+    ]);
+    assert.match(hint.label[0].tooltip.text, /\[✅ Accept\]\(command:secureforge\.inlineReview\.accept\?/);
+    assert.match(hint.label[0].tooltip.text, /\[❌ Reject\]\(command:secureforge\.inlineReview\.reject\?/);
+    assert.match(hint.label[0].tooltip.text, /Original:/);
+    assert.match(hint.label[0].tooltip.text, /Proposed:/);
   }
-  assert.equal(provider.provideCodeLenses(document).some(item =>
-    item.command.command === 'secureforge.inlineReview.accept'), false,
-    'The former small, left-aligned per-hunk CodeLens controls must be removed');
+  const clickLenses = provider.provideCodeLenses(document);
+  assert.equal(clickLenses.filter(item =>
+    item.command.command === 'secureforge.inlineReview.accept').length, 2,
+    'Reliable one-click Accept CodeLenses must be present on both changes');
+  assert.equal(clickLenses.filter(item =>
+    item.command.command === 'secureforge.inlineReview.reject').length, 2,
+    'Reliable one-click Reject CodeLenses must be present on both changes');
   assert.ok(initialHints.every(hint => hint.position.character ===
     document.lineAt(hint.position.line).text.length), 'Controls stay at the right end of the source line');
   assert.equal(await readFile(file, 'utf8'), original, 'Staging must not edit source');
