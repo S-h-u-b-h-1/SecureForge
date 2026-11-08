@@ -10,6 +10,7 @@ export async function verifyBuildWorkflow({ root, model }) {
   const errors = [];
   const disposable = () => ({ dispose() {} });
   let lensProvider;
+  let inlayProvider;
   let editor;
   class EventEmitter {
     constructor() { this.event = () => ({ dispose() {} }); }
@@ -19,15 +20,22 @@ export async function verifyBuildWorkflow({ root, model }) {
   class Range { constructor(a, b, c, d) { this.start = { line: a, character: b }; this.end = { line: c, character: d }; } }
   class CodeLens { constructor(range, command) { this.range = range; this.command = command; } }
   class ThemeColor { constructor(name) { this.name = name; } }
+  class Position { constructor(line, character) { this.line = line; this.character = character; } }
+  class InlayHint { constructor(position, label, kind) { this.position = position; this.label = label; this.kind = kind; } }
+  class InlayHintLabelPart { constructor(value) { this.value = value; } }
   class MarkdownString {
     appendMarkdown() { return this; }
     appendCodeblock() { return this; }
   }
   const vscode = {
-    EventEmitter, Range, CodeLens, ThemeColor, MarkdownString,
+    EventEmitter, Range, CodeLens, ThemeColor, MarkdownString, Position, InlayHint, InlayHintLabelPart,
+    InlayHintKind: { Type: 1, Parameter: 2 },
     TextEditorRevealType: { InCenterIfOutsideViewport: 1 },
     languages: { registerCodeLensProvider: (_selector, provider) => {
       lensProvider = provider;
+      return disposable();
+    }, registerInlayHintsProvider: (_selector, provider) => {
+      inlayProvider = provider;
       return disposable();
     } },
     commands: { registerCommand: (name, handler) => { handlers.set(name, handler); return disposable(); } },
@@ -80,10 +88,12 @@ export async function verifyBuildWorkflow({ root, model }) {
   registerWorkflows(vscode, extensionContext);
   await handlers.get('secureforge.runBuild')('Run the deterministic proposal handoff fixture');
   assert.deepEqual(errors, []);
-  assert.ok(lensProvider, 'A native CodeLens review must be registered');
+  assert.ok(lensProvider, 'Native apply and undo CodeLens commands must remain available');
+  assert.ok(inlayProvider, 'Interactive right-end-of-line controls must be registered');
   assert.ok(editor, 'The original source document is opened in the normal editor');
-  const lenses = lensProvider.provideCodeLenses(editor.document);
-  assert.ok(lenses.some(lens => lens.command.command === 'secureforge.inlineReview.accept'));
-  assert.ok(lenses.some(lens => lens.command.command === 'secureforge.inlineReview.reject'));
+  const buttons = inlayProvider.provideInlayHints(editor.document).flatMap(hint =>
+    Array.isArray(hint.label) ? hint.label : []);
+  assert.ok(buttons.some(part => part.command.command === 'secureforge.inlineReview.accept'));
+  assert.ok(buttons.some(part => part.command.command === 'secureforge.inlineReview.reject'));
   assert.equal(await readFile(path.join(root, 'sample.py'), 'utf8'), 'first\nkeep\nlast\n');
 }
