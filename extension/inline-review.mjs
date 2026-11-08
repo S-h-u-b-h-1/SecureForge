@@ -27,8 +27,20 @@ export function registerInlineReview(vscode, context, { onApplied = () => {}, no
 
   function safeHover(hunk, language) {
     const hover = new vscode.MarkdownString(undefined, true);
-    hover.isTrusted = false;
-    hover.appendMarkdown('**SecureForge suggested change**\n\nOriginal:\n\n');
+    // Only our two specific local review commands may execute from hover.
+    // Never trust arbitrary markdown, links or other commands from model text.
+    hover.isTrusted = { enabledCommands: [
+      'secureforge.inlineReview.accept', 'secureforge.inlineReview.reject',
+    ] };
+    const action = (kind, label) => {
+      const name = 'secureforge.inlineReview.' + kind;
+      const args = encodeURIComponent(JSON.stringify([hunk.id]));
+      return '[' + label + '](command:' + name + '?' + args + ')';
+    };
+    hover.appendMarkdown('**SecureForge suggested change**\n\n');
+    hover.appendMarkdown(action('accept', '✅ Accept') + '  |  ' +
+      action('reject', '❌ Reject') + '\n\n');
+    hover.appendMarkdown('Original:\n\n');
     hover.appendCodeblock(hunk.oldText.slice(0, 1200) || '(empty)', language);
     hover.appendMarkdown('\nProposed:\n\n');
     hover.appendCodeblock(hunk.newText.slice(0, 1200) || '(empty)', language);
@@ -40,6 +52,26 @@ export function registerInlineReview(vscode, context, { onApplied = () => {}, no
     if (!file) return [];
     const entries = [];
     const canChoose = active.status === 'pending';
+    // Inlay hints do not consistently activate with an ordinary mouse click
+    // across VS Code configurations. Always supply genuine one-click CodeLens
+    // commands above the source as an editor-native accessible alternative.
+    if (canChoose) {
+      for (const hunk of file.hunks) {
+        const line = Math.max(0, Math.min(document.lineCount - 1, hunk.startLine - 1));
+        const range = new vscode.Range(line, 0, line, 0);
+        const decision = active.decisions[hunk.id];
+        entries.push(new vscode.CodeLens(range, {
+          title: decision === 'accept' ? '$(check) Accepted' : '$(check) Accept',
+          tooltip: 'One-click approval for this hunk; nothing is changed until Apply',
+          command: 'secureforge.inlineReview.accept', arguments: [hunk.id],
+        }));
+        entries.push(new vscode.CodeLens(range, {
+          title: decision === 'reject' ? '$(close) Rejected' : '$(close) Reject',
+          tooltip: 'One-click rejection for this hunk',
+          command: 'secureforge.inlineReview.reject', arguments: [hunk.id],
+        }));
+      }
+    }
     if (file === active.group.files[0]) {
       const first = file.hunks[0];
       const line = Math.max(0, Math.min(document.lineCount - 1, first.startLine - 1));
@@ -101,7 +133,8 @@ export function registerInlineReview(vscode, context, { onApplied = () => {}, no
       const hint = new vscode.InlayHint(position, [accept, separator, reject],
         vscode.InlayHintKind.Parameter);
       hint.paddingLeft = true;
-      hint.tooltip = safeHover(hunk, document.languageId);
+      // Do not also set hint.tooltip: VS Code would display the same preview
+      // twice (once for the part and once for the whole hint).
       hints.push(hint);
     }
     return hints;
