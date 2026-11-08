@@ -78,34 +78,31 @@ export function registerInlineReview(vscode, context, { onApplied = () => {}, no
       const line = Math.max(0, Math.min(document.lineCount - 1, hunk.startLine - 1));
       const position = new vscode.Position(line, document.lineAt(line).text.length);
       if (visibleRange?.contains && !visibleRange.contains(position)) continue;
-      const tooltip = safeHover(hunk, document.languageId);
-      const sample = preview(hunk);
-      const short = sample.length > 42 ? sample.slice(0, 39) + '…' : sample;
-      const suggestion = new vscode.InlayHint(position, ' ⇢ ' + short, vscode.InlayHintKind.Type);
-      suggestion.tooltip = tooltip;
-      suggestion.paddingLeft = true;
-      hints.push(suggestion);
       if (active.status !== 'pending') continue;
-      // These typographic bold labels are cross-theme; colored status icons
-      // distinguish the actions without overriding user theme settings.
+      // One short, composite inlay hint prevents VS Code's per-line length
+      // budget from clipping the Reject action. Two clickable label parts
+      // share a single hint; the full proposed diff stays in the hover.
       const decision = active.decisions[hunk.id];
-      for (const [kind, label, symbol] of [
-        ['accept', decision === 'accept' ? '𝗔𝗖𝗖𝗘𝗣𝗧𝗘𝗗' : '𝗔𝗖𝗖𝗘𝗣𝗧', '✅'],
-        ['reject', decision === 'reject' ? '𝗥𝗘𝗝𝗘𝗖𝗧𝗘𝗗' : '𝗥𝗘𝗝𝗘𝗖𝗧', '❌'],
-      ]) {
-        const part = new vscode.InlayHintLabelPart('  ' + symbol + ' ' + label + '  ');
-        part.command = {
-          title: kind === 'accept' ? 'SecureForge: Accept hunk' : 'SecureForge: Reject hunk',
-          command: 'secureforge.inlineReview.' + kind, arguments: [hunk.id],
-        };
-        part.tooltip = kind === 'accept'
-          ? 'Approve this change. No file is edited until Apply accepted.'
-          : 'Reject this change. It will not be applied.';
-        const hint = new vscode.InlayHint(position, [part], kind === 'accept'
-          ? vscode.InlayHintKind.Parameter : vscode.InlayHintKind.Type);
-        hint.paddingLeft = true;
-        hints.push(hint);
-      }
+      const accept = new vscode.InlayHintLabelPart(
+        decision === 'accept' ? '✅ Accepted' : '✅ Accept');
+      accept.command = {
+        title: 'SecureForge: Accept hunk',
+        command: 'secureforge.inlineReview.accept', arguments: [hunk.id],
+      };
+      accept.tooltip = safeHover(hunk, document.languageId);
+      const separator = new vscode.InlayHintLabelPart(' | ');
+      const reject = new vscode.InlayHintLabelPart(
+        decision === 'reject' ? '❌ Rejected' : '❌ Reject');
+      reject.command = {
+        title: 'SecureForge: Reject hunk',
+        command: 'secureforge.inlineReview.reject', arguments: [hunk.id],
+      };
+      reject.tooltip = safeHover(hunk, document.languageId);
+      const hint = new vscode.InlayHint(position, [accept, separator, reject],
+        vscode.InlayHintKind.Parameter);
+      hint.paddingLeft = true;
+      hint.tooltip = safeHover(hunk, document.languageId);
+      hints.push(hint);
     }
     return hints;
   }
