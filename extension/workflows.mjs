@@ -1,5 +1,5 @@
-import { Workspace, redactSecrets } from '../src/workspace.mjs';
-import { createTrueForgeClient, resolveTrueForgeModel } from '../src/agent.mjs';
+import { Workspace, redactSecrets, sha256 } from '../src/workspace.mjs';
+import { createTrueForgeClient, listTrueForgeModels, TRUEFORGE_MODEL_NAME } from '../src/agent.mjs';
 import { LiveRun, localTrueForgeUrl } from '../src/live-run.mjs';
 import { runApprovedCommand } from '../src/commands.mjs';
 import { registerInlineReview } from './inline-review.mjs';
@@ -8,6 +8,7 @@ import { registerSecurityCommands } from './security-ui.mjs';
 import path from 'node:path';
 import { assembleContext } from '../src/context.mjs';
 import { registerAgentPanel } from './agent-panel.mjs';
+import { boundedConversation, categorizeTrueForgeError } from '../src/chat-usability.mjs';
 
 // A model can report "already fixed" even after an unsupported test command.
 // Keep generated explanation separate from independently recorded verification.
@@ -48,6 +49,12 @@ export function registerWorkflows(vscode, context) {
   const securityReports = [];
   const proofs = [];
   const mentions = [];
+  // Settings are scoped to the exact local workspace, not a global VS Code
+  // model value. Follow-up summaries are memory-only (history persistence is
+  // deliberately a separate opt-in feature).
+  const modelChoices = new Map();
+  const modelCatalogs = new Map();
+  const chatHistory = new Map();
   let activeRun;
   let building = false;
   let buildController;
@@ -75,6 +82,117 @@ export function registerWorkflows(vscode, context) {
     if (folders.length === 1) return folders[0];
     return (await vscode.window.showQuickPick(folders.map(item => ({ label: item.name, folder: item })),
       { title: 'Choose the workspace' }))?.folder;
+  }
+
+  function modelKey(selected) {
+    return 'secureforge.modelChoice.' + sha256(path.resolve(selected.uri.fsPath));
+  }
+
+  function rootKey(selected) { return path.resolve(selected.uri.fsPath); }
+
+  function preferredModel(selected) {
+    const root = rootKey(selected);
+    const key = modelKey(selected);
+    const remembered = modelChoices.get(root) ?? context.workspaceState?.get(key);
+    if (typeof remembered === 'string' && TRUEFORGE_MODEL_NAME.test(remembered)) return remembered;
+    const configured = vscode.workspace.getConfiguration('secureforge').get('model', '');
+    return typeof configured === 'string' && TRUEFORGE_MODEL_NAME.test(configured) ? configured : '';
+  }
+
+  async function rememberModel(selected, name) {
+    if (!TRUEFORGE_MODEL_NAME.test(name)) throw new Error('Invalid TrueForge model name. Refresh Models and choose a catalog entry.');
+    const root = rootKey(selected);
+    modelChoices.set(root, name);
+    await context.workspaceState?.update(modelKey(selected), name);
+    broadcast({ type: 'models', models: modelCatalogs.get(root) ?? [name],
+      selected: name, workspace: selected.name });
+    return name;
+  }
+
+  async function refreshModels() {
+    const selected = await folder();
+    if (!selected) return { models: [], selected: '' };
+    const root = rootKey(selected);
+    const configured = preferredModel(selected);
+    let baseUrl;
+    try {
+      baseUrl = localTrueForgeUrl(vscode.workspace.getConfiguration('secureforge')
+        .get('trueforgeUrl', 'http://localhost:8790'));
+      const names = await listTrueForgeModels({ baseUrl });
+      modelCatalogs.set(root, names);
+      const selectedName = names.includes(configured) ? configured : names.length === 1 ? names[0] : '';
+      if (selectedName) await rememberModel(selected, selectedName);
+      else broadcast({ type: 'models', models: names, selected: '', workspace: selected.name });
+      if (!names.length) broadcast({ type: 'modelError', kind: 'model',
+        message: 'TrueForge returned no configured models. Configure a provider in TrueForge Settings, then select Refresh Models.' });
+      return { models: names, selected: selectedName };
+    } catch (error) {
+      const diagnostic = categorizeTrueForgeError(error);
+      const retained = modelCatalogs.get(root) ?? (configured ? [configured] : []);
+      broadcast({ type: 'models', models: retained, selected: configured, workspace: selected.name });
+      broadcast({ type: 'modelError', ...diagnostic });
+      return { models: retained, selected: configured, error: diagnostic };
+    }
+  }
+
+  async function selectModel(name) {
+    if (building || activeRun) throw new Error('Finish or cancel the current run before switching models.');
+    const selected = await folder();
+    if (!selected) throw new Error('Open a workspace before selecting a model.');
+    const names = modelCatalogs.get(rootKey(selected)) ?? [];
+    if (!names.includes(name)) {
+      throw new Error('This model is not in the current TrueForge catalog. Click Refresh Models and select an available model.');
+    }
+    return rememberModel(selected, name);
+  }
+
+  async function modelForTask(selected) {
+    const remembered = preferredModel(selected);
+    const known = modelCatalogs.get(rootKey(selected));
+    if (remembered && (!known || known.includes(remembered))) return remembered;
+    const refreshed = await refreshModels();
+    if (refreshed.selected) return refreshed.selected;
+    if (refreshed.models.length > 1) {
+      const choice = await vscode.window.showQuickPick(refreshed.models, {
+        title: 'Choose a TrueForge model (also available in the chat composer)',
+      });
+      if (choice) return rememberModel(selected, choice);
+    }
+    throw Object.assign(new Error('Select an available TrueForge model using the chat composer, then retry.'), {
+      code: 'TF_MODEL_NOT_SELECTED',
+    });
+  }
+
+  function recordConversation(selected, task, reply, outcome, sessionId) {
+    const root = rootKey(selected);
+    const previous = chatHistory.get(root) ?? [];
+    const assistant = reply || (outcome === 'proposal_staged'
+      ? 'A proposal was staged for human review. This does not mean it was applied or saved.' : '');
+    chatHistory.set(root, [...previous, { user: task, assistant, outcome, sessionId }].slice(-4));
+    broadcast({ type: 'conversationState', count: chatHistory.get(root).length,
+      message: 'Follow-ups include a bounded summary of earlier turns; each request uses a new TrueForge session.' });
+  }
+
+  async function newConversation() {
+    const selected = await folder();
+    if (!selected) return;
+    chatHistory.delete(rootKey(selected));
+    broadcast({ type: 'conversationState', count: 0,
+      message: 'Conversation context cleared. Pending code reviews remain independent.' });
+  }
+
+  function describeRunError(error) {
+    if (error?.code === 'TF_MODEL_NOT_SELECTED') {
+      return { kind: 'model', message: 'Select a model in the SecureForge chat composer, or use Refresh Models.' };
+    }
+    if (['authentication', 'rate_limit', 'model', 'connection', 'runtime_or_model_error'].includes(error?.code)) {
+      return categorizeTrueForgeError(error?.cause ?? error);
+    }
+    if (typeof error?.message === 'string' && /^(?:A trusted|Open a local|Select code|Finish or cancel|A Build request|Save all edited|Selected document changed)/.test(error.message)) {
+      return { kind: 'workspace', message: redactSecrets(error.message).slice(0,360) };
+    }
+    return { kind: 'runtime',
+      message: 'SecureForge could not complete this request. Check the current workspace, TrueForge connection and Output → SecureForge Activity. No changes were applied.' };
   }
 
   function recordReview(record) {
@@ -153,14 +271,7 @@ export function registerWorkflows(vscode, context) {
       return { status: 'workspace_mismatch' };
     }
     const baseUrl = localTrueForgeUrl(settings.get('trueforgeUrl', 'http://localhost:8790'));
-    const model = await resolveTrueForgeModel({
-      configured: settings.get('model', ''),
-      baseUrl,
-      chooseModel: names => vscode.window.showQuickPick(names, { title: 'Choose a local TrueForge model' }),
-      enterModel: () => vscode.window.showInputBox({
-        title: 'TrueForge model', prompt: 'Enter a configured model FQN from TrueForge Settings → Models',
-      }),
-    });
+    const model = await modelForTask(selected);
     if (!model?.trim()) return { status: 'cancelled' };
     buildController.signal.throwIfAborted();
     const client = await createTrueForgeClient({ baseUrl });
@@ -209,10 +320,12 @@ export function registerWorkflows(vscode, context) {
         location: vscode.ProgressLocation.Notification, title: 'SecureForge Build', cancellable: true,
       }, async (_progress, token) => {
         const subscription = token.onCancellationRequested(() => { void run.cancel(); });
-        try { return await run.run({ model: model.trim(), task, context: taskContext, selection }); }
+        try { return await run.run({ model: model.trim(), task, context: taskContext, selection,
+          conversation: boundedConversation(chatHistory.get(rootKey(selected))) }); }
         finally { subscription.dispose(); }
       });
       if (!payload.proposals.length) {
+        recordConversation(selected, task, payload.reply, 'no_proposal', payload.sessionId);
         broadcast({ type: 'noProposal', message: describeNoProposal(payload.reply, receipts.slice(previousReceipts)) });
         return { status: 'no_proposal' };
       }
@@ -221,7 +334,13 @@ export function registerWorkflows(vscode, context) {
         const review = getInlineReview();
         await review.open(workspace, payload, record => {
           recordReview({ ...record, sessionId: payload.sessionId });
+          const history = chatHistory.get(rootKey(selected));
+          const last = history?.at(-1);
+          if (last?.sessionId === payload.sessionId && record.result?.status === 'applied') {
+            last.outcome = 'applied_to_editor';
+          }
         });
+        recordConversation(selected, task, payload.reply, 'proposal_staged', payload.sessionId);
         broadcast({ type: 'reviewReady', fileCount: payload.proposals.length, message: payload.reply || '' });
         review.publish();
       } catch (error) { await workspace.close(); throw error; }
@@ -360,6 +479,7 @@ export function registerWorkflows(vscode, context) {
     'secureforge.cancelRun': () => { buildController?.abort(); return activeRun?.cancel(); },
     'secureforge.runVerification': verify,
     'secureforge.exportPassport': exportPassport,
+    'secureforge.refreshModels': refreshModels,
   };
   for (const [name, handler] of Object.entries(handlers)) {
     context.subscriptions.push(vscode.commands.registerCommand(name, async (...args) => {
@@ -374,10 +494,12 @@ export function registerWorkflows(vscode, context) {
   }
   const state = { folder, receipts, applied, securityReports, proofs, output, runCheck, recordReview, subscribe,
     currentReviewState: () => latestInlineReviewState,
+    refreshModels, selectModel, newConversation, describeRunError,
     openInlineReview: (workspace, payload, callback) => getInlineReview().open(workspace, payload, callback) };
   registerSecurityCommands(vscode, context, state);
   registerAgentPanel(vscode, context, { run: guardedBuild, cancel: () => { buildController?.abort(); return activeRun?.cancel(); }, attachFile, attachSymbol,
-    subscribe, currentReviewState: state.currentReviewState, reviewAction: (action, id) => {
+    subscribe, refreshModels, selectModel, newConversation, describeRunError,
+    currentReviewState: state.currentReviewState, reviewAction: (action, id) => {
       if (!inlineReview) throw new Error('No inline review is active');
       return inlineReview.action(action, id);
     } });
