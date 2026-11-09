@@ -8,12 +8,14 @@ Live Build and Inline Edit now open the **existing source file** in the normal V
 editor rather than a second review webview. Suggested hunks are highlighted,
 with one compact clickable hint displaying **✅ Accept | ❌ Reject** at the end of
 each affected line. The inlay-hint parts expose commands, but VS Code
-can open a hover instead of executing them on an ordinary click. For reliable
-one-click approval, **the corresponding real Accept and Reject CodeLens links
-appear immediately above each change**. Hovering over the inlay hint also
-offers explicit clickable **✅ Accept | ❌ Reject** command links beside the
-full old/new code preview. Each hover is rendered only once rather than
-duplicated. The SecureForge chat sidebar provides larger ordinary buttons.
+can open a hover instead of executing them on an ordinary click.
+Use **Cmd-click** on macOS (**Ctrl-click** on Windows/Linux) on the line-end
+**✅ Accept | ❌ Reject** controls, or use the larger ordinary-click buttons
+in the SecureForge chat sidebar. Hovering over either inlay hint also offers
+clickable **✅ Accept | ❌ Reject** links alongside the full old/new code
+preview. Each hover is rendered once rather than duplicated. The redundant
+per-hunk CodeLens actions above every line are intentionally removed; that
+space is reserved for Accept all, Reject all, Apply, Discard and Undo.
 Nothing is applied until the user selects Apply.
 
 The short line-end label is intentionally not preceded by a long code preview,
