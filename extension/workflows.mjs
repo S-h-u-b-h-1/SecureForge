@@ -182,6 +182,9 @@ export function registerWorkflows(vscode, context, { modelCatalog = listTrueForg
   }
 
   function describeRunError(error) {
+    if (error?.code === 'SF_PENDING_REVIEW') {
+      return { kind: 'review', message: 'Finish or discard the current pending review before sending another request. No model call was made and the proposal remains intact.' };
+    }
     if (error?.code === 'TF_MODEL_NOT_SELECTED') {
       return { kind: 'model', message: 'Select a model in the SecureForge chat composer, or use Refresh Models.' };
     }
@@ -227,6 +230,11 @@ export function registerWorkflows(vscode, context, { modelCatalog = listTrueForg
   async function build(initialTask, inline = false) {
     if (!vscode.workspace.isTrusted) throw new Error('A trusted local workspace is required');
     if (activeRun) throw new Error('Cancel or finish the current agent run first');
+    if (inlineReview && ['pending', 'stale', 'blocked', 'checking', 'applying', 'undoing'].includes(inlineReview.status)) {
+      throw Object.assign(new Error('Finish or discard the pending inline review before starting another model request. The existing proposal is unchanged.'), {
+        code: 'SF_PENDING_REVIEW',
+      });
+    }
     const editor = inline ? vscode.window.activeTextEditor : undefined;
     if (inline && (!editor || editor.selection.isEmpty || editor.document.isDirty)) {
       throw new Error('Select code in a saved source file before requesting an inline edit');
