@@ -185,6 +185,9 @@ export function registerWorkflows(vscode, context, { modelCatalog = listTrueForg
     if (error?.code === 'TF_MODEL_NOT_SELECTED') {
       return { kind: 'model', message: 'Select a model in the SecureForge chat composer, or use Refresh Models.' };
     }
+    if (typeof error?.message === 'string' && /(?:not in the current TrueForge catalog|Invalid TrueForge model name)/.test(error.message)) {
+      return { kind: 'model', message: 'The model is not in the current TrueForge catalog. Click Refresh Models and select an available entry.' };
+    }
     if (['authentication', 'rate_limit', 'model', 'connection', 'runtime_or_model_error'].includes(error?.code)) {
       return categorizeTrueForgeError(error?.cause ?? error);
     }
