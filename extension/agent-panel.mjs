@@ -311,7 +311,7 @@ modelSelect.onchange=()=>{if(!busy&&modelSelect.value)vscode.postMessage({type:'
 refreshModel.onclick=()=>{if(!busy)vscode.postMessage({type:'refreshModels'});};
 window.addEventListener('message',event=>{const data=event.data;if(!data||typeof data!=='object')return;
  if(data.type==='status'){
-   busy=Boolean(data.running);run.disabled=busy;document.getElementById('file').disabled=busy;document.getElementById('symbol').disabled=busy;cancel.hidden=!busy;
+   busy=Boolean(data.running);run.disabled=busy;modelSelect.disabled=busy;refreshModel.disabled=busy;document.getElementById('file').disabled=busy;document.getElementById('symbol').disabled=busy;cancel.hidden=!busy;
    if(busy){status.textContent='Working on your code…';}
    else{if(review)status.textContent='Review changes in the editor';else if(!hasReply){status.textContent=data.message;message('agent',data.message);hasReply=true;}}
  }
