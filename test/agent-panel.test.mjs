@@ -168,6 +168,8 @@ test('sidebar defaults to the right, and minimal composer dispatches tasks safel
 
   listeners.message({ data: { type: 'status', message: 'Running', running: true } });
   assert.equal(element('run').disabled, true);
+  assert.equal(element('model').disabled, true, 'Model selection is frozen during a model run');
+  assert.equal(element('refresh-model').disabled, true, 'Refreshing cannot race with an active run');
   assert.equal(element('cancel').hidden, false);
   listeners.message({ data: { type: 'reviewReady', fileCount: 2 } });
   listeners.message({ data: { type: 'inlineReviewState', status: 'pending',
@@ -199,6 +201,8 @@ test('sidebar defaults to the right, and minimal composer dispatches tasks safel
   assert.equal(posted.at(-1).action, 'undo', 'Undo must remain available in the sidebar after Apply');
   listeners.message({ data: { type: 'status', message: 'Done', running: false } });
   assert.equal(element('run').disabled, false);
+  assert.equal(element('model').disabled, false);
+  assert.equal(element('refresh-model').disabled, false);
   assert.match(element('status').textContent, /Review changes/);
   listeners.message({ data: { type: 'reviewResult', status: 'applied', accepted: 2 } });
   assert.match(element('status').textContent, /Save and verify/);
