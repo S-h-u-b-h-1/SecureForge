@@ -17,9 +17,28 @@ export function registerAgentPanel(vscode, context, actions) {
         // A demo may stage edits before the secondary sidebar webview loads.
         const snapshot = actions.currentReviewState?.();
         if (snapshot) panel.webview.postMessage(snapshot);
+        await actions.refreshModels?.();
         return;
       }
       if (message.type === 'cancel') { await actions.cancel(); return; }
+      if (message.type === 'refreshModels') {
+        await actions.refreshModels?.();
+        return;
+      }
+      if (message.type === 'selectModel') {
+        if (typeof message.model !== 'string' || message.model.length > 128) return;
+        try { await actions.selectModel?.(message.model); }
+        catch (error) {
+          const diagnostic = actions.describeRunError?.(error) ||
+            { kind: 'model', message: 'Model selection failed. Refresh Models and try again.' };
+          if (!disposed) panel.webview.postMessage({ type: 'modelError', ...diagnostic });
+        }
+        return;
+      }
+      if (message.type === 'newConversation') {
+        if (!running) await actions.newConversation?.();
+        return;
+      }
       if (message.type === 'verify') {
         if (!running) await vscode.commands.executeCommand('secureforge.runVerification');
         return;
@@ -84,7 +103,11 @@ export function registerAgentPanel(vscode, context, actions) {
         else if (result?.status === 'no_proposal') finalStatus = 'No changes proposed.';
         else if (result?.status === 'workspace_mismatch') finalStatus = 'Open the correct project folder to continue.';
         else if (result?.status === 'review') finalStatus = 'Review the proposed changes in the editor.';
-      } catch (error) { finalStatus = error.message; }
+      } catch (error) {
+        const diagnostic = actions.describeRunError?.(error);
+        finalStatus = diagnostic?.message || String(error.message || 'SecureForge request failed');
+        if (diagnostic && !disposed) panel.webview.postMessage({ type: 'modelError', ...diagnostic });
+      }
       finally {
         running = false;
         if (!disposed) panel.webview.postMessage({ type: 'status', message: finalStatus, running: false });
@@ -126,6 +149,13 @@ header svg{width:21px;height:21px}
 textarea{display:block;border:0!important;outline:none!important;resize:vertical;min-height:43px;max-height:150px;width:100%;background:transparent;color:var(--vscode-input-foreground);font:13px/1.5 var(--vscode-font-family);padding:2px 0}
 textarea::placeholder{color:var(--vscode-input-placeholderForeground)}
 .toolbar{display:flex;align-items:center;gap:3px;min-width:0;margin-top:6px}
+.modelrow{display:flex;align-items:center;gap:7px;min-width:0;margin-top:7px;padding:5px 7px;border:1px solid var(--vscode-panel-border);border-radius:8px}
+.modelrow label{color:var(--vscode-descriptionForeground);font-size:11px;font-weight:650}
+#model{appearance:auto;flex:1;min-width:70px;max-width:100%;border:0;outline:none;background:var(--vscode-input-background);color:var(--vscode-input-foreground);font:12px var(--vscode-font-family);text-overflow:ellipsis;white-space:nowrap}
+#refresh-model{border:1px solid var(--vscode-panel-border);border-radius:6px;padding:2px 6px;font-size:13px;flex-shrink:0}
+#refresh-model:hover{background:var(--vscode-toolbar-hoverBackground)}
+#context-count{color:var(--vscode-descriptionForeground);font-size:10px;white-space:nowrap}
+.model-error{padding:8px 10px;margin:7px 0 9px;border-left:2px solid var(--vscode-errorForeground);background:var(--vscode-editor-background);font-size:12px;overflow-wrap:anywhere}
 .iconbtn{display:grid;place-items:center;width:30px;height:30px;border-radius:7px;flex-shrink:0}
 .iconbtn svg{width:16px;height:16px;stroke:currentColor}
 .spacer{flex:1}
@@ -174,6 +204,12 @@ textarea::placeholder{color:var(--vscode-input-placeholderForeground)}
 <section id="reviewMount" aria-label="SecureForge review decisions" hidden></section>
 <div id="status" role="status" aria-live="polite">Ready · All edits require approval</div>
 <div class="composer"><textarea id="task" rows="2" maxlength="20000" aria-label="Ask SecureForge" placeholder="Ask SecureForge…"></textarea>
+<div class="modelrow">
+<label for="model">Model</label>
+<select id="model" aria-label="Active TrueForge model"><option value="">Select model</option></select>
+<button id="refresh-model" title="Refresh models configured in TrueForge" aria-label="Refresh Models">⟳</button>
+<span id="context-count" title="Bounded in-memory follow-up history">0 turns</span>
+</div>
 <div class="toolbar">
 <button class="iconbtn" id="file" title="Attach a file" aria-label="Attach file"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12.5 13.5 7a3.5 3.5 0 0 1 5 5L10 20.5a5.5 5.5 0 0 1-8-8l9-9"/></svg></button>
 <button class="iconbtn" id="symbol" title="Add symbol context" aria-label="Attach symbol"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-6 9 6-9 6-9-6Zm0 4 9 6 9-6M3 17l9 5 9-5"/></svg></button>
@@ -186,7 +222,7 @@ textarea::placeholder{color:var(--vscode-input-placeholderForeground)}
 </footer>
 <script nonce="${nonce}">
 const vscode=acquireVsCodeApi();
-const task=document.getElementById('task'),thread=document.getElementById('thread'),welcome=document.getElementById('welcome'),run=document.getElementById('run'),cancel=document.getElementById('cancel'),status=document.getElementById('status'),reviewMount=document.getElementById('reviewMount');
+const task=document.getElementById('task'),thread=document.getElementById('thread'),welcome=document.getElementById('welcome'),run=document.getElementById('run'),cancel=document.getElementById('cancel'),status=document.getElementById('status'),reviewMount=document.getElementById('reviewMount'),modelSelect=document.getElementById('model'),refreshModel=document.getElementById('refresh-model'),contextCount=document.getElementById('context-count');
 let busy=false,review=false,hasReply=false,reviewCard;
 function message(role,value){if(welcome.isConnected)welcome.remove();const box=document.createElement('div');box.className='message '+role;const head=document.createElement('div');head.className='sender';head.textContent=role==='user'?'You':'SecureForge';const body=document.createElement('div');body.textContent=String(value||'').slice(0,4000);box.append(head,body);thread.append(box);thread.scrollTop=thread.scrollHeight;return box;}
 function drawReview(data){
@@ -244,18 +280,46 @@ function drawReview(data){
  }
  card.append(foot);reviewMount.append(card);reviewCard=card;
 }
+function displayModels(data){
+ const names=Array.isArray(data.models)?data.models.filter(name=>typeof name==='string').slice(0,50):[];
+ const selected=typeof data.selected==='string'?data.selected:'';
+ modelSelect.replaceChildren();
+ const blank=document.createElement('option');blank.value='';blank.textContent=names.length?'Select model':'No models found';modelSelect.append(blank);
+ for(const name of names){
+  const option=document.createElement('option');option.value=name;option.textContent=name;modelSelect.append(option);
+ }
+ modelSelect.value=names.includes(selected)?selected:'';
+ modelSelect.title=selected||'Choose a TrueForge model';
+}
 function submit(){const text=task.value.trim();if(!text||busy)return;review=false;hasReply=false;message('user',text);task.value='';status.textContent='Reading your project…';vscode.postMessage({type:'run',task:text});}
 run.onclick=submit;
 task.onkeydown=event=>{if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();submit();}};
 cancel.onclick=()=>vscode.postMessage({type:'cancel'});
 document.getElementById('file').onclick=()=>vscode.postMessage({type:'attachFile'});
 document.getElementById('symbol').onclick=()=>vscode.postMessage({type:'attachSymbol'});
-document.getElementById('new').onclick=()=>{if(busy)return;thread.replaceChildren(welcome);task.value='';status.textContent='Ready · All edits require approval';review=false;task.focus();};
+document.getElementById('new').onclick=()=>{
+ if(busy)return;
+ vscode.postMessage({type:'newConversation'});
+ thread.replaceChildren(welcome);task.value='';status.textContent='New chat · Context cleared';
+ review=false;contextCount.textContent='0 turns';task.focus();
+};
+modelSelect.onchange=()=>{if(!busy&&modelSelect.value)vscode.postMessage({type:'selectModel',model:modelSelect.value});};
+refreshModel.onclick=()=>{if(!busy)vscode.postMessage({type:'refreshModels'});};
 window.addEventListener('message',event=>{const data=event.data;if(!data||typeof data!=='object')return;
  if(data.type==='status'){
    busy=Boolean(data.running);run.disabled=busy;document.getElementById('file').disabled=busy;document.getElementById('symbol').disabled=busy;cancel.hidden=!busy;
    if(busy){status.textContent='Working on your code…';}
    else{if(review)status.textContent='Review changes in the editor';else if(!hasReply){status.textContent=data.message;message('agent',data.message);hasReply=true;}}
+ }
+ if(data.type==='models'){displayModels(data);}
+ if(data.type==='conversationState'){
+  const count=Number.isInteger(data.count)?Math.max(0,Math.min(data.count,4)):0;
+  contextCount.textContent=count+' '+(count===1?'turn':'turns');
+  contextCount.title=String(data.message||'Follow-ups include recent chat context').slice(0,200);
+ }
+ if(data.type==='modelError'){
+  const note=String(data.message||'Check the TrueForge model connection').slice(0,500);
+  message('agent',note);status.textContent=note;
  }
  if(data.type==='inlineReviewState'){drawReview(data);}
   if(data.type==='reviewError'){message('agent',String(data.message||'Review action failed').slice(0,300));}
