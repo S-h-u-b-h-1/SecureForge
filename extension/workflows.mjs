@@ -42,7 +42,7 @@ export function requireSavedWorkspaceDocuments(vscode, workspace) {
   }
 }
 
-export function registerWorkflows(vscode, context) {
+export function registerWorkflows(vscode, context, { modelCatalog = listTrueForgeModels } = {}) {
   const output = vscode.window.createOutputChannel('SecureForge Activity');
   const receipts = [];
   const applied = [];
@@ -118,7 +118,7 @@ export function registerWorkflows(vscode, context) {
     try {
       baseUrl = localTrueForgeUrl(vscode.workspace.getConfiguration('secureforge')
         .get('trueforgeUrl', 'http://localhost:8790'));
-      const names = await listTrueForgeModels({ baseUrl });
+      const names = await modelCatalog({ baseUrl });
       modelCatalogs.set(root, names);
       const selectedName = names.includes(configured) ? configured : names.length === 1 ? names[0] : '';
       if (selectedName) await rememberModel(selected, selectedName);
