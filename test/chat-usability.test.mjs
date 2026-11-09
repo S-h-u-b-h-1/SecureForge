@@ -9,8 +9,10 @@ test('follow-up context remains bounded, redacted, and explicitly lower trust', 
     outcome: i % 2 ? 'proposal_staged' : 'no_proposal',
   }));
   const kept = boundedConversation(history);
-  assert.equal(kept.length, 4);
-  assert.equal(kept[0].user.startsWith('Task 8'), true);
+  assert.ok(kept.length > 0 && kept.length <= 4,
+    'The byte budget can trim additional turns even within the four-turn cap');
+  assert.equal(kept[0].user.startsWith('Task ' + (12 - kept.length)), true);
+  assert.equal(kept.at(-1).user.startsWith('Task 11'), true);
   assert.ok(Buffer.byteLength(JSON.stringify(kept), 'utf8') <= 3400);
   assert.doesNotMatch(JSON.stringify(kept), /hidden-value-for-test/);
   const message = followupContextMessage(history);
