@@ -17,7 +17,11 @@ export function registerAgentPanel(vscode, context, actions) {
         // A demo may stage edits before the secondary sidebar webview loads.
         const snapshot = actions.currentReviewState?.();
         if (snapshot) panel.webview.postMessage(snapshot);
-        await actions.refreshModels?.();
+        try { await actions.refreshModels?.(); }
+        catch {
+          if (!disposed) panel.webview.postMessage({ type: 'modelError', kind: 'connection',
+            message: 'Unable to refresh local models. Check workspace trust and the TrueForge URL in VS Code Settings.' });
+        }
         return;
       }
       if (message.type === 'cancel') { await actions.cancel(); return; }
@@ -319,7 +323,7 @@ window.addEventListener('message',event=>{const data=event.data;if(!data||typeof
  }
  if(data.type==='modelError'){
   const note=String(data.message||'Check the TrueForge model connection').slice(0,500);
-  message('agent',note);status.textContent=note;
+  hasReply=true;message('agent',note);status.textContent=note;
  }
  if(data.type==='inlineReviewState'){drawReview(data);}
   if(data.type==='reviewError'){message('agent',String(data.message||'Review action failed').slice(0,300));}
