@@ -12,6 +12,18 @@ export function registerInlineReview(vscode, context, { onApplied = () => {}, no
   let active;
   const changed = new vscode.EventEmitter();
   const hintChanged = new vscode.EventEmitter();
+  // An applied review must retain a visible Undo action even if its CodeLens
+  // scrolls out of view or the user closes and reopens SecureForge's sidebar.
+  const undoStatusItem = vscode.window.createStatusBarItem?.(
+    vscode.StatusBarAlignment?.Right, 100);
+  if (undoStatusItem) {
+    undoStatusItem.name = 'SecureForge: Undo approved edit';
+    undoStatusItem.text = '$(discard) Undo SecureForge edit';
+    undoStatusItem.tooltip = 'Undo the last approved SecureForge edit if the reviewed files have not changed';
+    undoStatusItem.command = 'secureforge.inlineReview.undo';
+    undoStatusItem.hide();
+    context.subscriptions.push(undoStatusItem);
+  }
   const highlight = vscode.window.createTextEditorDecorationType({
     isWholeLine: true,
     backgroundColor: new vscode.ThemeColor('diffEditor.insertedTextBackground'),
@@ -78,8 +90,19 @@ export function registerInlineReview(vscode, context, { onApplied = () => {}, no
       const range = new vscode.Range(line, 0, line, 0);
       const completed = active.group.files.every(item => item.hunks.every(h => active.decisions[h.id]));
       if (canChoose) {
+        entries.push(new vscode.CodeLens(range, {
+          title: '$(check-all) Accept all',
+          tooltip: 'Approve all proposed hunks, then click Apply accepted',
+          command: 'secureforge.inlineReview.acceptAll',
+        }));
+        entries.push(new vscode.CodeLens(range, {
+          title: '$(circle-slash) Reject all',
+          tooltip: 'Reject all proposed hunks without editing files',
+          command: 'secureforge.inlineReview.rejectAll',
+        }));
         if (completed) entries.push(new vscode.CodeLens(range, {
-          title: '$(check-all) Apply accepted', tooltip: 'Revalidate every source file and apply the selected hunks',
+          title: '$(check-all) ' + (Object.values(active.decisions).includes('accept') ? 'Apply accepted' : 'Finish rejection'),
+          tooltip: 'Revalidate source files; only approved hunks can be applied',
           command: 'secureforge.inlineReview.apply',
         }));
         entries.push(new vscode.CodeLens(range, {
@@ -163,6 +186,8 @@ export function registerInlineReview(vscode, context, { onApplied = () => {}, no
     changed.fire();
     hintChanged.fire();
     decorate();
+    if (active?.status === 'applied') undoStatusItem?.show();
+    else undoStatusItem?.hide();
     if (!active) return;
     const items = active.group.files.flatMap(file => file.hunks.map(hunk => ({
       id: hunk.id, path: file.path, line: hunk.startLine,
@@ -181,6 +206,7 @@ export function registerInlineReview(vscode, context, { onApplied = () => {}, no
     active = undefined;
     changed.fire();
     hintChanged.fire();
+    undoStatusItem?.hide();
     decorate();
     previous?.listener?.dispose();
     if (previous?.workspace) await previous.workspace.close();
@@ -252,12 +278,22 @@ export function registerInlineReview(vscode, context, { onApplied = () => {}, no
       editor.revealRange(new vscode.Range(line, 0, line, 0), vscode.TextEditorRevealType.InCenterIfOutsideViewport);
       return;
     }
-    if (kind === 'accept' || kind === 'reject') {
+    if (kind === 'accept' || kind === 'reject' || kind === 'acceptAll' || kind === 'rejectAll') {
       if (session.status !== 'pending') throw new Error('Review is not ready; recheck unchanged files');
-      const exists = session.group.files.some(file => file.hunks.some(hunk => hunk.id === hunkId));
-      if (!exists) throw new Error('Unknown review hunk');
-      session.decisions[hunkId] = kind;
-      session.message = 'Choose each hunk, then Apply accepted in the editor or chat.';
+      if (kind === 'acceptAll' || kind === 'rejectAll') {
+        const selected = kind === 'acceptAll' ? 'accept' : 'reject';
+        for (const file of session.group.files) {
+          for (const hunk of file.hunks) session.decisions[hunk.id] = selected;
+        }
+        session.message = selected === 'accept'
+          ? 'All changes approved for review. Click Apply accepted to edit the buffer.'
+          : 'All changes rejected. Click Finish rejection to close the review without modifying files.';
+      } else {
+        const exists = session.group.files.some(file => file.hunks.some(hunk => hunk.id === hunkId));
+        if (!exists) throw new Error('Unknown review hunk');
+        session.decisions[hunkId] = kind;
+        session.message = 'Choose each hunk, then Apply accepted in the editor or chat.';
+      }
       publish();
       return;
     }
@@ -346,6 +382,8 @@ export function registerInlineReview(vscode, context, { onApplied = () => {}, no
   const commands = {
     'secureforge.inlineReview.accept': id => action('accept', id),
     'secureforge.inlineReview.reject': id => action('reject', id),
+    'secureforge.inlineReview.acceptAll': () => action('acceptAll'),
+    'secureforge.inlineReview.rejectAll': () => action('rejectAll'),
     'secureforge.inlineReview.apply': () => action('apply'),
     'secureforge.inlineReview.undo': () => action('undo'),
     'secureforge.inlineReview.discard': () => action('discard'),
