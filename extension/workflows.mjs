@@ -52,7 +52,16 @@ export function registerWorkflows(vscode, context) {
   let building = false;
   let buildController;
   const listeners = new Set();
-  function broadcast(message) { for (const listener of listeners) listener(message); }
+  // A review can begin before VS Code resolves the secondary-sidebar view.
+  // Keep its latest bounded state until the webview sends its ready handshake.
+  let latestInlineReviewState;
+  function broadcast(message) {
+    if (message?.type === 'inlineReviewState') {
+      latestInlineReviewState = Array.isArray(message.hunks) && message.hunks.length
+        ? message : undefined;
+    }
+    for (const listener of listeners) listener(message);
+  }
   function subscribe(listener) {
     listeners.add(listener);
     return { dispose: () => listeners.delete(listener) };
@@ -364,10 +373,11 @@ export function registerWorkflows(vscode, context) {
     }));
   }
   const state = { folder, receipts, applied, securityReports, proofs, output, runCheck, recordReview, subscribe,
+    currentReviewState: () => latestInlineReviewState,
     openInlineReview: (workspace, payload, callback) => getInlineReview().open(workspace, payload, callback) };
   registerSecurityCommands(vscode, context, state);
   registerAgentPanel(vscode, context, { run: guardedBuild, cancel: () => { buildController?.abort(); return activeRun?.cancel(); }, attachFile, attachSymbol,
-    subscribe, reviewAction: (action, id) => {
+    subscribe, currentReviewState: state.currentReviewState, reviewAction: (action, id) => {
       if (!inlineReview) throw new Error('No inline review is active');
       return inlineReview.action(action, id);
     } });
