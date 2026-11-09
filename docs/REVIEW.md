@@ -46,6 +46,28 @@ the classic review tab automatically.
 
 This local editor milestone consumes the existing pending v1 `get_proposal` payload, including `originalContent` and `proposedContent`. It derives line-level hunks without modifying the shared agent or MCP contracts.
 
+## Review-all controls and Undo visibility
+
+**Accept all** and **Reject all** are available above the first proposed hunk
+and in the SecureForge sidebar. They set the decisions for every hunk in the
+current batch but do not edit any buffer; the developer must still explicitly
+select **Apply accepted**. If all hunks are rejected, the final action reads
+**Finish rejection** and applies no edits.
+
+The sidebar pins a compact review card above the prompt composer, rather than
+leaving the Welcome illustration visible while its review is outside the scroll
+area. A `ready` handshake retrieves the last review snapshot even when an
+agent run or built-in demo staged the proposal before VS Code created the
+sidebar view.
+
+After Apply, the green preview highlighting and per-hunk decisions disappear
+because the accepted source is now in the editor. The guarded **Undo approved
+edit** command remains available as an editor CodeLens, a persistent
+**Undo SecureForge edit** status-bar control, and a button in the sidebar
+review card. Guarded Undo refuses to overwrite intervening edits or unexpected
+disk changes. Successful Undo returns the original buffer without modifying
+unrelated files. Saving is always a separate developer decision.
+
 ## Run in VS Code
 
 1. Run `npm ci` in the repository root.
