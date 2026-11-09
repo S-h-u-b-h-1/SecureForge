@@ -158,11 +158,14 @@ test('native CodeLens review accepts one hunk and rejects another without a sepa
   }
   const clickLenses = provider.provideCodeLenses(document);
   assert.equal(clickLenses.filter(item =>
-    item.command.command === 'secureforge.inlineReview.accept').length, 2,
-    'Reliable one-click Accept CodeLenses must be present on both changes');
+    item.command.command === 'secureforge.inlineReview.accept').length, 0,
+    'Per-hunk CodeLens is intentionally absent; Cmd-click the inline hint or use chat');
   assert.equal(clickLenses.filter(item =>
-    item.command.command === 'secureforge.inlineReview.reject').length, 2,
-    'Reliable one-click Reject CodeLenses must be present on both changes');
+    item.command.command === 'secureforge.inlineReview.reject').length, 0,
+    'Do not duplicate per-hunk Accept/Reject controls above the code');
+  assert.ok(clickLenses.some(item => item.command.command === 'secureforge.inlineReview.acceptAll'),
+    'Bulk actions remain accessible without opening the sidebar');
+  assert.ok(clickLenses.some(item => item.command.command === 'secureforge.inlineReview.rejectAll'));
   assert.ok(initialHints.every(hint => hint.position.character ===
     document.lineAt(hint.position.line).text.length), 'Controls stay at the right end of the source line');
   assert.equal(await readFile(file, 'utf8'), original, 'Staging must not edit source');
