@@ -64,26 +64,9 @@ export function registerInlineReview(vscode, context, { onApplied = () => {}, no
     if (!file) return [];
     const entries = [];
     const canChoose = active.status === 'pending';
-    // Inlay hints do not consistently activate with an ordinary mouse click
-    // across VS Code configurations. Always supply genuine one-click CodeLens
-    // commands above the source as an editor-native accessible alternative.
-    if (canChoose) {
-      for (const hunk of file.hunks) {
-        const line = Math.max(0, Math.min(document.lineCount - 1, hunk.startLine - 1));
-        const range = new vscode.Range(line, 0, line, 0);
-        const decision = active.decisions[hunk.id];
-        entries.push(new vscode.CodeLens(range, {
-          title: decision === 'accept' ? '$(check) Accepted' : '$(check) Accept',
-          tooltip: 'One-click approval for this hunk; nothing is changed until Apply',
-          command: 'secureforge.inlineReview.accept', arguments: [hunk.id],
-        }));
-        entries.push(new vscode.CodeLens(range, {
-          title: decision === 'reject' ? '$(close) Rejected' : '$(close) Reject',
-          tooltip: 'One-click rejection for this hunk',
-          command: 'secureforge.inlineReview.reject', arguments: [hunk.id],
-        }));
-      }
-    }
+    // Per-hunk review is intentionally displayed only at the end of each
+    // changed line (Cmd-click / Ctrl-click) and in the chat sidebar. Keep
+    // CodeLens for batch-level commands and guarded Undo, not duplicate links.
     if (file === active.group.files[0]) {
       const first = file.hunks[0];
       const line = Math.max(0, Math.min(document.lineCount - 1, first.startLine - 1));
