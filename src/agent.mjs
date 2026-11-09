@@ -47,23 +47,43 @@ export function buildAgentSpec({ model, mcpServerName } = {}) {
   };
 }
 
-// Prefer the local runtime's model catalog instead of requiring an unfamiliar FQN
-// on each task. The caller validates baseUrl as a localhost-only origin.
+// All model enumeration stays inside the local TrueForge runtime. The
+// connector displays only catalog names, never provider credentials.
+export const TRUEFORGE_MODEL_NAME = /^[A-Za-z0-9][A-Za-z0-9_./-]{1,127}$/;
+
+export function validateLocalModelOrigin(baseUrl) {
+  const url = new URL(baseUrl);
+  if (url.protocol !== 'http:' || !['localhost', '127.0.0.1', '[::1]'].includes(url.hostname) ||
+      url.username || url.password || url.pathname !== '/' || url.search || url.hash) {
+    throw new Error('Use a local TrueForge HTTP origin without credentials');
+  }
+  return url.origin;
+}
+
+export async function listTrueForgeModels({ baseUrl, fetchImpl = fetch } = {}) {
+  const url = validateLocalModelOrigin(baseUrl);
+  const response = await fetchImpl(`${url}/api/v1/models`, {
+    method: 'GET', redirect: 'error', signal: AbortSignal.timeout(3500),
+  });
+  if (!response.ok) {
+    throw Object.assign(new Error('TrueForge model catalog request failed'), {
+      code: 'TF_MODEL_CATALOG_HTTP', status: response.status,
+    });
+  }
+  const data = await response.json();
+  return [...new Set((Array.isArray(data?.data) ? data.data : [])
+    .map(item => item?.name)
+    .filter(name => typeof name === 'string' && TRUEFORGE_MODEL_NAME.test(name)))].slice(0, 50);
+}
+
+// Retained for non-sidebar callers; the composer now handles selection.
 export async function resolveTrueForgeModel({ configured, baseUrl, chooseModel, enterModel,
   fetchImpl = fetch } = {}) {
   if (typeof configured === 'string' && configured.trim()) return configured.trim();
   try {
-    const response = await fetchImpl(`${baseUrl}/api/v1/models`, {
-      method: 'GET', redirect: 'error', signal: AbortSignal.timeout(3500),
-    });
-    if (response.ok) {
-      const data = await response.json();
-      const names = [...new Set((Array.isArray(data?.data) ? data.data : [])
-        .map(item => item?.name).filter(name => typeof name === 'string' &&
-          /^[A-Za-z0-9][A-Za-z0-9_./-]{1,127}$/.test(name)))].slice(0, 50);
-      if (names.length === 1) return names[0];
-      if (names.length > 1) return await chooseModel(names);
-    }
+    const names = await listTrueForgeModels({ baseUrl, fetchImpl });
+    if (names.length === 1) return names[0];
+    if (names.length > 1) return await chooseModel(names);
   } catch { /* Old or unavailable local runtime: fall back to manual entry. */ }
   return await enterModel();
 }
