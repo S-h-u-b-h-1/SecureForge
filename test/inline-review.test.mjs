@@ -71,10 +71,13 @@ async function harness(t, proposed = 'HELLO\nkeep\nBYE\n', { sourceVisible = tru
   const otherEditor = { document: { uri: { fsPath: path.join(workspace.root, 'other.py') } },
     viewColumn: 2, setDecorations() {}, revealRange() {} };
   let showCalls = 0;
+  const undoStatus = { visible: false, name: '', text: '', tooltip: '', command: '',
+    show() { this.visible = true; }, hide() { this.visible = false; }, dispose() {} };
   const vscode = {
     EventEmitter, Range, CodeLens, ThemeColor, MarkdownString, WorkspaceEdit,
     Position, InlayHint, InlayHintLabelPart, InlayHintKind: { Type: 1, Parameter: 2 },
     TextEditorRevealType: { InCenterIfOutsideViewport: 1 },
+    StatusBarAlignment: { Right: 2 },
     ViewColumn: { Active: 1 }, Uri: { file: fsPath => ({ scheme: 'file', fsPath }) },
     commands: {
       registerCommand: (name, fn) => { handlers.set(name, fn); return disposable(); },
@@ -101,6 +104,7 @@ async function harness(t, proposed = 'HELLO\nkeep\nBYE\n', { sourceVisible = tru
       visibleTextEditors: sourceVisible ? (otherActive ? [editor, otherEditor] : [editor]) : [],
       activeTextEditor: otherActive ? otherEditor : sourceVisible ? editor : undefined,
       createTextEditorDecorationType: () => ({ dispose() {} }),
+      createStatusBarItem: () => undoStatus,
       onDidChangeVisibleTextEditors: () => disposable(),
       showTextDocument: async () => {
         showCalls++;
@@ -119,7 +123,7 @@ async function harness(t, proposed = 'HELLO\nkeep\nBYE\n', { sourceVisible = tru
   t.after(() => controller.dispose());
   await controller.open(workspace, payload);
   return {
-    root, file, original, document, controller, provider, hintsProvider, handlers, events, notice,
+    root, file, original, document, controller, provider, hintsProvider, handlers, events, notice, undoStatus,
     showCalls: () => showCalls,
     text: () => docText, get hunks() { return payload.proposals?.[0]?.hunks; },
   };
@@ -171,10 +175,16 @@ test('native CodeLens review accepts one hunk and rejects another without a sepa
   assert.equal(await readFile(file, 'utf8'), original, 'Hunk selection alone must not change disk');
   await controller.action('apply');
   assert.equal(controller.status, 'applied');
+  assert.equal(fixture.undoStatus.visible, true, 'Undo stays visible after Apply');
+  assert.equal(fixture.undoStatus.command, 'secureforge.inlineReview.undo');
+  assert.ok(provider.provideCodeLenses(document).some(
+    lens => lens.command.command === 'secureforge.inlineReview.undo'),
+    'Undo must also remain available in the editor');
   assert.equal(fixture.text(), 'HELLO\nkeep\nbye\n');
   assert.equal(await readFile(file, 'utf8'), original, 'Apply stays in the editor until Save');
   await controller.action('undo');
   assert.equal(controller.status, 'undone');
+  assert.equal(fixture.undoStatus.visible, false, 'Undo disappears only after a successful rollback');
   assert.equal(fixture.text(), original);
 });
 
@@ -229,4 +239,43 @@ test('line-end hint controls stay clickable and refresh when a hunk is accepted'
     hint.label.map(part => part.value).join('').includes(' | ❌ Reject')),
     'Reject remains visible and clickable after accepting another hunk');
   assert.equal(fixture.text(), fixture.original);
+});
+
+test('Accept all selects every hunk without writing, Apply remains explicit, and Undo is persistent', async t => {
+  const fixture = await harness(t);
+  const { controller, provider, document } = fixture;
+  const menu = provider.provideCodeLenses(document);
+  assert.ok(menu.some(lens => lens.command.command === 'secureforge.inlineReview.acceptAll'));
+  assert.ok(menu.some(lens => lens.command.command === 'secureforge.inlineReview.rejectAll'));
+  await fixture.handlers.get('secureforge.inlineReview.acceptAll')();
+  const state = fixture.events.at(-1);
+  assert.equal(state.status, 'pending');
+  assert.equal(state.accepted, 2);
+  assert.equal(state.decided, 2);
+  assert.equal(fixture.text(), fixture.original, 'Bulk approval alone cannot edit any buffer');
+  await fixture.handlers.get('secureforge.inlineReview.apply')();
+  assert.equal(controller.status, 'applied');
+  assert.equal(fixture.text(), 'HELLO\nkeep\nBYE\n');
+  assert.equal(fixture.undoStatus.visible, true);
+  await fixture.handlers.get('secureforge.inlineReview.undo')();
+  assert.equal(controller.status, 'undone');
+  assert.equal(fixture.text(), fixture.original);
+  assert.equal(fixture.undoStatus.visible, false);
+});
+
+test('Reject all completes without any write, with no unsafe Undo receipt', async t => {
+  const fixture = await harness(t);
+  await fixture.handlers.get('secureforge.inlineReview.rejectAll')();
+  const state = fixture.events.at(-1);
+  assert.equal(state.accepted, 0);
+  assert.equal(state.decided, 2);
+  assert.equal(state.status, 'pending');
+  const finish = fixture.provider.provideCodeLenses(fixture.document).find(
+    lens => lens.command.command === 'secureforge.inlineReview.apply');
+  assert.match(finish.command.title, /Finish rejection/);
+  await fixture.controller.action('apply');
+  assert.equal(fixture.controller.status, 'rejected');
+  assert.equal(fixture.text(), fixture.original);
+  assert.equal(await readFile(fixture.file, 'utf8'), fixture.original);
+  assert.equal(fixture.undoStatus.visible, false);
 });
