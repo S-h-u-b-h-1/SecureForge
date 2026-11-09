@@ -85,11 +85,15 @@ export async function verifyBuildWorkflow({ root, model }) {
     },
   };
   const extensionContext = { subscriptions: [] };
-  registerWorkflows(vscode, extensionContext);
+  const state = registerWorkflows(vscode, extensionContext);
   await handlers.get('secureforge.runBuild')('Run the deterministic proposal handoff fixture');
   assert.deepEqual(errors, []);
   assert.ok(lensProvider, 'Native apply and undo CodeLens commands must remain available');
   assert.ok(inlayProvider, 'Interactive right-end-of-line controls must be registered');
+  assert.equal(state.currentReviewState()?.type, 'inlineReviewState');
+  assert.equal(state.currentReviewState()?.status, 'pending');
+  assert.ok(state.currentReviewState()?.hunks.length,
+    'The current review is cached so a late sidebar can restore it');
   assert.ok(editor, 'The original source document is opened in the normal editor');
   const buttons = inlayProvider.provideInlayHints(editor.document).flatMap(hint =>
     Array.isArray(hint.label) ? hint.label : []);
