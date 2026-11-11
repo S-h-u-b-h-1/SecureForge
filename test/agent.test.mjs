@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildAgentSpec, runAgentTurn, resolveTrueForgeModel } from '../src/agent.mjs';
+import { buildAgentSpec, runAgentTurn, resolveTrueForgeModel,
+  listTrueForgeModels, validateLocalModelOrigin } from '../src/agent.mjs';
 
 test('agent spec uses TrueForge runtime with only explicitly allowed workspace tools', () => {
   const spec = buildAgentSpec({ model: 'configured-provider/test-model', mcpServerName: 'secureforge-workspace' });
@@ -91,4 +92,37 @@ test('multiple models require selection and unavailable catalogs allow manual se
     enterModel: async () => 'manual/provider',
   });
   assert.equal(fallback, 'manual/provider');
+});
+
+test('composer catalog enumerates only configured valid model names from localhost', async () => {
+  const seen = [];
+  const models = await listTrueForgeModels({
+    baseUrl: 'http://127.0.0.1:8790',
+    fetchImpl: async (url, options) => {
+      seen.push(url);
+      assert.equal(options.redirect, 'error');
+      return { ok: true, json: async () => ({ data: [
+        { name: 'meta-muse/muse-spark-1-3' }, { name: 'provider/other' },
+        { name: 'provider/other' }, { name: '../../unsafe model' }, { name: '' },
+      ] }) };
+    },
+  });
+  assert.deepEqual(models, ['meta-muse/muse-spark-1-3', 'provider/other']);
+  assert.deepEqual(seen, ['http://127.0.0.1:8790/api/v1/models']);
+  for (const origin of ['https://example.com', 'http://localhost:8790/other',
+    'http://localhost@evil.test', 'http://127.0.0.1:8790/?a=b']) {
+    assert.throws(() => validateLocalModelOrigin(origin));
+  }
+});
+
+test('model catalog HTTP failures retain status but never echo response bodies', async () => {
+  await assert.rejects(listTrueForgeModels({
+    baseUrl: 'http://localhost:8790',
+    fetchImpl: async () => ({ ok: false, status: 429, text: async () => 'PRIVATE PROVIDER ERROR' }),
+  }), error => {
+    assert.equal(error.code, 'TF_MODEL_CATALOG_HTTP');
+    assert.equal(error.status, 429);
+    assert.doesNotMatch(error.message, /PRIVATE/);
+    return true;
+  });
 });

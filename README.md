@@ -4,7 +4,7 @@
 
 SecureForge is a security-first VS Code coding assistant powered by local **TrueForge**. The extension supports live proposal delivery, per-hunk review for existing-file batches, guarded apply/Undo, separately approved verification commands, cancellation, read-only security candidates, a controlled repair lab and exported Patch Passports. Build, Defend and Prove share the existing v1 proposal and batch contracts.
 
-Qualification includes 153 automated regressions, actual VS Code editor/runtime checks and real Muse runs through the installed extension. The handoff Task A passed 55 approved tests. Task B autonomously changed four files and passed 67 approved tests, 102 independent checks and a strict documentation build. Task C and the owned security lab have separate installed UI evidence. The official recording, PDF finalization and portal submission remain pending. The [fresh source audit](docs/SECURITY_AUDIT_2026-11-07.md) records fixed issues and scope. See [current readiness](docs/ROUND1_READINESS.md) and [handoff evidence](outputs/live-model/handoff).
+Qualification includes an automated regression suite, actual VS Code editor/runtime checks and real Muse runs through the installed extension. The handoff Task A passed 55 approved tests. Task B autonomously changed four files and passed 67 approved tests, 102 independent checks and a strict documentation build. Task C and the owned security lab have separate installed UI evidence. The official recording, PDF finalization and portal submission remain pending. The [fresh source audit](docs/SECURITY_AUDIT_2026-11-07.md) records fixed issues and scope. See [current readiness](docs/ROUND1_READINESS.md) and [handoff evidence](outputs/live-model/handoff).
 
 ## Contributors and responsibility
 
@@ -27,12 +27,14 @@ SecureForge's VSIX is a **local beta**, not a generally certified production cod
    ```
 
 3. In VS Code open **Extensions → … → Install from VSIX…** and choose `outputs/SecureForge-0.1.4.vsix`, then reload the window.
-   The **SecureForge Review** panel displays the loaded extension version. If it doesn't show **0.1.4** after installation, fully quit VS Code and reinstall the VSIX; an earlier extension host can still be active.
+   Confirm the installed extension version is **0.1.4** in VS Code Extensions. If an older extension host remains active, fully quit VS Code and reinstall the new VSIX.
 4. Open the **target repository folder you actually want to change** (e.g., Flask for a Flask request). The name beside the chat send button identifies the active target; opening a different terminal folder does not switch the VS Code workspace.
-5. In the Secondary Side Bar, select **SecureForge**. Type an instruction in the bottom composer; press **Enter** to send or **Shift+Enter** for a line break. The paperclip attaches file context, the stack icon adds symbol context, and Stop cancels an active run. If just one local model is discoverable, the extension selects it; otherwise pick or enter the configured model.
+5. In the Secondary Side Bar, select **SecureForge**. Use the **Model** dropdown in the chat composer to choose among locally configured TrueForge models; **⟳ Refresh Models** re-queries the TrueForge catalog. The choice is remembered per workspace. Type an instruction and press **Enter** to send or **Shift+Enter** for a line break. The paperclip attaches file context, the stack icon adds symbol context, and Stop cancels an active run.
 6. If the task obviously belongs to a different project (such as changing Flask environment variables inside a Node-only workspace), SecureForge stops **before contacting the model**. Click **Recent projects** to open VS Code's existing project history, or **Browse folders** to choose a folder yourself.
-7. When SecureForge stages a proposal, a **Review proposed changes** panel opens in the editor. Accept or reject every hunk, then explicitly apply accepted hunks. The code changes begin in the editor buffer and require your own Save and regression tests. The model never commits on your behalf.
+7. When SecureForge stages a proposal, the source editor shows inline **✅ Accept | ❌ Reject** controls (Cmd-click on macOS) and the sidebar shows per-hunk review with **Accept all / Reject all / Apply**. Decide each hunk, then explicitly Apply. **Guarded Undo** remains available in chat and the status bar. Changes begin in the editor buffer and require your own Save and regression tests. The model never commits on your behalf.
 8. After applying accepted hunks, **save the files yourself** and choose **Run tests (save files first)** in the chat. Select Node or Python, choose up to 20 eligible test files, and approve the exact command in the confirmation dialog. A passing test receipt is reported in the sidebar; full details remain in **Output → SecureForge Activity**. Nothing runs automatically.
+
+Follow-up prompts carry a small, redacted summary of the previous four exchanges into a fresh TrueForge session. The composer displays the bounded context count; use **New conversation** to clear it. This is not persistent chat history or automatic model fallback. Authentication failures, unavailable models, rate limits and local connection problems provide corrective guidance without displaying provider secrets.
 
 **Never merge or approve generated patches solely because the chat says they are complete.** Review the diff, run relevant tests, and check `git diff --check`.
 
@@ -42,7 +44,7 @@ SecureForge's source read/search redactor remains conservative and unchanged. Wh
 
 ### Reviewing multiple files safely
 
-Every file in a coordinated proposal is opened as a non-preview tab to keep VS Code from silently closing it during review. If an original file was closed, the review blocks Apply until **Recheck unchanged files** safely reopens it and verifies that both disk and editor bytes still match the original proposal SHA-256. Recheck never applies or saves edits, and any dirty, replaced, changed or mismatched file blocks the entire patch. Reopen/recheck is a recovery step, not approval to accept unsafe code.
+Coordinated proposals use a single hash-checked, editor-native review transaction. The extension reuses already-visible source tabs instead of opening duplicates. Secondary files are opened as text documents for review and can be focused from the sidebar. If an original file was closed, the review blocks Apply until **Recheck unchanged files** safely reopens it and verifies that both disk and editor bytes still match the original proposal SHA-256. Recheck never applies or saves edits, and any dirty, replaced, changed or mismatched file blocks the entire patch. Reopen/recheck is a recovery step, not approval to accept unsafe code.
 
 ### Repeated TrueForge approval prompts
 

@@ -48,6 +48,33 @@ the classic review tab automatically.
 
 This local editor milestone consumes the existing pending v1 `get_proposal` payload, including `originalContent` and `proposedContent`. It derives line-level hunks without modifying the shared agent or MCP contracts.
 
+## Chat composer model selection and follow-ups (beta)
+
+The SecureForge composer shows the active model supplied by the **local TrueForge**
+`/api/v1/models` catalog. Use the model dropdown to switch between models
+configured in TrueForge, and **Refresh Models** to re-query the local catalog.
+Selection is remembered separately for each VS Code workspace through
+`workspaceState`. A selected model must appear in the current catalog before
+the user can switch to it. Credentials remain configured inside TrueForge;
+they are not requested or stored in the SecureForge chat UI.
+
+Follow-up messages use the last **four** bounded, redacted user/assistant
+exchanges from this extension-host session as additional lower-trust context.
+Each request still creates a new TrueForge session and temporary authenticated
+MCP connector: this is *bounded conversation continuity*, not persistent
+TrueForge session resumption or disk-backed chat history. The latest user
+request remains authoritative; staged proposals are explicitly labelled as
+unapplied, and no historical chat grants tool or editor approval. Use the
+**New conversation** button to clear in-memory follow-up context.
+
+TrueForge model errors, invalid provider credentials, rate limits and local
+connection failures are presented with actionable guidance without exposing
+raw provider error bodies. If the runtime is offline, use Refresh Models after
+starting TrueForge; the prior workspace selection can remain visible until
+the catalog is reachable. Model calls and approvals always stay inside the
+existing TrueForge runtime and the existing SecureForge review/verification
+boundaries.
+
 ## Review-all controls and Undo visibility
 
 **Accept all** and **Reject all** are available above the first proposed hunk

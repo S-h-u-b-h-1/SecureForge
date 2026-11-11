@@ -166,3 +166,48 @@ test('sidebar reply contains the final answer without prior search narration', a
   assert.equal(result.reply, 'There are no matching Flask files in this project.');
   assert.doesNotMatch(result.reply, /Searching for Flask/);
 });
+
+test('a follow-up starts a fresh TrueForge session with bounded prior conversation context', async t => {
+  const root = await fixture(t);
+  const inputs = [];
+  const client = {
+    settings: { mcpServers: { create: async () => {}, delete: async () => {} } },
+    sessions: {
+      create: async () => ({ data: { id: 'followup-session' } }),
+      createTurnStream: async (_id, payload) => {
+        inputs.push(payload.input);
+        return { withMetadata: async function* () {
+          yield { data: { type: 'turn.done', state: { status: 'done' } } };
+        } };
+      },
+    },
+  };
+  const run = new LiveRun({ client, root });
+  const result = await run.run({
+    model: 'provider/test-model', task: 'Now add a related test',
+    conversation: [{ user: 'Fix the parser', assistant: 'A proposed change was staged.',
+      outcome: 'proposal_staged' }],
+  });
+  assert.equal(result.sessionId, 'followup-session');
+  assert.equal(inputs.length, 1);
+  assert.equal(inputs[0][0].content, 'Now add a related test');
+  assert.match(inputs[0][1].content, /Fix the parser/);
+  assert.match(inputs[0][1].content, /untrusted/);
+  assert.match(inputs[0][1].content, /proposal_staged/);
+  assert.equal(await readFile(path.join(root, 'sample.py'), 'utf8'), 'old\n');
+});
+
+test('authentication failures produce actionable redacted errors without applying proposals', async t => {
+  const root = await fixture(t);
+  const { client } = clientFor(async () => {
+    throw Object.assign(new Error('Provider returned SECRET=my-private-api-key'), { status: 401 });
+  });
+  const run = new LiveRun({ client, root });
+  await assert.rejects(run.run({ model: 'provider/expired', task: 'Inspect repository' }), error => {
+    assert.equal(error.code, 'authentication');
+    assert.match(error.message, /TrueForge Settings/);
+    assert.doesNotMatch(error.message, /my-private-api-key/);
+    return true;
+  });
+  assert.equal(await readFile(path.join(root, 'sample.py'), 'utf8'), 'old\n');
+});

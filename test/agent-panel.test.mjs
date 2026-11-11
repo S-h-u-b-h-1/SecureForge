@@ -33,11 +33,17 @@ test('agent panel emits valid script, bounds tasks and surfaces run failures', a
   };
   let runs = 0;
   let cancels = 0;
+  let catalogRefreshes = 0;
+  let cleared = 0;
+  const selectedModels = [];
   const reviewActions = [];
   registerAgentPanel(vscode, { subscriptions: [] }, {
     subscribe: () => ({ dispose() {} }),
     run: async () => { runs++; throw new Error('Model unavailable'); },
     cancel: async () => { cancels++; },
+    refreshModels: async () => { catalogRefreshes++; },
+    selectModel: async name => { selectedModels.push(name); },
+    newConversation: async () => { cleared++; },
     reviewAction: async (kind, id) => { reviewActions.push({ kind, id }); },
     currentReviewState: () => ({ type: 'inlineReviewState', status: 'pending', decided: 0,
       accepted: 0, hunks: [{ id: 'late:h1', path: 'sample.py', line: 2 }] }),
@@ -50,6 +56,7 @@ test('agent panel emits valid script, bounds tasks and surfaces run failures', a
   assert.equal(messages.at(-1).type, 'inlineReviewState',
     'A late-created sidebar must receive the currently staged demo review');
   assert.equal(messages.at(-1).hunks[0].id, 'late:h1');
+  assert.equal(catalogRefreshes, 1, 'Composer automatically discovers TrueForge models when opened');
   assert.equal(panel.webview.options.enableScripts, true);
   assert.match(panel.webview.html, /\/tmp\/flask/);
   const script = panel.webview.html.match(/<script nonce="[^"]+">([\s\S]*?)<\/script>/)[1];
@@ -62,6 +69,9 @@ test('agent panel emits valid script, bounds tasks and surfaces run failures', a
   assert.match(panel.webview.html, /id="symbol"/);
   assert.match(panel.webview.html, /id="run"/);
   assert.match(panel.webview.html, /id="technical"/);
+  assert.match(panel.webview.html, /id="model"/);
+  assert.match(panel.webview.html, /id="refresh-model"/);
+  assert.match(panel.webview.html, /id="context-count"/);
   assert.match(panel.webview.html, /reviewReady/);
   assert.doesNotMatch(panel.webview.html, /Build with confidence|Find and propose changes/);
   await receive({ type: 'run', task: 'x'.repeat(20001) });
@@ -77,6 +87,12 @@ test('agent panel emits valid script, bounds tasks and surfaces run failures', a
     { kind: 'rejectAll', id: undefined }]);
   await receive({ type: 'reviewAction', action: 'not-allowed', id: 'sample:h1' });
   assert.equal(reviewActions.length, 3, 'Unknown review actions must be ignored');
+  await receive({ type: 'refreshModels' });
+  assert.equal(catalogRefreshes, 2);
+  await receive({ type: 'selectModel', model: 'provider/available' });
+  assert.deepEqual(selectedModels, ['provider/available']);
+  await receive({ type: 'newConversation' });
+  assert.equal(cleared, 1);
   await receive({ type: 'cancel' });
   assert.equal(cancels, 1);
   await receive({ type: 'verify' });
@@ -130,6 +146,19 @@ test('sidebar defaults to the right, and minimal composer dispatches tasks safel
   });
   assert.equal(posted.at(-1).type, 'ready', 'Sidebar requests current review state on load');
   posted.length = 0;
+  listeners.message({ data: { type: 'models',
+    models: ['provider/model-a', 'provider/model-b'], selected: 'provider/model-b' } });
+  assert.equal(element('model').value, 'provider/model-b');
+  element('model').value = 'provider/model-a';
+  element('model').onchange();
+  assert.deepEqual(JSON.parse(JSON.stringify(posted.at(-1))),
+    { type: 'selectModel', model: 'provider/model-a' });
+  element('refresh-model').onclick();
+  assert.equal(posted.at(-1).type, 'refreshModels');
+  listeners.message({ data: { type: 'conversationState', count: 2,
+    message: 'Follow-up context is enabled' } });
+  assert.equal(element('context-count').textContent, '2 turns');
+  posted.length = 0;
   element('task').value = 'Fix the parser';
   element('run').onclick();
   assert.equal(posted.length, 1);
@@ -139,6 +168,8 @@ test('sidebar defaults to the right, and minimal composer dispatches tasks safel
 
   listeners.message({ data: { type: 'status', message: 'Running', running: true } });
   assert.equal(element('run').disabled, true);
+  assert.equal(element('model').disabled, true, 'Model selection is frozen during a model run');
+  assert.equal(element('refresh-model').disabled, true, 'Refreshing cannot race with an active run');
   assert.equal(element('cancel').hidden, false);
   listeners.message({ data: { type: 'reviewReady', fileCount: 2 } });
   listeners.message({ data: { type: 'inlineReviewState', status: 'pending',
@@ -170,6 +201,8 @@ test('sidebar defaults to the right, and minimal composer dispatches tasks safel
   assert.equal(posted.at(-1).action, 'undo', 'Undo must remain available in the sidebar after Apply');
   listeners.message({ data: { type: 'status', message: 'Done', running: false } });
   assert.equal(element('run').disabled, false);
+  assert.equal(element('model').disabled, false);
+  assert.equal(element('refresh-model').disabled, false);
   assert.match(element('status').textContent, /Review changes/);
   listeners.message({ data: { type: 'reviewResult', status: 'applied', accepted: 2 } });
   assert.match(element('status').textContent, /Save and verify/);
